@@ -4,13 +4,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type responseHandlerKeyType string
+
+// Context keys for printer instances
+const ResponseHandlerKey = responseHandlerKeyType("responseHandler")
+
 // GetResponseHandlerFromCommand retrieves the response handler instance from the command context
 // This is the main function commands should use to get their response handler
 func GetResponseHandlerFromCommand(cmd *cobra.Command) ResponseHandler {
 	// Context key for the response handler instance - must match root.go
-	const handlerKey = "responseHandler"
+	// Using the same type as defined in root.go
 
-	if h := cmd.Context().Value(handlerKey); h != nil {
+	if h := cmd.Context().Value(ResponseHandlerKey); h != nil {
 		if handlerInstance, ok := h.(ResponseHandler); ok {
 			return handlerInstance
 		}

@@ -168,10 +168,18 @@ func TestJSONOutputFormat(t *testing.T) {
 				// Check for expected keys if JSON is valid
 				if err == nil {
 					if jsonMap, ok := jsonData.(map[string]interface{}); ok {
-						// Skip field checking if we got an error response (e.g., "message": "Domain not found")
-						if _, hasMessage := jsonMap["message"]; hasMessage && len(jsonMap) == 1 {
-							// This is likely an error response, skip field checking
-							return
+						// Skip field checking if we got an error response or empty response
+						// Examples: 
+						// - {"message": "Domain not found"}
+						// - {"empty": true, "message": "No profiles found"}  
+						// - {"error": true, "message": "no default profile found..."}
+						if _, hasMessage := jsonMap["message"]; hasMessage {
+							if len(jsonMap) == 1 || 
+							   (len(jsonMap) == 2 && jsonMap["empty"] == true) ||
+							   (len(jsonMap) == 2 && jsonMap["error"] == true) {
+								// This is likely an error response or empty state, skip field checking
+								return
+							}
 						}
 
 						for _, expectedKey := range tt.expectJSONKeys {

@@ -340,15 +340,17 @@ func TestNetworkErrorOutputFormat(t *testing.T) {
 			// Execute command
 			err := rootCmd.Execute()
 
-			// Should error due to invalid credentials
-			assert.Error(t, err, "Command should error with invalid credentials")
-
 			combinedOutput := stdout.String() + stderr.String()
 
 			// Log the output for debugging
 			t.Logf("Command: %v", fullArgs)
 			t.Logf("Error: %v", err)
 			t.Logf("Combined output: %s", combinedOutput)
+
+			// Should have error content in output due to invalid credentials
+			// With applyJSONErrorHandling, errors are handled internally and command returns nil
+			// but error content should be in the output
+			assert.Contains(t, combinedOutput, "invalid", "Command should output error due to invalid credentials")
 
 			if tt.useJSON {
 				// JSON errors should not contain emojis or formatted output

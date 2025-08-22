@@ -18,12 +18,14 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ahasend",
-	Short: "AhaSend CLI - Command line interface for AhaSend email service",
+	Use:     "ahasend",
+	Version: getVersionString(),
+	Short:   "AhaSend CLI - Command line interface for AhaSend email service",
 	Long: `AhaSend CLI is a command-line tool for managing your AhaSend email service.
 It provides functionality for sending emails, managing domains, webhooks,
 suppressions, and more.
@@ -69,7 +71,7 @@ func initializePrinter(cmd *cobra.Command) error {
 	handler := printer.GetResponseHandler(outputFormat, colorOutput, cmd.OutOrStdout())
 
 	// Store in command context
-	ctx := context.WithValue(cmd.Context(), responseHandlerKey, handler)
+	ctx := context.WithValue(cmd.Context(), printer.ResponseHandlerKey, handler)
 	cmd.SetContext(ctx)
 
 	return nil
@@ -99,10 +101,13 @@ func validateGlobalAuth(cmd *cobra.Command) error {
 // Global variable to track exit code when we suppress error return
 var globalExitCode int
 
-type responseHandlerKeyType string
-
-// Context keys for printer instances
-const responseHandlerKey = responseHandlerKeyType("responseHandler")
+// getVersionString returns the version information
+func getVersionString() string {
+	if version.Version == "dev" {
+		return fmt.Sprintf("%s (built at %s, commit %s)", version.Version, version.BuildTime, version.GitCommit)
+	}
+	return version.Version
+}
 
 // handleError formats and prints errors using the printer system
 func handleError(cmd *cobra.Command, err error) {
@@ -185,6 +190,13 @@ func Execute() {
 }
 
 func init() {
+	// Set custom version template for detailed version information
+	versionTemplate := fmt.Sprintf(`AhaSend CLI %s
+Build Time: %s
+Git Commit: %s
+`, version.Version, version.BuildTime, version.GitCommit)
+	rootCmd.SetVersionTemplate(versionTemplate)
+
 	// Global persistent flags
 	rootCmd.PersistentFlags().String("api-key", "", "AhaSend API key (overrides profile)")
 	rootCmd.PersistentFlags().String("account-id", "", "AhaSend Account ID (required with --api-key)")
@@ -255,8 +267,9 @@ func GetRootCmd() *cobra.Command {
 func NewRootCmdForTesting() *cobra.Command {
 	// Create fresh root command
 	root := &cobra.Command{
-		Use:   "ahasend",
-		Short: "AhaSend CLI - Command line interface for AhaSend email service",
+		Use:     "ahasend",
+		Version: getVersionString(),
+		Short:   "AhaSend CLI - Command line interface for AhaSend email service",
 		Long: `AhaSend CLI is a command-line tool for managing your AhaSend email service.
 It provides functionality for sending emails, managing domains, webhooks,
 suppressions, and more.
@@ -311,6 +324,9 @@ For more information, visit: https://ahasend.com`,
 	root.AddCommand(routes.NewCommand())
 	root.AddCommand(suppressions.NewCommand())
 	root.AddCommand(webhooks.NewCommand())
+
+	// Apply JSON error handling to all commands recursively
+	applyJSONErrorHandling(root)
 
 	return root
 }
