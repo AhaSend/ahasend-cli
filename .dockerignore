@@ -1,0 +1,40 @@
+# Git files
+.git
+.gitignore
+
+# GitHub
+.github
+
+# Build artifacts
+bin/
+dist/
+
+# Test files
+*_test.go
+test/
+coverage.out
+coverage.html
+
+# Documentation
+*.md
+docs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.env
+.env.local
+.ahasend/
+
+# Temporary files
+tmp/
+temp/

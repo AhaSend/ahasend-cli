@@ -2,10 +2,8 @@ module github.com/AhaSend/ahasend-cli
 
 go 1.24.5
 
-replace github.com/AhaSend/ahasend-go => ../sdks/ahasend-go
-
 require (
-	github.com/AhaSend/ahasend-go v0.0.0-20250812194637-69c210cb3fe0
+	github.com/AhaSend/ahasend-go v0.0.0-20250822083844-82c24b4ea642
 	github.com/google/uuid v1.6.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/sirupsen/logrus v1.9.3

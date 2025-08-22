@@ -1,0 +1,192 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  GO_VERSION: '1.21'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test before release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: make deps
+
+      - name: Run tests
+        run: make test
+
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: make deps
+
+      - name: Build all binaries
+        run: VERSION=${{ steps.version.outputs.VERSION }} make build-all
+
+      - name: Generate checksums
+        run: |
+          cd bin
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the current tag
+          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
+          
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 $CURRENT_TAG^ 2>/dev/null || echo "")
+          
+          # Generate changelog
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+            echo "## Changes since $PREVIOUS_TAG" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..$CURRENT_TAG >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+            echo "## Initial Release" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "First release of AhaSend CLI" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: AhaSend CLI ${{ steps.version.outputs.VERSION }}
+          body: |
+            # AhaSend CLI ${{ steps.version.outputs.VERSION }}
+            
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform from the assets below.
+            
+            ### Linux
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-linux-amd64 -o ahasend
+            chmod +x ahasend
+            sudo mv ahasend /usr/local/bin/
+            ```
+            
+            ### macOS (Intel)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-darwin-amd64 -o ahasend
+            chmod +x ahasend
+            sudo mv ahasend /usr/local/bin/
+            ```
+            
+            ### macOS (Apple Silicon)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-darwin-arm64 -o ahasend
+            chmod +x ahasend
+            sudo mv ahasend /usr/local/bin/
+            ```
+            
+            ### Windows
+            Download `ahasend-windows-amd64.exe` and add it to your PATH.
+            
+            ## Checksums
+            
+            Please verify the checksums after downloading:
+            ```
+            sha256sum <downloaded-file>
+            ```
+            
+            See `checksums.txt` in the release assets for the expected values.
+          files: |
+            bin/ahasend-linux-amd64
+            bin/ahasend-darwin-amd64
+            bin/ahasend-darwin-arm64
+            bin/ahasend-windows-amd64.exe
+            bin/checksums.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_WITHOUT_V=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+        if: env.DOCKER_USERNAME != ''
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION_WITHOUT_V }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
