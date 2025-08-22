@@ -1,5 +1,15 @@
 # AhaSend CLI Makefile
 
+# Version information
+VERSION ?= dev
+BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Build flags
+LDFLAGS := -ldflags "-X github.com/AhaSend/ahasend-cli/internal/version.Version=$(VERSION) \
+	-X github.com/AhaSend/ahasend-cli/internal/version.BuildTime=$(BUILD_TIME) \
+	-X github.com/AhaSend/ahasend-cli/internal/version.GitCommit=$(GIT_COMMIT)"
+
 .PHONY: help build test test-unit test-integration test-coverage clean fmt lint deps
 
 # Default target
@@ -9,15 +19,15 @@ help: ## Show this help message
 
 # Build targets
 build: ## Build the CLI binary
-	@echo "Building ahasend-cli..."
-	go build -o bin/ahasend .
+	@echo "Building ahasend..."
+	go build $(LDFLAGS) -o bin/ahasend .
 
 build-all: ## Build binaries for all platforms
-	@echo "Building for all platforms..."
-	GOOS=linux GOARCH=amd64 go build -o bin/ahasend-cli-linux-amd64 .
-	GOOS=darwin GOARCH=amd64 go build -o bin/ahasend-cli-darwin-amd64 .
-	GOOS=darwin GOARCH=arm64 go build -o bin/ahasend-cli-darwin-arm64 .
-	GOOS=windows GOARCH=amd64 go build -o bin/ahasend-cli-windows-amd64.exe .
+	@echo "Building for all platforms with version $(VERSION)..."
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/ahasend-linux-amd64 .
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/ahasend-darwin-amd64 .
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/ahasend-darwin-arm64 .
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/ahasend-windows-amd64.exe .
 
 # Test targets
 test: test-unit test-integration ## Run all tests
