@@ -1,0 +1,1476 @@
+# AhaSend CLI Documentation
+
+## Overview
+
+The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, domains, webhooks, suppressions, and analytics through an intuitive command structure.
+
+### Key Features
+
+- **Email Sending**: Send single or batch emails with templates, attachments, and scheduling
+- **Domain Management**: Add, verify, and manage sending domains with DNS configuration
+- **Webhook Management**: Configure real-time event notifications
+- **Authentication**: Secure profile-based authentication with API key management
+- **Analytics**: Comprehensive email statistics and reporting
+- **Multiple Output Formats**: JSON, table, CSV, and plain text with color support
+- **Batch Processing**: High-performance concurrent operations with progress tracking
+- **Debug & Logging**: Detailed request/response logging for troubleshooting
+
+## Installation
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/AhaSend/ahasend-cli.git
+cd ahasend-cli
+
+# Build the CLI
+make build
+
+# Install to your PATH
+sudo cp ./bin/ahasend /usr/local/bin/
+```
+
+### Binary Installation
+
+Download the latest binary for your platform from the [releases page](https://github.com/AhaSend/ahasend-cli/releases).
+
+```bash
+# Linux/macOS
+chmod +x ahasend
+sudo mv ahasend /usr/local/bin/
+
+# Verify installation
+ahasend --help
+```
+
+## Quick Start
+
+### 1. Authentication
+
+First, authenticate with your AhaSend API key, this will save your credentials to a local file in `$HOME/.ahasend/config.yaml`:
+
+```bash
+# Interactive login (recommended)
+ahasend auth login
+
+# Or provide credentials directly
+ahasend auth login --api-key YOUR_API_KEY --account-id YOUR_ACCOUNT_ID
+```
+
+If you prefer not to have the credentials saved to a file, you can provide `--api-key` and `--account-id` flags with all commands (which also overrides the credentials saved in the config file, if available).
+
+### 2. Add a Sending Domain
+
+```bash
+# Add a domain for email sending
+ahasend domains create example.com
+
+# Configure DNS records as shown in the output
+# Then verify the domain
+ahasend domains verify example.com
+```
+
+### 3. Send Your First Email
+
+```bash
+# Simple text email
+ahasend messages send \
+  --from noreply@example.com \
+  --to user@recipient.com \
+  --subject "Hello from AhaSend" \
+  --text "Welcome to AhaSend!"
+
+# HTML email with template
+ahasend messages send \
+  --from noreply@example.com \
+  --to user@recipient.com \
+  --subject "Welcome {{name}}" \
+  --html-template welcome.html \
+  --global-substitutions data.json
+```
+
+### 4. Send a Batch of Emails
+
+AhaSend supports Jinja2 templating syntax for batch email sending. The `messages send` command accepts a `--recipients` flag for bulk operations with per-recipient personalization.
+
+#### Recipients File Formats
+
+**CSV Format:**
+```csv
+email,name,first_name,account_type,renewal_date
+john@example.com,John Doe,John,premium,2024-12-31
+jane@example.com,Jane Smith,Jane,basic,2024-11-30
+alice@example.com,Alice Johnson,Alice,enterprise,2025-01-15
+```
+
+**JSON Format:**
+```json
+[
+  {
+    "email": "john@example.com",
+    "name": "John Doe",
+    "substitution_data": {
+      "first_name": "John",
+      "account_type": "premium",
+      "renewal_date": "2024-12-31"
+    }
+  },
+  {
+    "email": "jane@example.com",
+    "name": "Jane Smith",
+    "substitution_data": {
+      "first_name": "Jane",
+      "account_type": "basic",
+      "renewal_date": "2024-11-30"
+    }
+  }
+]
+```
+
+#### Basic Batch Send
+
+```bash
+# Send to all recipients in CSV file
+ahasend messages send \
+  --from noreply@example.com \
+  --recipients users.csv \
+  --subject "Welcome {{first_name}}" \
+  --html-template welcome.html \
+  --global-substitutions data.json
+
+# High-performance batch with progress tracking
+ahasend messages send \
+  --from noreply@example.com \
+  --recipients users.json \
+  --subject "Account Update" \
+  --html-template notification.html \
+  --max-concurrency 5 \
+  --progress \
+  --show-metrics
+```
+
+**Note:**
+- CSV files must include a header row with an `email` column
+- JSON files must be an array of objects with an `email` field
+- Per-recipient substitutions override global substitutions
+- Use `--max-concurrency` (1-10) for parallel sending
+- Failed recipients are saved to `.ahasend/failed-TIMESTAMP.json` for retry
+
+## Authentication
+
+### Profile Management
+
+The AhaSend CLI uses profile-based authentication to manage multiple accounts securely.
+
+#### Login
+
+<Tabs>
+<Tab title="Interactive Login">
+```bash
+# Interactive login with prompts
+ahasend auth login
+
+# With specific profile name
+ahasend auth login --profile production
+```
+</Tab>
+<Tab title="Direct Credentials">
+```bash
+# Provide credentials directly (not recommended for production)
+ahasend auth login \
+  --api-key your-api-key \
+  --account-id your-account-id \
+  --profile staging
+```
+</Tab>
+</Tabs>
+
+#### Status and Management
+
+```bash
+# Check current authentication status
+ahasend auth status
+
+# Switch between profiles
+ahasend auth switch production
+
+# List all profiles
+ahasend auth status --output json | jq '.profiles'
+
+# Logout (removes current profile)
+ahasend auth logout
+```
+
+### Global Authentication Flags
+
+Override authentication for any command:
+
+```bash
+# Use specific API key for one command
+ahasend domains list \
+  --api-key YOUR_API_KEY \
+  --account-id YOUR_ACCOUNT_ID
+
+# Use specific profile
+ahasend messages send --profile production \
+  --from sender@example.com \
+  --to recipient@example.com \
+  --text "Message"
+```
+
+## Command Reference
+
+### Authentication Commands
+
+#### `ahasend auth login`
+
+Authenticate with AhaSend and save credentials.
+
+```bash
+# Interactive login
+ahasend auth login
+
+# With profile name
+ahasend auth login --profile production
+
+# Direct credentials (not recommended)
+ahasend auth login --api-key key --account-id id
+```
+
+**Flags:**
+- `--profile`: Profile name to save credentials under
+- `--api-key`: AhaSend API key
+- `--account-id`: AhaSend Account ID
+- `--api-url`: AhaSend API URL (default: https://api.ahasend.com)
+
+**Exit Codes:**
+- 0: Success
+- 2: Authentication failed
+- 3: Configuration error
+
+#### `ahasend auth status`
+
+Show current authentication status and available profiles.
+
+```bash
+ahasend auth status
+```
+
+#### `ahasend auth switch`
+
+Switch to a different authentication profile.
+
+```bash
+ahasend auth switch production
+```
+
+#### `ahasend auth logout`
+
+Remove current authentication profile.
+
+```bash
+ahasend auth logout
+```
+
+### Domain Management Commands
+
+#### `ahasend domains list`
+
+List all domains with their verification status.
+
+```bash
+# List all domains
+ahasend domains list
+
+# With pagination
+ahasend domains list --limit 10
+
+# Filter by status
+ahasend domains list --status verified
+```
+
+**Flags:**
+- `--limit`: Maximum number of domains to return
+- `--cursor`: Pagination cursor for next page
+- `--status`: Filter by DNS status (verified, pending, failed)
+
+#### `ahasend domains create`
+
+Add a new domain for email sending.
+
+```bash
+ahasend domains create example.com
+```
+
+The command will return DNS records that need to be configured:
+
+<CodeGroup>
+```bash BIND Format
+# DNS records in BIND format
+_dmarc.example.com.    3600    IN    TXT    "v=DMARC1; p=none;"
+example.com.           3600    IN    TXT    "v=spf1 include:spf.ahasend.com ~all"
+mail._domainkey.example.com. 3600 IN CNAME mail._domainkey.ahasend.com.
+```
+
+```bash Cloudflare Format
+# DNS records for Cloudflare
+Name: _dmarc
+Type: TXT
+Value: v=DMARC1; p=none;
+TTL: 3600
+
+Name: @
+Type: TXT
+Value: v=spf1 include:spf.ahasend.com ~all
+TTL: 3600
+```
+</CodeGroup>
+
+#### `ahasend domains verify`
+
+Verify DNS configuration for a domain.
+
+```bash
+ahasend domains verify example.com
+```
+
+#### `ahasend domains get`
+
+Get detailed information about a specific domain.
+
+```bash
+ahasend domains get example.com
+```
+
+#### `ahasend domains delete`
+
+Remove a domain from your account.
+
+```bash
+ahasend domains delete example.com
+```
+
+<Warning>
+This action is irreversible. You will need to re-verify the domain if you add it again.
+</Warning>
+
+### Message Commands
+
+#### `ahasend messages send`
+
+Send email messages with comprehensive options for content, recipients, and delivery.
+
+##### Basic Email Sending
+
+```bash
+# Simple text email
+ahasend messages send \
+  --from sender@example.com \
+  --to recipient@example.com \
+  --subject "Hello" \
+  --text "Hello World"
+
+# HTML email
+ahasend messages send \
+  --from sender@example.com \
+  --to recipient@example.com \
+  --subject "Newsletter" \
+  --html "<h1>Welcome!</h1><p>Thank you for subscribing.</p>"
+
+# Multipart email (both HTML and text)
+ahasend messages send \
+  --from sender@example.com \
+  --to recipient@example.com \
+  --subject "Welcome" \
+  --html "<h1>Welcome!</h1>" \
+  --text "Welcome!"
+```
+
+##### Template-Based Sending
+
+<Tabs>
+<Tab title="Single Recipient">
+```bash
+ahasend messages send \
+  --from sender@example.com \
+  --to user@example.com \
+  --subject "Welcome {{first_name}}" \
+  --html-template welcome.html \
+  --global-substitutions data.json
+```
+
+```json data.json
+{
+  "first_name": "John",
+  "company": "ACME Corp",
+  "verification_url": "https://example.com/verify"
+}
+```
+</Tab>
+<Tab title="Multiple Recipients">
+```bash
+ahasend messages send \
+  --from sender@example.com \
+  --recipients users.json \
+  --subject "Order {{order_id}} Confirmation" \
+  --html-template order-confirmation.html
+```
+
+```json users.json
+[
+  {
+    "email": "john@example.com",
+    "name": "John Doe",
+    "substitution_data": {
+      "first_name": "John",
+      "order_id": "12345",
+      "total": "$99.99"
+    }
+  },
+  {
+    "email": "jane@example.com",
+    "name": "Jane Smith",
+    "substitution_data": {
+      "first_name": "Jane",
+      "order_id": "12346",
+      "total": "$149.99"
+    }
+  }
+]
+```
+</Tab>
+</Tabs>
+
+##### Batch Operations
+
+<CodeGroup>
+```bash High Performance
+# Batch send with concurrency and progress tracking
+ahasend messages send \
+  --from sender@example.com \
+  --recipients large-list.csv \
+  --subject "Newsletter {{month}}" \
+  --html-template newsletter.html \
+  --max-concurrency 5 \
+  --progress \
+  --show-metrics
+```
+
+```bash Automation Friendly
+# JSON output for CI/CD pipelines
+ahasend messages send \
+  --from sender@example.com \
+  --recipients subscribers.csv \
+  --html-template template.html \
+  --output json \
+  --show-metrics > results.json
+```
+</CodeGroup>
+
+##### Advanced Options
+
+```bash
+# Scheduled email with attachments
+ahasend messages send \
+  --from sender@example.com \
+  --to client@example.com \
+  --subject "Monthly Report" \
+  --text "Please find your monthly report attached." \
+  --attach report.pdf \
+  --attach charts.png \
+  --schedule "2024-12-01T10:00:00Z"
+
+# Custom headers and tracking
+ahasend messages send \
+  --from sender@example.com \
+  --to user@example.com \
+  --subject "Important Update" \
+  --html-template update.html \
+  --header "X-Campaign-ID: summer-2024" \
+  --header "X-Priority: high" \
+  --track-opens true \
+  --track-clicks true \
+  --tags newsletter,promotion
+
+# Sandbox mode for testing
+ahasend messages send \
+  --from sender@example.com \
+  --to test@example.com \
+  --subject "Test Email" \
+  --text "This is a test" \
+  --sandbox \
+  --sandbox-result bounce
+```
+
+**Key Flags:**
+
+**Recipients:**
+- `--to`: Recipient email addresses (can be used multiple times)
+- `--recipients`: JSON/CSV file with recipient data and substitutions
+
+**Content:**
+- `--subject`: Email subject line
+- `--text`: Plain text content
+- `--html`: HTML content
+- `--amp`: AMP HTML content
+- `--text-template`: Plain text template file
+- `--html-template`: HTML template file
+- `--amp-template`: AMP HTML template file
+
+**Substitutions:**
+- `--global-substitutions`: JSON file with template variables
+
+**Advanced:**
+- `--attach`: File attachments (can be used multiple times, max 10MB each)
+- `--schedule`: Delivery time in RFC3339 format
+- `--sandbox`: Send in test mode
+- `--sandbox-result`: Simulate specific result (deliver, bounce, defer, fail, suppress)
+- `--idempotency-key`: Unique key for safe retries
+- `--header`: Custom headers (format: 'Header-Name: value')
+- `--tags`: Tags for categorization
+- `--track-opens/--track-clicks`: Enable/disable tracking
+
+**Batch Processing:**
+- `--progress`: Show progress bar (TTY only, disabled in debug mode)
+- `--max-concurrency`: Concurrent sends (default: 1, max: 10)
+- `--max-retries`: Retry attempts for failed sends (default: 3)
+- `--show-metrics`: Display performance statistics
+
+**Exit Codes:**
+- 0: All messages sent successfully
+- 1: Partial success (some failed)
+- 2: All messages failed
+- 3: Configuration/authentication error
+
+#### `ahasend messages list`
+
+List sent messages with filtering and pagination.
+
+```bash
+# List recent messages
+ahasend messages list
+
+# Filter by status
+ahasend messages list --status delivered
+
+# With pagination
+ahasend messages list --limit 50 --cursor next_cursor_token
+```
+
+#### `ahasend messages cancel`
+
+Cancel a scheduled message before it's sent.
+
+```bash
+ahasend messages cancel msg_1234567890abcdef
+```
+
+### Webhook Commands
+
+#### `ahasend webhooks list`
+
+List all configured webhook endpoints.
+
+```bash
+ahasend webhooks list
+```
+
+#### `ahasend webhooks create`
+
+Create a new webhook endpoint.
+
+```bash
+ahasend webhooks create \
+  --url https://your-app.com/webhooks/ahasend \
+  --events message.delivered,message.bounced \
+  --description "Main app webhook"
+```
+
+#### `ahasend webhooks get`
+
+Get details about a specific webhook.
+
+```bash
+ahasend webhooks get webhook_1234567890abcdef
+```
+
+#### `ahasend webhooks update`
+
+Update webhook configuration.
+
+```bash
+ahasend webhooks update webhook_1234567890abcdef \
+  --url https://new-url.com/webhook \
+  --events message.delivered,message.opened,message.clicked
+```
+
+#### `ahasend webhooks delete`
+
+Delete a webhook endpoint.
+
+```bash
+ahasend webhooks delete webhook_1234567890abcdef
+```
+
+### Route Commands
+
+Routes allow you to set up email forwarding and processing rules.
+
+#### `ahasend routes list`
+
+```bash
+ahasend routes list
+```
+
+#### `ahasend routes create`
+
+```bash
+ahasend routes create \
+  --match-recipient "support@example.com" \
+  --forward-to "team@example.com" \
+  --description "Support email routing"
+```
+
+### Suppression Management Commands
+
+#### `ahasend suppressions list`
+
+List suppressed email addresses.
+
+```bash
+# List all suppressions
+ahasend suppressions list
+
+# Filter by type
+ahasend suppressions list --type bounce
+```
+
+#### `ahasend suppressions create`
+
+Add an email to the suppression list.
+
+```bash
+ahasend suppressions create user@example.com --type manual
+```
+
+#### `ahasend suppressions check`
+
+Check if an email address is suppressed.
+
+```bash
+ahasend suppressions check user@example.com
+```
+
+#### `ahasend suppressions delete`
+
+Remove an email from the suppression list.
+
+```bash
+ahasend suppressions delete user@example.com
+```
+
+#### `ahasend suppressions wipe`
+
+Remove all suppressions (use with caution).
+
+```bash
+# Wipe all suppressions
+ahasend suppressions wipe --confirm
+
+# Wipe specific type
+ahasend suppressions wipe --type bounce --confirm
+```
+
+<Warning>
+This action is irreversible and will remove all specified suppressions.
+</Warning>
+
+### SMTP Credentials Commands
+
+#### `ahasend smtp list`
+
+List SMTP credentials for your account.
+
+```bash
+ahasend smtp list
+```
+
+#### `ahasend smtp create`
+
+Create new SMTP credentials.
+
+```bash
+ahasend smtp create --label "App Server SMTP"
+```
+
+#### `ahasend smtp send`
+
+Send email via SMTP (for testing SMTP credentials).
+
+```bash
+ahasend smtp send \
+  --credential-id smtp_1234567890abcdef \
+  --from sender@example.com \
+  --to recipient@example.com \
+  --subject "SMTP Test" \
+  --text "Testing SMTP sending"
+```
+
+### Statistics Commands
+
+#### `ahasend stats deliverability`
+
+View email deliverability statistics.
+
+```bash
+# Basic deliverability stats
+ahasend stats deliverability
+
+# With time range
+ahasend stats deliverability \
+  --start-date 2024-01-01 \
+  --end-date 2024-01-31
+
+# Grouped by day
+ahasend stats deliverability --group-by day
+```
+
+#### `ahasend stats bounces`
+
+View bounce statistics and analysis.
+
+```bash
+ahasend stats bounces --group-by day --start-date 2024-01-01
+```
+
+#### `ahasend stats delivery-time`
+
+View delivery time performance metrics.
+
+```bash
+ahasend stats delivery-time --group-by hour
+```
+
+### API Key Management Commands
+
+#### `ahasend apikeys list`
+
+List all API keys in your account.
+
+```bash
+ahasend apikeys list
+```
+
+#### `ahasend apikeys create`
+
+Create a new API key.
+
+```bash
+ahasend apikeys create \
+  --label "Production API" \
+  --scope full
+```
+
+#### `ahasend apikeys get`
+
+Get details about a specific API key.
+
+```bash
+ahasend apikeys get ak_1234567890abcdef
+```
+
+#### `ahasend apikeys update`
+
+Update API key properties.
+
+```bash
+ahasend apikeys update ak_1234567890abcdef --label "Updated Label"
+```
+
+#### `ahasend apikeys delete`
+
+Delete an API key.
+
+```bash
+ahasend apikeys delete ak_1234567890abcdef
+```
+
+### Utility Commands
+
+#### `ahasend ping`
+
+Test connectivity to the AhaSend API.
+
+```bash
+ahasend ping
+```
+
+## Configuration
+
+### Configuration File Location
+
+The AhaSend CLI stores configuration in `~/.ahasend/config.yaml`.
+
+### Configuration Structure
+
+```yaml
+default_profile: production
+profiles:
+  production:
+    api_key: "your-production-api-key"
+    account_id: "your-account-id"
+    api_url: "https://api.ahasend.com"
+    name: "AhaSend Production"
+    account_name: "Your Company"
+    account_updated: "2024-01-15T10:30:00Z"
+  staging:
+    api_key: "your-staging-api-key"
+    account_id: "your-account-id"
+    api_url: "https://api.ahasend.com"
+    name: "AhaSend Staging"
+preferences:
+  output_format: table
+  color_output: true
+  webhook_timeout: 30s
+  log_level: info
+  batch_concurrency: 5
+```
+
+### Global Flags
+
+These flags are available for all commands:
+
+- `--api-key`: Override API key for this command
+- `--account-id`: Override Account ID (required with --api-key)
+- `--profile`: Use specific profile instead of default
+- `--output`: Output format (json, table, plain, csv)
+- `--no-color`: Disable colored output
+- `--verbose`: Enable verbose logging
+- `--debug`: Enable debug logging with full HTTP details
+
+## Output Formats
+
+The AhaSend CLI supports multiple output formats for different use cases:
+
+### Table Format (Default)
+
+Human-readable tabular output with proper alignment and colors.
+
+```bash
+ahasend domains list
+```
+
+```
+┌─────────────┬───────────┬──────────────┬─────────────────────┐
+│ Domain      │ Verified  │ ID           │ Created             │
+├─────────────┼───────────┼──────────────┼─────────────────────┤
+│ example.com │ ✓         │ dom_abc123   │ 2024-01-15 10:30:00 │
+│ test.com    │ ✗         │ dom_def456   │ 2024-01-16 14:20:00 │
+└─────────────┴───────────┴──────────────┴─────────────────────┘
+```
+
+### JSON Format
+
+Machine-readable format perfect for automation and APIs.
+
+<Tabs>
+<Tab title="List Response">
+```bash
+ahasend domains list --output json
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "dom_abc123",
+      "domain": "example.com",
+      "dns_valid": true,
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T10:30:00Z",
+      "last_dns_check_at": "2024-01-16T08:00:00Z"
+    }
+  ],
+  "pagination": {
+    "has_more": false,
+    "total_count": 1
+  }
+}
+```
+</Tab>
+<Tab title="Error Response">
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Domain already exists",
+    "details": {
+      "field": "domain",
+      "value": "example.com"
+    }
+  }
+}
+```
+</Tab>
+</Tabs>
+
+### CSV Format
+
+Ideal for data export and analysis in spreadsheet applications.
+
+```bash
+ahasend stats deliverability --output csv --start-date 2024-01-01
+```
+
+```csv
+date,sent,delivered,bounced,complained,delivery_rate
+2024-01-01,1000,985,12,3,98.5%
+2024-01-02,1200,1180,15,5,98.3%
+2024-01-03,800,795,4,1,99.4%
+```
+
+### Plain Format
+
+Simple key-value format for scripts and debugging.
+
+```bash
+ahasend domains get example.com --output plain
+```
+
+```
+domain: example.com
+id: dom_abc123
+dns_valid: true
+created_at: 2024-01-15T10:30:00Z
+updated_at: 2024-01-15T10:30:00Z
+last_dns_check_at: 2024-01-16T08:00:00Z
+```
+
+## Advanced Features
+
+### Batch Processing
+
+The AhaSend CLI provides powerful batch processing capabilities for high-volume email sending.
+
+#### Performance Features
+
+- **Concurrent Processing**: Send up to 10 messages simultaneously
+- **Progress Tracking**: Real-time progress bars with ETA and metrics
+- **Automatic Retry**: Intelligent retry logic for transient failures
+- **Failed Recipients Recovery**: Save failed recipients for easy retry
+
+#### Batch Configuration
+
+```bash
+# High-performance batch send
+ahasend messages send \
+  --from sender@example.com \
+  --recipients large-list.json \
+  --subject "Newsletter {{month}}" \
+  --html-template newsletter.html \
+  --max-concurrency 5 \
+  --max-retries 3 \
+  --progress \
+  --show-metrics
+```
+
+#### Batch Metrics Output
+
+<CodeGroup>
+```bash Table Format
+✓ Successfully sent 9,842 out of 10,000 messages
+✗ Failed to send 158 messages
+
+📊 Performance Metrics:
+   Total time: 3m 45s
+   Rate: 44.3 emails/sec
+   Success rate: 98.4%
+   Concurrent workers: 5
+
+📁 Failed recipients saved to: .ahasend/failed-20241209-143022.json
+```
+
+```json JSON Format
+{
+  "total_jobs": 10000,
+  "successful_jobs": 9842,
+  "failed_jobs": 158,
+  "success_rate": 98.42,
+  "duration_seconds": 225.7,
+  "emails_per_sec": 44.3,
+  "concurrent_workers": 5,
+  "failed_recipients_file": ".ahasend/failed-20241209-143022.json",
+  "exit_code": 1
+}
+```
+</CodeGroup>
+
+### Rate Limiting
+
+The CLI automatically handles rate limiting with:
+
+- **Rate Limit**: 50 requests/second
+- **Burst Capacity**: 100 requests
+- **Automatic Backoff**: Exponential backoff for rate limit exceeded errors
+- **Transparent Handling**: No configuration required
+
+### Debug and Verbose Logging
+
+Comprehensive logging for troubleshooting and development.
+
+#### Verbose Mode
+
+Shows API call summaries with timing and endpoints:
+
+```bash
+ahasend messages send --from test@example.com --to user@example.com --text "Test" --verbose
+```
+
+```
+INFO[2024-01-16T10:30:00Z] API call completed method=POST endpoint=/v1/messages duration=245ms
+INFO[2024-01-16T10:30:01Z] Rate limit status remaining=49 reset_at="2024-01-16T10:31:00Z"
+```
+
+#### Debug Mode
+
+Shows complete HTTP requests and responses (sensitive data redacted):
+
+```bash
+ahasend domains list --debug
+```
+
+```
+DEBUG[2024-01-16T10:30:00Z] HTTP Request
+  Method: GET
+  URL: https://api.ahasend.com/v1/domains
+  Headers:
+    Authorization: [REDACTED]
+    User-Agent: ahasend-cli/1.0.0
+  Body: (empty)
+
+DEBUG[2024-01-16T10:30:00Z] HTTP Response duration=123ms
+  Status: 200 OK
+  Headers:
+    Content-Type: application/json
+    X-RateLimit-Remaining: 49
+  Body: {"data":[{"id":"dom_abc123","domain":"example.com"...}]}
+```
+
+### Template System
+
+Support for multiple template formats with substitution:
+
+#### Template Files
+
+<CodeGroup>
+```html welcome.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome {{first_name}}!</title>
+</head>
+<body>
+    <h1>Welcome to {{company_name}}, {{first_name}}!</h1>
+    <p>Your account ID is: {{account_id}}</p>
+    <p>Click <a href="{{verification_url}}">here</a> to verify your email.</p>
+</body>
+</html>
+```
+
+```text welcome.txt
+Welcome to {{company_name}}, {{first_name}}!
+
+Your account has been created successfully.
+Account ID: {{account_id}}
+
+Please verify your email by visiting: {{verification_url}}
+
+Best regards,
+The {{company_name}} Team
+```
+</CodeGroup>
+
+#### Substitution Data
+
+<Tabs>
+<Tab title="Global Substitutions">
+```json global-data.json
+{
+  "company_name": "ACME Corporation",
+  "verification_url": "https://app.acme.com/verify",
+  "support_email": "support@acme.com"
+}
+```
+
+```bash
+ahasend messages send \
+  --from noreply@acme.com \
+  --to user@example.com \
+  --subject "Welcome to {{company_name}}" \
+  --html-template welcome.html \
+  --global-substitutions global-data.json
+```
+</Tab>
+<Tab title="Per-Recipient Substitutions">
+```json recipients.json
+[
+  {
+    "email": "john@example.com",
+    "name": "John Doe",
+    "substitution_data": {
+      "first_name": "John",
+      "account_id": "acc_123456",
+      "tier": "premium"
+    }
+  },
+  {
+    "email": "jane@example.com",
+    "name": "Jane Smith",
+    "substitution_data": {
+      "first_name": "Jane",
+      "account_id": "acc_789012",
+      "tier": "basic"
+    }
+  }
+]
+```
+
+```bash
+ahasend messages send \
+  --from noreply@acme.com \
+  --recipients recipients.json \
+  --subject "Welcome {{first_name}}" \
+  --html-template welcome.html \
+  --global-substitutions global-data.json
+```
+</Tab>
+</Tabs>
+
+<Note>
+Per-recipient substitutions override global substitutions for the same keys.
+</Note>
+
+## Error Handling
+
+### Exit Codes
+
+The AhaSend CLI uses specific exit codes to indicate different types of errors:
+
+| Exit Code | Error Type | Description |
+|-----------|------------|-------------|
+| 0 | Success | Command completed successfully |
+| 1 | General Error | Generic error or partial success |
+| 2 | Authentication | API key invalid or authentication failed |
+| 3 | Configuration | Configuration file error or missing profile |
+| 4 | Validation | Invalid input or missing required parameters |
+| 5 | Not Found | Resource not found (domain, message, etc.) |
+| 6 | Permission | Insufficient permissions for operation |
+| 7 | Network/Timeout | Network connectivity or timeout issues |
+| 8 | Rate Limit | Rate limit exceeded (after retries) |
+
+### Error Response Format
+
+<Tabs>
+<Tab title="Table Format">
+```
+Error: Domain 'nonexistent.com' not found
+
+Run 'ahasend domains list' to see available domains.
+```
+</Tab>
+<Tab title="JSON Format">
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Domain 'nonexistent.com' not found",
+    "details": {
+      "resource": "domain",
+      "identifier": "nonexistent.com"
+    },
+    "suggestions": [
+      "Run 'ahasend domains list' to see available domains",
+      "Use 'ahasend domains create nonexistent.com' to add this domain"
+    ]
+  }
+}
+```
+</Tab>
+</Tabs>
+
+### Common Issues and Solutions
+
+<Accordion title="Authentication Issues">
+**Problem**: `Error: Invalid API key or account ID`
+
+**Solutions**:
+1. Verify your credentials: `ahasend auth status`
+2. Re-login with correct credentials: `ahasend auth login`
+3. Check API key permissions in your AhaSend dashboard
+4. Ensure account ID matches the API key
+</Accordion>
+
+<Accordion title="Domain Verification Issues">
+**Problem**: `Domain verification failed - DNS records not found`
+
+**Solutions**:
+1. Wait for DNS propagation (can take up to 24 hours)
+2. Verify DNS records are correctly configured: `dig TXT _dmarc.yourdomain.com`
+3. Use the exact DNS values provided by `ahasend domains create`
+4. Contact your DNS provider if records aren't appearing
+</Accordion>
+
+<Accordion title="Rate Limiting">
+**Problem**: `Rate limit exceeded`
+
+**Solutions**:
+1. The CLI automatically retries with exponential backoff
+2. Reduce `--max-concurrency` for batch operations
+3. Spread large batch sends across multiple time periods
+4. Contact support for rate limit increases if needed
+</Accordion>
+
+<Accordion title="Template Issues">
+**Problem**: `Template variable not found: {{variable_name}}`
+
+**Solutions**:
+1. Check variable names for typos in templates
+2. Ensure substitution data includes all template variables
+3. Verify JSON syntax in substitution files
+4. Use `--debug` to see actual substitution data being sent
+</Accordion>
+
+## Examples
+
+### Real-World Scenarios
+
+#### 1. Welcome Email Campaign
+
+Set up a welcome email series for new users:
+
+```bash
+# Create welcome email template
+cat > welcome-template.html << EOF
+<!DOCTYPE html>
+<html>
+<head><title>Welcome {{first_name}}!</title></head>
+<body>
+    <h1>Welcome to {{company_name}}, {{first_name}}!</h1>
+    <p>We're excited to have you on board!</p>
+    <p>Your trial expires on: {{trial_end_date}}</p>
+    <a href="{{onboarding_url}}">Start your onboarding</a>
+</body>
+</html>
+EOF
+
+# Create recipient data
+cat > new-users.json << EOF
+[
+  {
+    "email": "alice@startup.com",
+    "name": "Alice Johnson",
+    "substitution_data": {
+      "first_name": "Alice",
+      "trial_end_date": "2024-02-15",
+      "onboarding_url": "https://app.company.com/onboard?user=alice"
+    }
+  },
+  {
+    "email": "bob@company.com",
+    "name": "Bob Smith",
+    "substitution_data": {
+      "first_name": "Bob",
+      "trial_end_date": "2024-02-16",
+      "onboarding_url": "https://app.company.com/onboard?user=bob"
+    }
+  }
+]
+EOF
+
+# Global data
+echo '{"company_name": "AcmeSoft"}' > global-data.json
+
+# Send welcome emails
+ahasend messages send \
+  --from welcome@acmesoft.com \
+  --recipients new-users.json \
+  --subject "Welcome to {{company_name}}, {{first_name}}!" \
+  --html-template welcome-template.html \
+  --global-substitutions global-data.json \
+  --progress \
+  --show-metrics
+```
+
+#### 2. Transactional Email with Attachments
+
+Send order confirmations with PDF invoices:
+
+```bash
+# Send order confirmation with invoice
+ahasend messages send \
+  --from orders@shop.com \
+  --to customer@example.com \
+  --subject "Order #{{order_id}} Confirmation" \
+  --html-template order-confirmation.html \
+  --attach invoices/invoice-12345.pdf \
+  --attach receipts/receipt-12345.pdf \
+  --global-substitutions order-data.json \
+  --idempotency-key "order-12345-confirmation" \
+  --tags transactional,order-confirmation
+```
+
+#### 3. Newsletter Campaign with Analytics
+
+Send a newsletter to segmented audience:
+
+```bash
+# Send newsletter to premium subscribers
+ahasend messages send \
+  --from newsletter@media.com \
+  --recipients premium-subscribers.csv \
+  --subject "Weekly Digest - {{week_of}}" \
+  --html-template newsletter-premium.html \
+  --text-template newsletter-premium.txt \
+  --global-substitutions newsletter-data.json \
+  --track-opens true \
+  --track-clicks true \
+  --tags newsletter,premium,weekly \
+  --max-concurrency 3 \
+  --progress \
+  --show-metrics \
+  --output json > campaign-results.json
+
+# Check delivery statistics
+ahasend stats deliverability \
+  --start-date $(date -d "1 day ago" +%Y-%m-%d) \
+  --group-by hour \
+  --output csv > delivery-stats.csv
+```
+
+#### 4. Automated Batch Processing
+
+Shell script for automated email processing:
+
+```bash
+#!/bin/bash
+set -e
+
+# Configuration
+FROM_EMAIL="automated@company.com"
+RECIPIENTS_FILE="daily-digest-recipients.csv"
+TEMPLATE_FILE="daily-digest.html"
+DATA_FILE="digest-data.json"
+
+# Generate today's digest data
+echo "Generating digest data..."
+./generate-digest-data.sh > "$DATA_FILE"
+
+# Send batch emails
+echo "Sending daily digest..."
+if ahasend messages send \
+  --from "$FROM_EMAIL" \
+  --recipients "$RECIPIENTS_FILE" \
+  --subject "Daily Digest - $(date +%B\ %d,\ %Y)" \
+  --html-template "$TEMPLATE_FILE" \
+  --global-substitutions "$DATA_FILE" \
+  --max-concurrency 5 \
+  --progress \
+  --show-metrics \
+  --output json > results.json; then
+
+  echo "✓ Daily digest sent successfully"
+
+  # Check results
+  SUCCESS_COUNT=$(jq '.successful_jobs' results.json)
+  TOTAL_COUNT=$(jq '.total_jobs' results.json)
+
+  echo "Sent: $SUCCESS_COUNT/$TOTAL_COUNT emails"
+
+  # If there were failures, retry them
+  if [ "$(jq '.failed_jobs' results.json)" -gt 0 ]; then
+    FAILED_FILE=$(jq -r '.failed_recipients_file' results.json)
+    echo "Retrying failed recipients from $FAILED_FILE"
+
+    ahasend messages send \
+      --from "$FROM_EMAIL" \
+      --recipients "$FAILED_FILE" \
+      --subject "Daily Digest - $(date +%B\ %d,\ %Y)" \
+      --html-template "$TEMPLATE_FILE" \
+      --global-substitutions "$DATA_FILE" \
+      --max-retries 1
+  fi
+else
+  echo "✗ Daily digest failed"
+  exit 1
+fi
+```
+
+#### 5. Multi-Profile Environment Management
+
+Managing different environments with profiles:
+
+```bash
+# Set up profiles for different environments
+ahasend auth login --profile production --api-key prod_key --account-id prod_account
+ahasend auth login --profile staging --api-key stage_key --account-id stage_account
+ahasend auth login --profile development --api-key dev_key --account-id dev_account
+
+# Test email in staging
+ahasend messages send --profile staging \
+  --from test@staging.company.com \
+  --to developer@company.com \
+  --subject "Staging Test" \
+  --text "Testing staging environment" \
+  --sandbox
+
+# Deploy to production
+ahasend messages send --profile production \
+  --recipients production-users.json \
+  --subject "Important Update" \
+  --html-template update-notification.html \
+  --max-concurrency 2 \
+  --progress
+
+# Check production stats
+ahasend stats deliverability --profile production \
+  --start-date $(date -d "7 days ago" +%Y-%m-%d) \
+  --group-by day
+```
+
+## Best Practices
+
+### Security
+
+1. **Use Profiles**: Store credentials securely instead of passing API keys as flags
+2. **Rotate Keys**: Regularly rotate API keys using `ahasend apikeys` commands
+3. **Limit Scopes**: Create API keys with minimal required permissions
+4. **Environment Separation**: Use different profiles for production, staging, and development
+
+### Performance
+
+1. **Batch Operations**: Use `--recipients` file instead of multiple `--to` flags
+2. **Concurrency**: Set appropriate `--max-concurrency` (start with 3-5)
+3. **Progress Tracking**: Use `--progress` for long-running operations
+4. **Output Format**: Use `--output json` for automation to avoid formatting overhead
+
+### Reliability
+
+1. **Idempotency**: Use `--idempotency-key` for critical emails
+2. **Scheduling**: Use `--schedule` for time-sensitive campaigns
+3. **Testing**: Use `--sandbox` mode for testing templates and workflows
+4. **Monitoring**: Regularly check `ahasend stats` for delivery health
+
+### Automation
+
+1. **JSON Output**: Always use `--output json` in scripts
+2. **Error Handling**: Check exit codes in scripts
+3. **Logging**: Use `--verbose` or `--debug` for troubleshooting
+4. **Failed Recovery**: Process failed recipients files for retry logic
+
+---
+
+For additional help and support:
+- Visit the [AhaSend Documentation](https://docs.ahasend.com)
+- Check the [API Reference](https://docs.ahasend.com/api)
+- Contact support at support@ahasend.com

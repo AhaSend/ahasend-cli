@@ -1,0 +1,44 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - errcheck
+  exclusions:
+    warn-unused: true
+    paths:
+      - test
+    rules:
+      - path: "internal/printer/csv.go$"
+        linters:
+          - errcheck
+  settings:
+    errcheck:
+      verbose: true
+      exclude-functions:
+        - io/ioutil.ReadFile
+        - io.Copy(*bytes.Buffer)
+        - io.Copy(os.Stdout)
+        - (*os.File).Close
+        - crypto/rand.Read
+        - fmt.Scanln
+        - fmt.Fprintln
+        - fmt.Fprintf
+        - (gopkg.in/gomail.v2.SendCloser).Close
+        - (*github.com/olekukonko/tablewriter.Table).Append
+        - (*github.com/olekukonko/tablewriter.Table).Render
+        - (*github.com/spf13/cobra.Command).MarkFlagRequired
+        - (*github.com/spf13/cobra.Command).Usage
+        - (github.com/AhaSend/ahasend-cli/internal/printer.ResponseHandler).HandleError
+
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
