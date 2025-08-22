@@ -187,7 +187,7 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: |
             ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION }}
             ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION_WITHOUT_V }}
