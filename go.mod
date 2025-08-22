@@ -1,6 +1,8 @@
 module github.com/AhaSend/ahasend-cli
 
-go 1.24.5
+go 1.23.0
+
+toolchain go1.24.6
 
 require (
 	github.com/AhaSend/ahasend-go v0.0.0-20250822083844-82c24b4ea642
