@@ -136,7 +136,7 @@ func (c *Client) ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipV
 		}
 		return err
 	})
-	
+
 	// Set up close handler to detect server-initiated closures
 	conn.SetCloseHandler(func(code int, text string) error {
 		logger.Get().WithFields(map[string]interface{}{
@@ -167,12 +167,12 @@ func (wsc *WebSocketClient) ReadMessage(ctx context.Context) (*WebSocketMessage,
 	if err != nil {
 		// Mark connection as closed on any read error to prevent future panics
 		wsc.closed = true
-		
+
 		// Check if it's a websocket close error or connection error
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			return nil, fmt.Errorf("websocket connection closed: %w", err)
 		}
-		
+
 		return nil, err
 	}
 

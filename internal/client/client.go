@@ -54,7 +54,7 @@ func NewClient(apiKey, accountID string, apiURL ...string) (*Client, error) {
 	}
 
 	config := api.NewConfiguration()
-	
+
 	// Set API URL if provided
 	if len(apiURL) > 0 && apiURL[0] != "" {
 		if err := setConfigFromURL(config, apiURL[0]); err != nil {
@@ -715,23 +715,23 @@ func setConfigFromURL(config *api.Configuration, apiURL string) error {
 	if err != nil {
 		return fmt.Errorf("invalid URL format: %w", err)
 	}
-	
+
 	if u.Scheme == "" {
 		return fmt.Errorf("URL must include scheme (http:// or https://)")
 	}
-	
+
 	if u.Host == "" {
 		return fmt.Errorf("URL must include host")
 	}
-	
+
 	// Set the scheme and host in the SDK configuration
 	config.Scheme = u.Scheme
 	config.Host = u.Host
-	
+
 	// If there's a base path, set it
 	if u.Path != "" && u.Path != "/" {
 		config.DefaultHeader["X-Base-Path"] = strings.TrimPrefix(u.Path, "/")
 	}
-	
+
 	return nil
 }

@@ -793,7 +793,7 @@ func (h *tableHandler) HandleTriggerWebhook(webhookID string, events []string, c
 	// Show trigger summary
 	table := h.createBorderedTable()
 	table.Header("Field", "Value")
-	
+
 	addTableRow(table, []string{"Operation", "Trigger Webhook"})
 	addTableRow(table, []string{"Webhook ID", webhookID})
 	addTableRow(table, []string{"Events Triggered", strings.Join(events, ", ")})

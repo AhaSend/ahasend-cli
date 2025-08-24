@@ -24,6 +24,7 @@ linters:
         - io/ioutil.ReadFile
         - io.Copy(*bytes.Buffer)
         - io.Copy(os.Stdout)
+        - (io.Closer).Close
         - (*os.File).Close
         - crypto/rand.Read
         - fmt.Scanln
@@ -35,6 +36,9 @@ linters:
         - (*github.com/spf13/cobra.Command).MarkFlagRequired
         - (*github.com/spf13/cobra.Command).Usage
         - (github.com/AhaSend/ahasend-cli/internal/printer.ResponseHandler).HandleError
+        - (*github.com/AhaSend/ahasend-cli/internal/client.WebSocketClient).Close
+        - (*github.com/fatih/color.Color).Println
+        - (*github.com/fatih/color.Color).Printf
 
 
 formatters:

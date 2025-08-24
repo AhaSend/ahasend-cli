@@ -181,6 +181,11 @@ func (m *MockClient) DeleteWebhook(webhookID string) error {
 	return args.Error(0)
 }
 
+func (m *MockClient) TriggerWebhook(webhookID string, events []string) error {
+	args := m.Called(webhookID, events)
+	return args.Error(0)
+}
+
 // Helper methods for creating mock data
 
 // NewMockDomain creates a mock domain for testing

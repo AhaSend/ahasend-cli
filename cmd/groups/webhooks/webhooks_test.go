@@ -75,8 +75,8 @@ func TestWebhooksCommand_SubcommandCount(t *testing.T) {
 	cmd := NewCommand()
 	subcommands := cmd.Commands()
 
-	// Should have exactly 5 subcommands (list, get, create, update, delete)
-	assert.Equal(t, 5, len(subcommands), "webhooks command should have exactly 5 subcommands")
+	// Should have exactly 7 subcommands (list, get, create, update, delete, listen, trigger)
+	assert.Equal(t, 7, len(subcommands), "webhooks command should have exactly 7 subcommands")
 }
 
 // Test list command structure and flags

@@ -102,7 +102,7 @@ func runWebhooksTrigger(cmd *cobra.Command, args []string) error {
 	// Show success message
 	eventsList := strings.Join(eventsToTrigger, ", ")
 	successMsg := fmt.Sprintf("Successfully triggered webhook events: %s", eventsList)
-	
+
 	return handler.HandleTriggerWebhook(webhookID, eventsToTrigger, printer.TriggerConfig{
 		SuccessMessage: successMsg,
 	})
@@ -125,16 +125,16 @@ func getAllValidTriggerEvents() []string {
 
 func validateTriggerEvents(events []string) ([]string, error) {
 	validEvents := map[string]bool{
-		"on_reception":          true,
-		"on_delivered":          true,
-		"on_transient_error":    true,
-		"on_failed":             true,
-		"on_bounced":            true,
-		"on_suppressed":         true,
+		"on_reception":           true,
+		"on_delivered":           true,
+		"on_transient_error":     true,
+		"on_failed":              true,
+		"on_bounced":             true,
+		"on_suppressed":          true,
 		"on_suppression_created": true,
-		"on_dns_error":          true,
-		"on_opened":             true,
-		"on_clicked":            true,
+		"on_dns_error":           true,
+		"on_opened":              true,
+		"on_clicked":             true,
 	}
 
 	var validatedEvents []string

@@ -38,7 +38,7 @@ type AhaSendClient interface {
 	GetWebhook(webhookID string) (*responses.Webhook, error)
 	UpdateWebhook(webhookID string, req requests.UpdateWebhookRequest) (*responses.Webhook, error)
 	DeleteWebhook(webhookID string) error
-	
+
 	// Webhook streaming operations (development only)
 	InitiateWebhookStream(webhookID string) (*WebhookStreamResponse, error)
 	ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipVerify bool) (*WebSocketClient, error)

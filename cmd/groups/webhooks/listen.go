@@ -64,7 +64,6 @@ the standard-webhooks specification.`,
 	return cmd
 }
 
-
 func runWebhooksListen(cmd *cobra.Command, args []string) error {
 	// Get authenticated client
 	apiClient, err := auth.GetAuthenticatedClient(cmd)
@@ -159,12 +158,12 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 	// Create channels for WebSocket messages and errors
 	msgChan := make(chan *client.WebSocketMessage, 10)
 	errChan := make(chan error, 1)
-	
+
 	// Start goroutine to read WebSocket messages without interfering with ping/pong
 	go func() {
 		defer close(msgChan)
 		defer close(errChan)
-		
+
 		for {
 			// Read message without any artificial timeouts - let WebSocket handle its own
 			msg, err := wsClient.ReadMessage(context.Background())
@@ -175,7 +174,7 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 				}
 				return
 			}
-			
+
 			select {
 			case msgChan <- msg:
 			case <-ctx.Done():
@@ -191,13 +190,13 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 			// Close WebSocket connection gracefully
 			wsClient.Close()
 			return nil
-			
+
 		case err := <-errChan:
 			if err != nil {
 				// Check if it's a connection close or fatal error
-				if strings.Contains(err.Error(), "websocket connection closed") || 
-				   strings.Contains(err.Error(), "repeated read on failed") ||
-				   strings.Contains(err.Error(), "websocket connection is closed") {
+				if strings.Contains(err.Error(), "websocket connection closed") ||
+					strings.Contains(err.Error(), "repeated read on failed") ||
+					strings.Contains(err.Error(), "websocket connection is closed") {
 					fmt.Println("\n💔 WebSocket connection closed")
 					wsClient.Close()
 					return nil
@@ -206,12 +205,12 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 				wsClient.Close()
 				return fmt.Errorf("websocket error: %w", err)
 			}
-			
+
 		case msg := <-msgChan:
 			if msg == nil {
 				continue
 			}
-			
+
 			// Handle message based on type
 			switch msg.Type {
 			case "connected":
@@ -341,9 +340,9 @@ func forwardEvent(httpClient *http.Client, forwardTo string, event *client.Event
 	timestamp := time.Now()
 
 	logger.Get().WithFields(map[string]interface{}{
-		"msg_id":    msgID,
-		"timestamp": timestamp.Unix(),
-		"url":       forwardTo,
+		"msg_id":       msgID,
+		"timestamp":    timestamp.Unix(),
+		"url":          forwardTo,
 		"payload_size": len(payload),
 	}).Debug("Preparing to forward webhook event")
 
@@ -371,10 +370,10 @@ func forwardEvent(httpClient *http.Client, forwardTo string, event *client.Event
 		"method": "POST",
 		"url":    forwardTo,
 		"headers": map[string]string{
-			"Content-Type":       "application/json",
-			"webhook-id":         msgID,
-			"webhook-timestamp":  fmt.Sprintf("%d", timestamp.Unix()),
-			"webhook-signature":  signature,
+			"Content-Type":      "application/json",
+			"webhook-id":        msgID,
+			"webhook-timestamp": fmt.Sprintf("%d", timestamp.Unix()),
+			"webhook-signature": signature,
 		},
 	}).Debug("Sending webhook forward request")
 
@@ -382,7 +381,7 @@ func forwardEvent(httpClient *http.Client, forwardTo string, event *client.Event
 	startTime := time.Now()
 	resp, err := httpClient.Do(req)
 	duration := time.Since(startTime)
-	
+
 	if err != nil {
 		logger.Get().WithError(err).WithFields(map[string]interface{}{
 			"url":      forwardTo,
@@ -442,11 +441,10 @@ func validateListenEventTypes(events []string) error {
 		for key := range validEventTypes {
 			validKeys = append(validKeys, key)
 		}
-		return fmt.Errorf("invalid event types: %s\n\nValid event types are:\n%s", 
+		return fmt.Errorf("invalid event types: %s\n\nValid event types are:\n%s",
 			strings.Join(invalidEvents, ", "),
 			strings.Join(validKeys, "\n"))
 	}
 
 	return nil
 }
-
