@@ -525,6 +525,12 @@ func (h *csvHandler) HandleDeleteWebhook(success bool, config DeleteConfig) erro
 	return nil
 }
 
+func (h *csvHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
+	// CSV format doesn't output data for trigger operations
+	// Success/failure is handled via exit codes and error messages
+	return nil
+}
+
 // Route responses
 func (h *csvHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
 	if response == nil || len(response.Data) == 0 {

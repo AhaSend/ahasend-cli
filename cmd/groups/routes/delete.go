@@ -75,7 +75,7 @@ func runRoutesDelete(cmd *cobra.Command, args []string) error {
 	if !force {
 		route, err = client.GetRoute(routeID)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		// Show route details and get confirmation
@@ -83,7 +83,7 @@ func runRoutesDelete(cmd *cobra.Command, args []string) error {
 		// to maintain format-aware behavior, but keeping here for now
 		confirmed, err := confirmRouteDeletion(route)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		if !confirmed {
@@ -94,7 +94,7 @@ func runRoutesDelete(cmd *cobra.Command, args []string) error {
 	// Delete the route
 	err = deleteRoute(client, routeID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display deletion success

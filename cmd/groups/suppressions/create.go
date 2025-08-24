@@ -61,7 +61,7 @@ func runSuppressionsCreate(cmd *cobra.Command, args []string) error {
 
 	// Validate email format
 	if !isValidEmail(email) {
-		return handler.HandleError(errors.NewValidationError(fmt.Sprintf("invalid email format: %s", email), nil))
+		return errors.NewValidationError(fmt.Sprintf("invalid email format: %s", email), nil)
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -76,13 +76,13 @@ func runSuppressionsCreate(cmd *cobra.Command, args []string) error {
 
 	// Validate reason length (per OpenAPI spec: maxLength 255)
 	if len(reason) > 255 {
-		return handler.HandleError(errors.NewValidationError(fmt.Sprintf("reason exceeds maximum length of 255 characters (got %d characters)", len(reason)), nil))
+		return errors.NewValidationError(fmt.Sprintf("reason exceeds maximum length of 255 characters (got %d characters)", len(reason)), nil)
 	}
 
 	// Parse expiration time (required)
 	parsedTime, err := output.ParseTimeFuture(expiresStr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 	expiresAt := parsedTime
 
@@ -110,7 +110,7 @@ func runSuppressionsCreate(cmd *cobra.Command, args []string) error {
 	// Create suppression
 	response, err := client.CreateSuppression(req)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display created suppression

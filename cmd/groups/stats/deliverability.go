@@ -103,7 +103,7 @@ func runDeliverabilityStats(cmd *cobra.Command, args []string) error {
 			fromTime = &parsedTime
 		}
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError(fmt.Sprintf("invalid from-time: %v", err), nil))
+			return errors.NewValidationError(fmt.Sprintf("invalid from-time: %v", err), nil)
 		}
 	} else {
 		f := time.Now().Add(-30 * 24 * time.Hour)
@@ -114,7 +114,7 @@ func runDeliverabilityStats(cmd *cobra.Command, args []string) error {
 	if toTimeStr != "" {
 		parsed, err := output.ParseTimePast(toTimeStr)
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError(fmt.Sprintf("invalid to-time: %v", err), nil))
+			return errors.NewValidationError(fmt.Sprintf("invalid to-time: %v", err), nil)
 		}
 		toTime = &parsed
 	} else {
@@ -158,7 +158,7 @@ func runDeliverabilityStats(cmd *cobra.Command, args []string) error {
 	// Fetch statistics
 	response, err := client.GetDeliverabilityStatistics(params)
 	if err != nil {
-		return handler.HandleError(errors.NewAPIError("failed to get deliverability statistics", err))
+		return errors.NewAPIError("failed to get deliverability statistics", err)
 	}
 
 	// Use the new ResponseHandler to display deliverability statistics

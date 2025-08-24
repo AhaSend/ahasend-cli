@@ -294,7 +294,7 @@ func processBatchSend(handler printer.ResponseHandler, cl client.AhaSendClient, 
 	// Process and create send jobs
 	sendJobs, err := createSendJobsFromFlags(flags)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Set up progress reporting
@@ -303,7 +303,7 @@ func processBatchSend(handler printer.ResponseHandler, cl client.AhaSendClient, 
 	// Process batch
 	batchResult, err := executeBatchSend(cl, sendJobs, flags, progressReporter)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Format and return response using the new handler
@@ -364,10 +364,10 @@ func formatBatchResponse(handler printer.ResponseHandler, batchResult *batch.Bat
 		return handler.HandleSimpleSuccess(fmt.Sprintf("✅ Successfully sent all %d messages", successCount))
 	} else if successCount == 0 {
 		// All failed
-		return handler.HandleError(fmt.Errorf("failed to send all %d messages", failedCount))
+		return fmt.Errorf("failed to send all %d messages", failedCount)
 	} else {
 		// Partial success - still return as error with details
-		return handler.HandleError(fmt.Errorf("partial success: %d succeeded, %d failed out of %d total messages", successCount, failedCount, totalCount))
+		return fmt.Errorf("partial success: %d succeeded, %d failed out of %d total messages", successCount, failedCount, totalCount)
 	}
 }
 

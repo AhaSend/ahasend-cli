@@ -61,7 +61,7 @@ func runRoutesGet(cmd *cobra.Command, args []string) error {
 	// Get the route
 	route, err := client.GetRoute(routeID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display route details

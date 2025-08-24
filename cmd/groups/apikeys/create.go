@@ -218,7 +218,7 @@ func runAPIKeyCreate(cmd *cobra.Command, args []string) error {
 	// Create the API key
 	apiKey, err := client.CreateAPIKey(req)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful response

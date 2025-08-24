@@ -58,12 +58,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Create configuration manager
 	configMgr, err := config.NewManager()
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to initialize configuration", err))
+		return errors.NewConfigError("failed to initialize configuration", err)
 	}
 
 	// Load existing configuration
 	if err := configMgr.Load(); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to load configuration", err))
+		return errors.NewConfigError("failed to load configuration", err)
 	}
 
 	// Use default profile name if not specified
@@ -87,10 +87,10 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	accountIDProvided := cmd.Flags().Changed("account-id")
 
 	if apiKeyProvided && !accountIDProvided {
-		return handler.HandleError(errors.NewValidationError("account ID is required when API key is provided", nil))
+		return errors.NewValidationError("account ID is required when API key is provided", nil)
 	}
 	if accountIDProvided && !apiKeyProvided {
-		return handler.HandleError(errors.NewValidationError("API key is required when account ID is provided", nil))
+		return errors.NewValidationError("API key is required when account ID is provided", nil)
 	}
 
 	// Interactive prompts if values not provided
@@ -99,7 +99,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		// TODO: Handler should manage interactive mode, but for now keep prompts
 		apiKey, err = promptAPIKey()
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError("failed to read API key", err))
+			return errors.NewValidationError("failed to read API key", err)
 		}
 	}
 
@@ -107,26 +107,26 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		// TODO: Handler should manage interactive mode, but for now keep prompts
 		accountID, err = promptAccountID()
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError("failed to read account ID", err))
+			return errors.NewValidationError("failed to read account ID", err)
 		}
 	}
 
 	// Validate inputs
 	if apiKey == "" {
-		return handler.HandleError(errors.NewValidationError("API key is required", nil))
+		return errors.NewValidationError("API key is required", nil)
 	}
 	if accountID == "" {
-		return handler.HandleError(errors.NewValidationError("account ID is required", nil))
+		return errors.NewValidationError("account ID is required", nil)
 	}
 
 	// Test the credentials
 	testClient, err := client.NewClient(apiKey, accountID)
 	if err != nil {
-		return handler.HandleError(errors.NewAuthError("failed to create API client", err))
+		return errors.NewAuthError("failed to create API client", err)
 	}
 
 	if err := testClient.Ping(); err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Fetch account information
@@ -155,14 +155,14 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := configMgr.SetProfile(profileName, profile); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to save profile", err))
+		return errors.NewConfigError("failed to save profile", err)
 	}
 
 	// Set as default profile if it's the first one or explicitly requested
 	currentProfiles := configMgr.ListProfiles()
 	if len(currentProfiles) == 1 || profileName == "default" {
 		if err := configMgr.SetDefaultProfile(profileName); err != nil {
-			return handler.HandleError(errors.NewConfigError("failed to set default profile", err))
+			return errors.NewConfigError("failed to set default profile", err)
 		}
 	}
 

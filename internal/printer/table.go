@@ -787,6 +787,23 @@ func (h *tableHandler) HandleDeleteWebhook(success bool, config DeleteConfig) er
 	return nil
 }
 
+func (h *tableHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+
+	// Show trigger summary
+	table := h.createBorderedTable()
+	table.Header("Field", "Value")
+	
+	addTableRow(table, []string{"Operation", "Trigger Webhook"})
+	addTableRow(table, []string{"Webhook ID", webhookID})
+	addTableRow(table, []string{"Events Triggered", strings.Join(events, ", ")})
+	addTableRow(table, []string{"Success", "✓ True"})
+
+	renderTable(table)
+
+	return nil
+}
+
 // Route responses
 func (h *tableHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
 	if response == nil || len(response.Data) == 0 {

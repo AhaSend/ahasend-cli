@@ -58,7 +58,7 @@ func runSuppressionsDelete(cmd *cobra.Command, args []string) error {
 
 	// Validate email format (basic validation)
 	if email == "" {
-		return handler.HandleError(errors.NewValidationError("email address is required", nil))
+		return errors.NewValidationError("email address is required", nil)
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -79,7 +79,7 @@ func runSuppressionsDelete(cmd *cobra.Command, args []string) error {
 	if !force {
 		confirmed, err := confirmRemoval(email, domain)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 		if !confirmed {
 			return handler.HandleSimpleSuccess("Suppression removal cancelled")
@@ -95,7 +95,7 @@ func runSuppressionsDelete(cmd *cobra.Command, args []string) error {
 	// Remove suppression
 	_, err = client.DeleteSuppression(email, domainPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display deletion success

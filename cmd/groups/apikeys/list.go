@@ -65,7 +65,7 @@ func runAPIKeysList(cmd *cobra.Command, args []string) error {
 	// Get API keys
 	response, err := client.ListAPIKeys(limitPtr, cursorPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful response

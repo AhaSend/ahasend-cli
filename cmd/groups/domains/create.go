@@ -63,7 +63,7 @@ func runDomainsCreate(cmd *cobra.Command, args []string) error {
 	} else {
 		domain, err = promptDomainName()
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError("failed to read domain name", err))
+			return errors.NewValidationError("failed to read domain name", err)
 		}
 		logger.Get().WithField("domain", domain).Debug("Using domain from prompt")
 	}
@@ -71,7 +71,7 @@ func runDomainsCreate(cmd *cobra.Command, args []string) error {
 	// Validate domain name
 	logger.Get().WithField("domain", domain).Debug("Validating domain name")
 	if err := validation.ValidateDomainName(domain); err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
@@ -83,7 +83,7 @@ func runDomainsCreate(cmd *cobra.Command, args []string) error {
 	// Create the domain
 	response, err := client.CreateDomain(domain)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful domain creation

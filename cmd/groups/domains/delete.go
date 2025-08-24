@@ -65,11 +65,11 @@ func runDomainsDelete(cmd *cobra.Command, args []string) error {
 	// Get domain details first to show what's being deleted and verify it exists
 	domainInfo, err := client.GetDomain(domain)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	if domainInfo == nil {
-		return handler.HandleError(errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil))
+		return errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil)
 	}
 
 	// Confirmation prompt unless force flag is used
@@ -80,7 +80,7 @@ func runDomainsDelete(cmd *cobra.Command, args []string) error {
 
 		confirmed, err := promptConfirmation(domain)
 		if err != nil {
-			return handler.HandleError(errors.NewValidationError("failed to read confirmation", err))
+			return errors.NewValidationError("failed to read confirmation", err)
 		}
 
 		if !confirmed {
@@ -95,7 +95,7 @@ func runDomainsDelete(cmd *cobra.Command, args []string) error {
 	// Delete the domain
 	_, err = client.DeleteDomain(domain)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful deletion

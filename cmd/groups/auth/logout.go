@@ -49,11 +49,11 @@ func runLogout(cmd *cobra.Command, args []string) error {
 
 	configMgr, err := config.NewManager()
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to initialize configuration", err))
+		return errors.NewConfigError("failed to initialize configuration", err)
 	}
 
 	if err := configMgr.Load(); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to load configuration", err))
+		return errors.NewConfigError("failed to load configuration", err)
 	}
 
 	// Logout from all profiles
@@ -76,7 +76,7 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		configMgr.GetConfig().DefaultProfile = ""
 
 		if err := configMgr.Save(); err != nil {
-			return handler.HandleError(errors.NewConfigError("failed to save configuration", err))
+			return errors.NewConfigError("failed to save configuration", err)
 		}
 
 		logger.ConfigOperation("logout_complete", "", map[string]interface{}{
@@ -99,7 +99,7 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		// Use current default profile
 		profileName = configMgr.GetConfig().DefaultProfile
 		if profileName == "" {
-			return handler.HandleError(errors.NewValidationError("no default profile set and no profile specified", nil))
+			return errors.NewValidationError("no default profile set and no profile specified", nil)
 		}
 		logger.Get().WithField("profile", profileName).Debug("Using default profile for logout")
 	}
@@ -115,7 +115,7 @@ func runLogout(cmd *cobra.Command, args []string) error {
 	}
 
 	if !found {
-		return handler.HandleError(errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil))
+		return errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil)
 	}
 
 	// If this is the default profile, we need to handle it specially
@@ -134,12 +134,12 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		}
 
 		if err := configMgr.Save(); err != nil {
-			return handler.HandleError(errors.NewConfigError("failed to save configuration", err))
+			return errors.NewConfigError("failed to save configuration", err)
 		}
 	} else {
 		// Use RemoveProfile for non-default profiles
 		if err := configMgr.RemoveProfile(profileName); err != nil {
-			return handler.HandleError(errors.NewConfigError("failed to remove profile", err))
+			return errors.NewConfigError("failed to remove profile", err)
 		}
 	}
 

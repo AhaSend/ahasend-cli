@@ -75,7 +75,7 @@ func runWebhooksList(cmd *cobra.Command, args []string) error {
 	// Fetch webhooks
 	response, err := client.ListWebhooks(limitPtr, cursorPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Filter by enabled status if specified (client-side filtering)

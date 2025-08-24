@@ -57,7 +57,7 @@ func runMessageCancel(cmd *cobra.Command, args []string) error {
 	// Parse the account ID from client
 	accountID, err := uuid.Parse(client.GetAccountID())
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("invalid account ID", err))
+		return errors.NewConfigError("invalid account ID", err)
 	}
 
 	// Get flags
@@ -101,7 +101,7 @@ func runMessageCancel(cmd *cobra.Command, args []string) error {
 		// Execute the cancellation
 		_, err := client.CancelMessage(accountID.String(), msgID)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		// Handle successful single message cancellation
@@ -141,10 +141,10 @@ func runMessageCancel(cmd *cobra.Command, args []string) error {
 		return handler.HandleSimpleSuccess(fmt.Sprintf("✅ Successfully canceled all %d messages", successCount))
 	} else if successCount == 0 {
 		// All failed
-		return handler.HandleError(fmt.Errorf("failed to cancel all messages: %s", strings.Join(errors, "; ")))
+		return fmt.Errorf("failed to cancel all messages: %s", strings.Join(errors, "; "))
 	} else {
 		// Partial success
 		message := fmt.Sprintf("⚠️  Partial success: %d succeeded, %d failed out of %d total messages", successCount, failureCount, totalCount)
-		return handler.HandleError(fmt.Errorf("%s. Failures: %s", message, strings.Join(errors, "; ")))
+		return fmt.Errorf("%s. Failures: %s", message, strings.Join(errors, "; "))
 	}
 }

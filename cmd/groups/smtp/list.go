@@ -54,7 +54,7 @@ func runSMTPList(cmd *cobra.Command, args []string) error {
 
 	// Validate limit
 	if limit < 1 || limit > 100 {
-		return handler.HandleError(errors.NewValidationError("limit must be between 1 and 100", nil))
+		return errors.NewValidationError("limit must be between 1 and 100", nil)
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
@@ -72,11 +72,11 @@ func runSMTPList(cmd *cobra.Command, args []string) error {
 	// List SMTP credentials
 	response, err := client.ListSMTPCredentials(limitPtr, cursorPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	if response == nil {
-		return handler.HandleError(errors.NewAPIError("received nil response from API", nil))
+		return errors.NewAPIError("received nil response from API", nil)
 	}
 
 	// Use the new ResponseHandler to display SMTP credentials list

@@ -104,7 +104,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	// Parse the account ID from client
 	accountID, err := uuid.Parse(client.GetAccountID())
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("invalid account ID", err))
+		return errors.NewConfigError("invalid account ID", err)
 	}
 
 	// Get flags
@@ -121,7 +121,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 
 	// Validate limit
 	if limit < 1 || limit > 100 {
-		return handler.HandleError(errors.NewValidationError("limit must be between 1 and 100", nil))
+		return errors.NewValidationError("limit must be between 1 and 100", nil)
 	}
 
 	// Validate and normalize status if provided
@@ -152,7 +152,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 				for k := range statusMap {
 					validInputs = append(validInputs, k)
 				}
-				return handler.HandleError(errors.NewValidationError(fmt.Sprintf("invalid status '%s'. Valid statuses: %s", s, strings.Join(validInputs, ", ")), nil))
+				return errors.NewValidationError(fmt.Sprintf("invalid status '%s'. Valid statuses: %s", s, strings.Join(validInputs, ", ")), nil)
 			}
 		}
 		normalizedStatus = strings.Join(normalizedList, ",")
@@ -206,7 +206,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	// Execute the request through our client wrapper (includes retry logic and logging)
 	response, err := client.GetMessages(params)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display message list

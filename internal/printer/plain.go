@@ -454,6 +454,11 @@ func (h *plainHandler) HandleDeleteWebhook(success bool, config DeleteConfig) er
 	return nil
 }
 
+func (h *plainHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
+	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
+	return nil
+}
+
 // Route responses
 func (h *plainHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
 	if response == nil || len(response.Data) == 0 {

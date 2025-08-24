@@ -76,7 +76,7 @@ func runDomainsList(cmd *cobra.Command, args []string) error {
 	// Fetch domains
 	response, err := client.ListDomains(limitPtr, cursorPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle empty response

@@ -16,9 +16,13 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/AhaSend/ahasend-go/api"
@@ -41,7 +45,7 @@ type Client struct {
 }
 
 // NewClient creates a new AhaSend client with rate limiting
-func NewClient(apiKey, accountID string) (*Client, error) {
+func NewClient(apiKey, accountID string, apiURL ...string) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is required")
 	}
@@ -50,6 +54,13 @@ func NewClient(apiKey, accountID string) (*Client, error) {
 	}
 
 	config := api.NewConfiguration()
+	
+	// Set API URL if provided
+	if len(apiURL) > 0 && apiURL[0] != "" {
+		if err := setConfigFromURL(config, apiURL[0]); err != nil {
+			return nil, fmt.Errorf("invalid API URL: %w", err)
+		}
+	}
 
 	// Configure retry behavior using new SDK RetryConfig
 	config.RetryConfig = api.RetryConfig{
@@ -628,4 +639,99 @@ func (c *Client) DeleteAPIKey(keyID string) (*common.SuccessResponse, error) {
 
 	response, _, err := c.APIKeysAPI.DeleteAPIKey(c.auth, accountUUID, keyUUID)
 	return response, err
+}
+
+// TriggerWebhook triggers webhook events for development testing
+func (c *Client) TriggerWebhook(webhookID string, events []string) error {
+	// Create the request payload
+	payload := map[string]interface{}{
+		"events": events,
+	}
+
+	// Marshal the payload
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request payload: %w", err)
+	}
+
+	// Build the URL
+	endpoint := fmt.Sprintf("/v2/accounts/%s/webhooks/%s/trigger", c.accountID, webhookID)
+	fullURL := fmt.Sprintf("%s://%s%s", c.config.Scheme, c.config.Host, endpoint)
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Add authentication and headers
+	apiKey := c.auth.Value(api.ContextAccessToken).(string)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	logger.Get().WithFields(map[string]interface{}{
+		"method":     "POST",
+		"endpoint":   endpoint,
+		"webhook_id": webhookID,
+		"events":     events,
+	}).Debug("Sending webhook trigger request")
+
+	// Send the request with rate limiting
+	ctx := context.Background()
+	if err := c.rateLimiter.Wait(ctx); err != nil {
+		return err
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send trigger request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle the response
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		logger.Get().WithFields(map[string]interface{}{
+			"webhook_id": webhookID,
+			"events":     events,
+			"status":     resp.StatusCode,
+		}).Debug("Webhook trigger successful")
+		return nil
+	}
+
+	// Parse error response
+	var errorResp common.ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errorResp); err != nil {
+		return fmt.Errorf("webhook trigger failed with status %d", resp.StatusCode)
+	}
+
+	return fmt.Errorf("webhook trigger failed: %s", errorResp.Message)
+}
+
+// setConfigFromURL parses the API URL and sets the SDK configuration
+func setConfigFromURL(config *api.Configuration, apiURL string) error {
+	// Parse the URL
+	u, err := url.Parse(apiURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
+	}
+	
+	if u.Scheme == "" {
+		return fmt.Errorf("URL must include scheme (http:// or https://)")
+	}
+	
+	if u.Host == "" {
+		return fmt.Errorf("URL must include host")
+	}
+	
+	// Set the scheme and host in the SDK configuration
+	config.Scheme = u.Scheme
+	config.Host = u.Host
+	
+	// If there's a base path, set it
+	if u.Path != "" && u.Path != "/" {
+		config.DefaultHeader["X-Base-Path"] = strings.TrimPrefix(u.Path, "/")
+	}
+	
+	return nil
 }

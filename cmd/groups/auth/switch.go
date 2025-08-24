@@ -44,11 +44,11 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 
 	configMgr, err := config.NewManager()
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to initialize configuration", err))
+		return errors.NewConfigError("failed to initialize configuration", err)
 	}
 
 	if err := configMgr.Load(); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to load configuration", err))
+		return errors.NewConfigError("failed to load configuration", err)
 	}
 
 	// Check if profile exists
@@ -67,7 +67,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 	}
 
 	if !found {
-		return handler.HandleError(errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil))
+		return errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil)
 	}
 
 	// Check if it's already the current profile
@@ -87,7 +87,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 
 	testClient, err := client.NewClient(profile.APIKey, profile.AccountID)
 	if err != nil {
-		return handler.HandleError(errors.NewAuthError("failed to create API client for profile", err))
+		return errors.NewAuthError("failed to create API client for profile", err)
 	}
 
 	if err := testClient.Ping(); err != nil {
@@ -102,7 +102,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 
 	// Switch to the profile
 	if err := configMgr.SetDefaultProfile(profileName); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to switch profile", err))
+		return errors.NewConfigError("failed to switch profile", err)
 	}
 
 	logger.ConfigOperation("switch_complete", profileName, map[string]interface{}{

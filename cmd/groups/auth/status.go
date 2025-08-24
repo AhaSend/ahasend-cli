@@ -56,11 +56,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	configMgr, err := config.NewManager()
 	if err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to initialize configuration", err))
+		return errors.NewConfigError("failed to initialize configuration", err)
 	}
 
 	if err := configMgr.Load(); err != nil {
-		return handler.HandleError(errors.NewConfigError("failed to load configuration", err))
+		return errors.NewConfigError("failed to load configuration", err)
 	}
 
 	profiles := configMgr.ListProfiles()
@@ -80,7 +80,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	if profileName == "" {
 		profileName = configMgr.GetConfig().DefaultProfile
 		if profileName == "" {
-			return handler.HandleError(errors.NewValidationError("no default profile set and no profile specified", nil))
+			return errors.NewValidationError("no default profile set and no profile specified", nil)
 		}
 		logger.Get().WithField("profile", profileName).Debug("Using default profile for status")
 	} else {
@@ -90,7 +90,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Create AuthStatus for the specific profile
 	status, err := createAuthStatus(configMgr, profileName)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	return handler.HandleAuthStatus(status, printer.AuthConfig{

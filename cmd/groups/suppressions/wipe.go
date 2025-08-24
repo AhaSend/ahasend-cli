@@ -81,7 +81,7 @@ func runSuppressionsWipe(cmd *cobra.Command, args []string) error {
 	if !force {
 		confirmed, err := confirmWipe()
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 		if !confirmed {
 			return handler.HandleSimpleSuccess("Suppression wipe cancelled")
@@ -96,7 +96,7 @@ func runSuppressionsWipe(cmd *cobra.Command, args []string) error {
 	// Wipe all suppressions
 	_, err = client.WipeSuppressions(domainPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display wipe success

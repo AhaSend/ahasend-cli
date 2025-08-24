@@ -39,8 +39,8 @@ Examples:
 		err = ahasendClient.Ping()
 
 		if err != nil {
-			// Handle API error and convert to CLI error
-			return handler.HandleError(err)
+			// Return the original error to let wrapper handle it
+			return err
 		}
 
 		// Success response with pong message

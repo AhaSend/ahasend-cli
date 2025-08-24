@@ -125,18 +125,18 @@ func runRoutesUpdate(cmd *cobra.Command, args []string) error {
 	// Parse and validate update configuration
 	config, err := parseUpdateFlags(cmd)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Validate that at least one field is being updated
 	if !config.HasUpdates() {
-		return handler.HandleError(fmt.Errorf("no updates specified. Provide at least one flag to update the route"))
+		return fmt.Errorf("no updates specified. Provide at least one flag to update the route")
 	}
 
 	// Update the route
 	route, err := updateRoute(client, routeID, config)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display updated route

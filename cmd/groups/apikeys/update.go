@@ -102,7 +102,7 @@ func runAPIKeyUpdate(cmd *cobra.Command, args []string) error {
 	// Update the API key
 	apiKey, err := client.UpdateAPIKey(keyID, req)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful response

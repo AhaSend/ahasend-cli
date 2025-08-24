@@ -47,7 +47,7 @@ func runSuppressionsCheck(cmd *cobra.Command, args []string) error {
 
 	// Validate email format
 	if email == "" {
-		return handler.HandleError(errors.NewValidationError("email address is required", nil))
+		return errors.NewValidationError("email address is required", nil)
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -74,7 +74,7 @@ func runSuppressionsCheck(cmd *cobra.Command, args []string) error {
 		Domain: domainPtr,
 	})
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display suppression check results

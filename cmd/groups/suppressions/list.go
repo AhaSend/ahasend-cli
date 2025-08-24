@@ -68,7 +68,7 @@ func runSuppressionsList(cmd *cobra.Command, args []string) error {
 	// Fetch suppressions
 	response, err := fetchSuppressions(client, email, &limit, &cursor, &domain)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display suppressions list

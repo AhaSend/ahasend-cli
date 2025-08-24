@@ -59,13 +59,13 @@ func runSMTPDelete(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			// If credential not found, still try to delete (might be stale)
 			if !strings.Contains(err.Error(), "not found") {
-				return handler.HandleError(err)
+				return err
 			}
 		} else if credential != nil {
 			// Show credential details and confirm deletion
 			confirmed, err := confirmDeletion(credential.Name, credential.Username)
 			if err != nil {
-				return handler.HandleError(err)
+				return err
 			}
 			if !confirmed {
 				return handler.HandleSimpleSuccess("SMTP credential deletion cancelled")
@@ -81,7 +81,7 @@ func runSMTPDelete(cmd *cobra.Command, args []string) error {
 	// Delete the credential
 	err = client.DeleteSMTPCredential(credentialID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display deletion success

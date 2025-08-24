@@ -54,6 +54,7 @@ type ResponseHandler interface {
 	HandleCreateWebhook(webhook *responses.Webhook, config CreateConfig) error
 	HandleUpdateWebhook(webhook *responses.Webhook, config UpdateConfig) error
 	HandleDeleteWebhook(success bool, config DeleteConfig) error
+	HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error
 
 	// Route responses
 	HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error
@@ -177,6 +178,11 @@ type SMTPSendConfig struct {
 // SimpleConfig configures simple success responses
 type SimpleConfig struct {
 	SuccessMessage string // Message to show on success
+}
+
+// TriggerConfig configures how webhook trigger responses are displayed
+type TriggerConfig struct {
+	SuccessMessage string // Message to show on successful trigger
 }
 
 // Custom types for complex scenarios that don't map directly to SDK types
@@ -314,6 +320,10 @@ func (h *unsupportedHandler) HandleUpdateWebhook(webhook *responses.Webhook, con
 }
 
 func (h *unsupportedHandler) HandleDeleteWebhook(success bool, config DeleteConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+
+func (h *unsupportedHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
 	return fmt.Errorf("unsupported output format: %s", h.format)
 }
 

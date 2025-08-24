@@ -114,13 +114,13 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 		// Run interactive webhook creation
 		req, err := runInteractiveWebhookCreate()
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		// Create the webhook
 		webhook, err := createWebhook(client, *req)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		return handler.HandleCreateWebhook(webhook, printer.CreateConfig{
@@ -185,7 +185,7 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 	// Create the webhook
 	webhook, err := createWebhook(client, req)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display created webhook

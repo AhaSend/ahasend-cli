@@ -55,11 +55,11 @@ func runDomainsVerify(cmd *cobra.Command, args []string) error {
 	// Get current domain status
 	response, err := client.GetDomain(domain)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	if response == nil {
-		return handler.HandleError(errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil))
+		return errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil)
 	}
 
 	// Show troubleshooting tips and DNS configuration instructions

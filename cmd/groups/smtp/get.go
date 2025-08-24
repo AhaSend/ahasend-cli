@@ -49,11 +49,11 @@ func runSMTPGet(cmd *cobra.Command, args []string) error {
 	// Get SMTP credential
 	credential, err := client.GetSMTPCredential(credentialID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	if credential == nil {
-		return handler.HandleError(errors.NewAPIError("received nil response from API", nil))
+		return errors.NewAPIError("received nil response from API", nil)
 	}
 
 	// Use the new ResponseHandler to display SMTP credential details

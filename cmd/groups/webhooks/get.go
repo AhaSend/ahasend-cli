@@ -62,7 +62,7 @@ func runWebhooksGet(cmd *cobra.Command, args []string) error {
 	// Get the webhook
 	webhook, err := getWebhook(client, webhookID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display single webhook

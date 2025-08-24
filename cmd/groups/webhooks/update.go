@@ -208,7 +208,7 @@ func runWebhooksUpdate(cmd *cobra.Command, args []string) error {
 	// Update the webhook
 	webhook, err := updateWebhook(client, webhookID, *req)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display updated webhook

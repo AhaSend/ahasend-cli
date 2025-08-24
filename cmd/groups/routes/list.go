@@ -81,7 +81,7 @@ func runRoutesList(cmd *cobra.Command, args []string) error {
 
 	routes, err := client.ListRoutes(&limit, cursorPtr)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Apply client-side enabled filter if requested

@@ -64,7 +64,7 @@ func runWebhooksDelete(cmd *cobra.Command, args []string) error {
 	if !force {
 		webhook, err = getWebhookForConfirmation(client, webhookID)
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 
 		// Show webhook details and ask for confirmation
@@ -82,7 +82,7 @@ func runWebhooksDelete(cmd *cobra.Command, args []string) error {
 	// Delete the webhook
 	err = deleteWebhook(client, webhookID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display deletion success

@@ -85,7 +85,7 @@ func runAPIKeyDelete(cmd *cobra.Command, args []string) error {
 	// Delete the API key
 	_, err = client.DeleteAPIKey(keyID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful deletion

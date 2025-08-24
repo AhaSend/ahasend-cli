@@ -47,7 +47,7 @@ func runAPIKeyGet(cmd *cobra.Command, args []string) error {
 	// Get API key details
 	apiKey, err := client.GetAPIKey(keyID)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Handle successful response

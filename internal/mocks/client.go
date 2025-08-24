@@ -573,3 +573,21 @@ func (m *MockClient) DeleteAPIKey(keyID string) (*common.SuccessResponse, error)
 	}
 	return args.Get(0).(*common.SuccessResponse), args.Error(1)
 }
+
+// WebSocket methods for webhook streaming
+
+func (m *MockClient) InitiateWebhookStream(webhookID string) (*client.WebhookStreamResponse, error) {
+	args := m.Called(webhookID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.WebhookStreamResponse), args.Error(1)
+}
+
+func (m *MockClient) ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipVerify bool) (*client.WebSocketClient, error) {
+	args := m.Called(wsURL, webhookID, forceReconnect, skipVerify)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.WebSocketClient), args.Error(1)
+}

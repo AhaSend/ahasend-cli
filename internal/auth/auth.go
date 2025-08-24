@@ -71,7 +71,7 @@ func GetAuthenticatedClient(cmd *cobra.Command) (client.AhaSendClient, error) {
 		})
 	}
 
-	return client.NewClient(profile.APIKey, profile.AccountID)
+	return client.NewClient(profile.APIKey, profile.AccountID, profile.APIURL)
 }
 
 // RequireAuth validates that authentication is available

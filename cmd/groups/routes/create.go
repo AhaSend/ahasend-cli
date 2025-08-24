@@ -113,11 +113,11 @@ func runRoutesCreate(cmd *cobra.Command, args []string) error {
 	if needsInteractive {
 		config, err = collectRouteConfigInteractive()
 		if err != nil {
-			return handler.HandleError(err)
+			return err
 		}
 	} else {
 		if name == "" || webhookURL == "" {
-			return handler.HandleError(fmt.Errorf("name and url are required. Use --interactive for guided setup or provide both --name and --url flags"))
+			return fmt.Errorf("name and url are required. Use --interactive for guided setup or provide both --name and --url flags")
 		}
 
 		config = RouteCreateConfig{
@@ -134,13 +134,13 @@ func runRoutesCreate(cmd *cobra.Command, args []string) error {
 
 	// Validate configuration
 	if err := validateRouteConfig(config); err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Create the route
 	route, err := createRoute(client, config)
 	if err != nil {
-		return handler.HandleError(err)
+		return err
 	}
 
 	// Use the new ResponseHandler to display created route

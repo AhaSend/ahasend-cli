@@ -159,6 +159,16 @@ func (h *jsonHandler) HandleDeleteWebhook(success bool, config DeleteConfig) err
 	return h.printJSON(result)
 }
 
+func (h *jsonHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
+	result := map[string]interface{}{
+		"success":    true,
+		"webhook_id": webhookID,
+		"events":     events,
+		"message":    config.SuccessMessage,
+	}
+	return h.printJSON(result)
+}
+
 // Route responses
 func (h *jsonHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
 	if response == nil {
