@@ -36,7 +36,7 @@ as it will only be shown once and cannot be retrieved later.`,
   ahasend smtp create --name "Production Server"
 
   # Create scoped credential for specific domains
-  ahasend smtp create --name "Marketing" --scope scoped --domains "marketing.example.com,news.example.com"
+  ahasend smtp create --name "onboarding" --scope scoped --domains "onboarding.example.com,drip.example.com"
 
   # Create sandbox credential for testing
   ahasend smtp create --name "Test Server" --sandbox

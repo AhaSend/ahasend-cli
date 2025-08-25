@@ -21,7 +21,7 @@ Common workflow:
   ahasend messages send --from sender@mydomain.com --to recipient@example.com --subject "Hello" --text "Hello World"
 
   # Send HTML email
-  ahasend messages send --from sender@mydomain.com --to recipient@example.com --subject "Newsletter" --html "<h1>Welcome</h1>"
+  ahasend messages send --from sender@mydomain.com --to recipient@example.com --subject "Welcome to AhaSend" --html "<h1>Welcome</h1>"
 
   # Send with template and variables
   ahasend messages send --template email.html --data variables.json --from sender@mydomain.com --to recipient@example.com`,

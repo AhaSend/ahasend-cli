@@ -375,7 +375,7 @@ ahasend messages send \
 ahasend messages send \
   --from sender@example.com \
   --to recipient@example.com \
-  --subject "Newsletter" \
+  --subject "Welcome to AhaSend" \
   --html "<h1>Welcome!</h1><p>Thank you for subscribing.</p>"
 
 # Multipart email (both HTML and text)
@@ -450,8 +450,8 @@ ahasend messages send \
 ahasend messages send \
   --from sender@example.com \
   --recipients large-list.csv \
-  --subject "Newsletter {{month}}" \
-  --html-template newsletter.html \
+  --subject "Welcome to AhaSend, {{ first_name }}" \
+  --html-template welcome.html \
   --max-concurrency 5 \
   --progress \
   --show-metrics
@@ -491,7 +491,7 @@ ahasend messages send \
   --header "X-Priority: high" \
   --track-opens true \
   --track-clicks true \
-  --tags newsletter,promotion
+  --tags onboarding,welcome
 
 # Sandbox mode for testing
 ahasend messages send \
@@ -611,6 +611,109 @@ Delete a webhook endpoint.
 
 ```bash
 ahasend webhooks delete webhook_1234567890abcdef
+```
+
+#### `ahasend webhooks listen`
+
+Listen for incoming webhook events in real-time. This command creates a local HTTP server that receives and displays webhook events as they occur, making it perfect for development and testing.
+
+```bash
+# Listen on default port (8080)
+ahasend webhooks listen http://localhost:8080/webhook
+
+# Listen on custom port with specific events
+ahasend webhooks listen http://localhost:3000/events \
+  --events "on_delivered,on_opened,on_clicked" \
+  --port 3000
+
+# Listen for all events with verbose output
+ahasend webhooks listen http://localhost:8080/webhook \
+  --events "all" \
+  --verbose
+
+# With custom headers for authentication
+ahasend webhooks listen http://localhost:8080/webhook \
+  --header "X-API-Key: secret123" \
+  --header "X-Custom-Header: value"
+```
+
+**Available Event Types:**
+- `on_reception` - Email received by AhaSend
+- `on_delivered` - Email delivered to recipient
+- `on_transient_error` - Temporary delivery failure
+- `on_failed` - Permanent delivery failure
+- `on_bounced` - Email bounced
+- `on_suppressed` - Email suppressed
+- `on_suppression_created` - New suppression added
+- `on_dns_error` - DNS resolution failure
+- `on_opened` - Email opened by recipient
+- `on_clicked` - Link clicked in email
+
+**Flags:**
+- `--events` - Comma-separated list of events to listen for (or "all")
+- `--port` - Local port to listen on (default: 8080)
+- `--header` - Custom headers to include in webhook requests (can be used multiple times)
+- `--timeout` - Request timeout in seconds (default: 30)
+- `--verbose` - Show detailed request/response information
+
+<Note>
+The webhook listener will automatically verify webhook signatures using the SDK's built-in verification. Make sure your webhook secret is properly configured.
+</Note>
+
+#### `ahasend webhooks trigger`
+
+Trigger webhook events for testing purposes. This is a development-only feature that allows you to manually trigger webhook events without waiting for actual email events to occur.
+
+```bash
+# Trigger a single event
+ahasend webhooks trigger webhook_1234567890abcdef \
+  --events "on_delivered"
+
+# Trigger multiple events
+ahasend webhooks trigger webhook_1234567890abcdef \
+  --events "on_delivered,on_opened,on_clicked"
+
+# Trigger all available events
+ahasend webhooks trigger webhook_1234567890abcdef \
+  --all-events
+```
+
+**Flags:**
+- `--events` - Comma-separated list of event types to trigger
+- `--all-events` - Trigger all available event types
+
+**Available Events for Triggering:**
+- `on_reception`
+- `on_delivered`
+- `on_transient_error`
+- `on_failed`
+- `on_bounced`
+- `on_suppressed`
+- `on_suppression_created`
+- `on_dns_error`
+- `on_opened`
+- `on_clicked`
+
+<Warning>
+The trigger command is only available in development environments and is intended for testing webhook integrations. It will not work in production.
+</Warning>
+
+**Examples:**
+
+```bash
+# Test your webhook handler with a delivery event
+ahasend webhooks trigger my-webhook-id --events "on_delivered"
+
+# Simulate a complete email lifecycle
+ahasend webhooks trigger my-webhook-id \
+  --events "on_reception,on_delivered,on_opened,on_clicked"
+
+# Test error handling
+ahasend webhooks trigger my-webhook-id \
+  --events "on_transient_error,on_failed,on_bounced"
+
+# Run comprehensive webhook tests
+ahasend webhooks trigger my-webhook-id --all-events
 ```
 
 ### Route Commands
@@ -949,6 +1052,135 @@ last_dns_check_at: 2024-01-16T08:00:00Z
 
 ## Advanced Features
 
+### Webhook Testing and Development
+
+The AhaSend CLI provides comprehensive webhook testing tools for development and integration testing.
+
+#### Local Webhook Testing
+
+Test your webhook handlers locally without deploying to production:
+
+```bash
+# Step 1: Start a local webhook listener
+ahasend webhooks listen http://localhost:8080/webhook \
+  --events "all" \
+  --verbose
+
+# Step 2: In another terminal, trigger test events
+ahasend webhooks trigger your-webhook-id \
+  --events "on_delivered,on_opened"
+```
+
+#### Integration Testing Workflow
+
+<Tabs>
+<Tab title="Development Testing">
+```bash
+# 1. Create a test webhook pointing to your local server
+ahasend webhooks create \
+  --url http://localhost:3000/api/webhooks/ahasend \
+  --events "on_delivered,on_bounced,on_failed" \
+  --description "Local development webhook"
+
+# 2. Start your local webhook listener (in your app)
+npm run dev  # or your app's dev server
+
+# 3. Start AhaSend webhook listener to monitor events
+ahasend webhooks listen http://localhost:3000/api/webhooks/ahasend \
+  --verbose
+
+# 4. Trigger test events
+ahasend webhooks trigger webhook-id --all-events
+
+# 5. Send test emails to generate real events
+ahasend messages send \
+  --from test@yourdomain.com \
+  --to test@example.com \
+  --subject "Test Email" \
+  --text "Testing webhook integration" \
+  --sandbox
+```
+</Tab>
+<Tab title="CI/CD Testing">
+```bash
+#!/bin/bash
+# webhook-test.sh - Automated webhook testing script
+
+# Start webhook listener in background
+ahasend webhooks listen http://localhost:8080/webhook \
+  --events "all" \
+  --output json > webhook-events.log &
+LISTENER_PID=$!
+
+# Wait for listener to start
+sleep 2
+
+# Trigger test events
+ahasend webhooks trigger $WEBHOOK_ID \
+  --events "on_delivered,on_bounced,on_failed"
+
+# Wait for events to be processed
+sleep 5
+
+# Kill listener
+kill $LISTENER_PID
+
+# Verify events were received
+if grep -q "on_delivered" webhook-events.log; then
+  echo "✓ Webhook testing passed"
+  exit 0
+else
+  echo "✗ Webhook testing failed"
+  exit 1
+fi
+```
+</Tab>
+</Tabs>
+
+#### Webhook Event Simulation
+
+Test different scenarios by triggering specific event combinations:
+
+```bash
+# Test successful delivery flow
+ahasend webhooks trigger webhook-id \
+  --events "on_reception,on_delivered,on_opened,on_clicked"
+
+# Test bounce handling
+ahasend webhooks trigger webhook-id \
+  --events "on_reception,on_bounced"
+
+# Test suppression flow
+ahasend webhooks trigger webhook-id \
+  --events "on_suppressed,on_suppression_created"
+
+# Test error scenarios
+ahasend webhooks trigger webhook-id \
+  --events "on_transient_error,on_failed,on_dns_error"
+```
+
+#### Debugging Webhook Issues
+
+Use verbose mode to debug webhook signature verification and payload issues:
+
+```bash
+# Detailed webhook debugging
+ahasend webhooks listen http://localhost:8080/webhook \
+  --events "all" \
+  --verbose \
+  --debug
+
+# Test with custom headers
+ahasend webhooks listen http://localhost:8080/webhook \
+  --header "X-API-Key: your-secret" \
+  --header "Content-Type: application/json" \
+  --verbose
+```
+
+<Note>
+The webhook listener automatically verifies signatures using the SDK's built-in verification. Ensure your webhook secret is properly configured in your AhaSend account settings.
+</Note>
+
 ### Batch Processing
 
 The AhaSend CLI provides powerful batch processing capabilities for high-volume email sending.
@@ -967,8 +1199,8 @@ The AhaSend CLI provides powerful batch processing capabilities for high-volume 
 ahasend messages send \
   --from sender@example.com \
   --recipients large-list.json \
-  --subject "Newsletter {{month}}" \
-  --html-template newsletter.html \
+  --subject "Welcome to AhaSend, {{ first_name }}" \
+  --html-template welcome.html \
   --max-concurrency 5 \
   --max-retries 3 \
   --progress \
@@ -1320,26 +1552,26 @@ ahasend messages send \
   --tags transactional,order-confirmation
 ```
 
-#### 3. Newsletter Campaign with Analytics
+#### 3. Batch send with Analytics
 
-Send a newsletter to segmented audience:
+Batch send to segmented audience:
 
 ```bash
-# Send newsletter to premium subscribers
+# Send to premium users
 ahasend messages send \
-  --from newsletter@media.com \
-  --recipients premium-subscribers.csv \
+  --from info@media.com \
+  --recipients premium-users.csv \
   --subject "Weekly Digest - {{week_of}}" \
-  --html-template newsletter-premium.html \
-  --text-template newsletter-premium.txt \
-  --global-substitutions newsletter-data.json \
+  --html-template digest-premium.html \
+  --text-template digest-premium.txt \
+  --global-substitutions digest-data.json \
   --track-opens true \
   --track-clicks true \
-  --tags newsletter,premium,weekly \
+  --tags digest,premium,weekly \
   --max-concurrency 3 \
   --progress \
   --show-metrics \
-  --output json > campaign-results.json
+  --output json > digest-results.json
 
 # Check delivery statistics
 ahasend stats deliverability \

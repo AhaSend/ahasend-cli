@@ -46,7 +46,7 @@ Examples:
   ahasend smtp create --name "Main Server" --scope global
 
   # Create domain-specific credential
-  ahasend smtp create --name "Marketing" --scope scoped --domains "marketing.example.com"
+  ahasend smtp create --name "Notifications" --scope scoped --domains "notifications.example.com"
 
   # Test SMTP connection
   ahasend smtp send --test --server send.ahasend.com:587`,

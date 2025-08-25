@@ -10,7 +10,7 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 
 - **🚀 Email Sending**: Send single or batch emails with templates, attachments, and scheduling
 - **🌐 Domain Management**: Add, verify, and manage sending domains with DNS configuration
-- **🔔 Webhook Management**: Configure real-time event notifications
+- **🔔 Webhook Management**: Configure, test, and monitor real-time event notifications
 - **🔐 Authentication**: Secure profile-based authentication with API key management
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
@@ -111,11 +111,23 @@ ahasend messages send \
 ahasend messages send \
   --from noreply@example.com \
   --recipients users.csv \
-  --subject "Newsletter" \
-  --html-template newsletter.html \
+  --subject "Welcome to AhaSend" \
+  --html-template welcome.html \
   --max-concurrency 5 \
   --progress \
   --show-metrics
+```
+
+### 5. Test Webhooks
+
+```bash
+# Listen for incoming webhook events in real-time
+ahasend webhooks listen http://localhost:8080/webhook \
+  --events "on_delivered,on_opened,on_clicked"
+
+# Trigger test webhook events for development
+ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
+  --events "on_delivered,on_opened"
 ```
 
 ## Command Reference
@@ -208,6 +220,28 @@ ahasend messages send --profile staging \
 
 # Switch default profile
 ahasend auth switch production
+```
+
+### Webhook Development and Testing
+
+```bash
+# Configure a webhook endpoint
+ahasend webhooks create \
+  --url https://api.example.com/webhooks/ahasend \
+  --events "on_delivered,on_bounced,on_failed" \
+  --description "Production webhook handler"
+
+# Test webhook locally with real-time monitoring
+ahasend webhooks listen http://localhost:3000/webhook \
+  --events "all" \
+  --verbose
+
+# Trigger test events for integration testing
+ahasend webhooks trigger webhook-id-here \
+  --all-events
+
+# List all configured webhooks
+ahasend webhooks list --output table
 ```
 
 ### Monitoring and Analytics

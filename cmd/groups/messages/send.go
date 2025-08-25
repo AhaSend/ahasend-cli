@@ -87,7 +87,7 @@ BATCH OPERATIONS:
   ahasend messages send --from sender@mydomain.com --to recipient@example.com --subject "Hello" --text "Hello World"
 
   # Send multipart email with both HTML and text
-  ahasend messages send --from sender@mydomain.com --to user@example.com --subject "Newsletter" --html "<h1>Welcome</h1>" --text "Welcome"
+  ahasend messages send --from sender@mydomain.com --to user@example.com --subject "Welcome to AhaSend" --html "<h1>Welcome</h1>" --text "Welcome"
 
   # Send to multiple recipients (global substitutions only)
   ahasend messages send --from sender@mydomain.com --to user1@example.com --to user2@example.com --subject "Hi {{name}}" --text-template message.txt --global-substitutions data.json
@@ -117,7 +117,7 @@ BATCH OPERATIONS:
   ahasend messages send --from sender@mydomain.com --to user@example.com --subject "Important" --text "Message" --idempotency-key "my-unique-key-123"
 
   # Batch send with progress bar and metrics
-  ahasend messages send --from sender@mydomain.com --recipients large-list.csv --subject "Newsletter" --html-template newsletter.html --progress --show-metrics
+  ahasend messages send --from sender@mydomain.com --recipients large-list.csv --subject "Welcome to AhaSend" --html-template welcome.html --progress --show-metrics
 
   # High-performance batch send with concurrency
   ahasend messages send --from sender@mydomain.com --recipients 10000-users.json --subject "Announcement" --text-template message.txt --max-concurrency 5 --progress`,
