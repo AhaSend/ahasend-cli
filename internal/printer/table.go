@@ -231,13 +231,13 @@ func (h *tableHandler) HandleMessageList(response *responses.PaginatedMessagesRe
 	table := h.createTable()
 
 	// Define headers based on FieldOrder if provided, otherwise use defaults
-	headers := []string{"API ID", "From", "To", "Subject", "Status", "Created", "Delivered", "Opens", "Clicks"}
+	headers := []string{"ID", "From", "To", "Subject", "Status", "Created", "Delivered", "Opens", "Clicks"}
 	if len(config.FieldOrder) > 0 {
 		headers = []string{}
 		for _, field := range config.FieldOrder {
 			switch field {
-			case "api_id":
-				headers = append(headers, "API ID")
+			case "id":
+				headers = append(headers, "ID")
 			case "sender":
 				headers = append(headers, "From")
 			case "recipient":
@@ -284,7 +284,7 @@ func (h *tableHandler) HandleMessageList(response *responses.PaginatedMessagesRe
 		row := []string{}
 		for _, field := range config.FieldOrder {
 			switch field {
-			case "api_id":
+			case "id":
 				row = append(row, formatUUID(message.ID))
 			case "sender":
 				row = append(row, message.Sender)
@@ -364,7 +364,7 @@ func (h *tableHandler) HandleSingleMessage(message *responses.Message, config Si
 	table.Header(headerArgs...)
 
 	// Core message details
-	addTableRow(table, []string{"API ID", formatUUID(message.ID)})
+	addTableRow(table, []string{"ID", formatUUID(message.ID)})
 	addTableRow(table, []string{"Account ID", formatUUID(message.AccountID)})
 	addTableRow(table, []string{"From", message.Sender})
 	addTableRow(table, []string{"To", message.Recipient})

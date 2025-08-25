@@ -476,21 +476,21 @@ func TestSendCommand_FlagParsing(t *testing.T) {
 			args: []string{
 				"--from", "sender@example.com",
 				"--to", "recipient@example.com",
-				"--subject", "Marketing Email",
+				"--subject", "Welcome to AhaSend",
 				"--html", "<h1>Hello</h1>",
 				"--track-opens",
 				"--track-clicks",
-				"--tags", "marketing,newsletter",
+				"--tags", "onboarding,drip",
 				"--sandbox",
 			},
 			expected: map[string]interface{}{
 				"from":         "sender@example.com",
 				"to":           []string{"recipient@example.com"},
-				"subject":      "Marketing Email",
+				"subject":      "Welcome to AhaSend",
 				"html":         "<h1>Hello</h1>",
 				"track-opens":  true,
 				"track-clicks": true,
-				"tags":         []string{"marketing", "newsletter"},
+				"tags":         []string{"onboarding", "drip"},
 				"sandbox":      true,
 			},
 		},
@@ -958,16 +958,16 @@ func TestEmailBuilding_SMTPSend(t *testing.T) {
 	})
 
 	t.Run("AhaSend special headers", func(t *testing.T) {
-		tags := []string{"marketing", "newsletter"}
+		tags := []string{"onboarding", "drip"}
 		sandbox := true
 
 		// Test that special headers are configured correctly
-		assert.Equal(t, []string{"marketing", "newsletter"}, tags)
+		assert.Equal(t, []string{"onboarding", "drip"}, tags)
 		assert.True(t, sandbox)
 
 		// Test header formatting
 		tagsHeader := strings.Join(tags, ",")
-		assert.Equal(t, "marketing,newsletter", tagsHeader)
+		assert.Equal(t, "onboarding,drip", tagsHeader)
 	})
 }
 

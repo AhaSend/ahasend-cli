@@ -138,7 +138,7 @@ func (h *csvHandler) HandleMessageList(response *responses.PaginatedMessagesResp
 	// Create field map for the first message to determine headers
 	firstMessage := response.Data[0]
 	fieldMap := map[string]string{
-		"api_id":       formatUUID(firstMessage.ID),
+		"id":           formatUUID(firstMessage.ID),
 		"sender":       firstMessage.Sender,
 		"recipient":    firstMessage.Recipient,
 		"subject":      firstMessage.Subject,
@@ -162,7 +162,7 @@ func (h *csvHandler) HandleMessageList(response *responses.PaginatedMessagesResp
 		headers = getCSVHeaders(fieldMap, config.FieldOrder)
 	} else {
 		// Default headers
-		headers = []string{"api_id", "sender", "recipient", "subject", "status", "created", "delivered", "opens", "clicks"}
+		headers = []string{"id", "sender", "recipient", "subject", "status", "created", "delivered", "opens", "clicks"}
 	}
 
 	// Write headers
@@ -173,7 +173,7 @@ func (h *csvHandler) HandleMessageList(response *responses.PaginatedMessagesResp
 	// Write data rows
 	for _, message := range response.Data {
 		messageFieldMap := map[string]string{
-			"api_id":       formatUUID(message.ID),
+			"id":           formatUUID(message.ID),
 			"sender":       message.Sender,
 			"recipient":    message.Recipient,
 			"subject":      message.Subject,
@@ -210,7 +210,7 @@ func (h *csvHandler) HandleSingleMessage(message *responses.Message, config Sing
 
 	// Create field map
 	fieldMap := map[string]string{
-		"api_id":       formatUUID(message.ID),
+		"id":           formatUUID(message.ID),
 		"account_id":   formatUUID(message.AccountID),
 		"sender":       message.Sender,
 		"recipient":    message.Recipient,
@@ -236,7 +236,7 @@ func (h *csvHandler) HandleSingleMessage(message *responses.Message, config Sing
 		headers = getCSVHeaders(fieldMap, config.FieldOrder)
 	} else {
 		// Default headers for single message
-		headers = []string{"api_id", "ahasend_id", "account_id", "sender", "recipient", "subject", "status", "direction", "created", "updated", "delivered", "opens", "clicks", "attempts", "bounce_class", "message_id", "domain_id", "tags", "retain_until"}
+		headers = []string{"id", "account_id", "sender", "recipient", "subject", "status", "direction", "created", "updated", "delivered", "opens", "clicks", "attempts", "bounce_class", "message_id", "domain_id", "tags", "retain_until"}
 	}
 
 	// Write headers

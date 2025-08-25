@@ -140,7 +140,7 @@ func (h *plainHandler) HandleSingleMessage(message *responses.Message, config Si
 
 	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
 
-	fmt.Fprintf(h.writer, "API ID: %s\n", formatUUID(message.ID))
+	fmt.Fprintf(h.writer, "ID: %s\n", formatUUID(message.ID))
 	fmt.Fprintf(h.writer, "Account ID: %s\n", formatUUID(message.AccountID))
 	fmt.Fprintf(h.writer, "From: %s\n", message.Sender)
 	fmt.Fprintf(h.writer, "To: %s\n", message.Recipient)

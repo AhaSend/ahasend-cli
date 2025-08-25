@@ -210,7 +210,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Use the new ResponseHandler to display message list
-	fieldOrder := []string{"api_id", "sender", "recipient", "subject", "status", "created", "delivered", "opens", "clicks"}
+	fieldOrder := []string{"id", "sender", "recipient", "subject", "status", "created", "delivered", "opens", "clicks"}
 	if showDetails {
 		fieldOrder = append(fieldOrder, "message_id", "direction", "domain_id", "attempts", "tags", "bounce_class", "retain_until")
 	}
