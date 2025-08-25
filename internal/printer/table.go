@@ -285,7 +285,7 @@ func (h *tableHandler) HandleMessageList(response *responses.PaginatedMessagesRe
 		for _, field := range config.FieldOrder {
 			switch field {
 			case "api_id":
-				row = append(row, formatUUID(message.ApiID))
+				row = append(row, formatUUID(message.ID))
 			case "sender":
 				row = append(row, message.Sender)
 			case "recipient":
@@ -322,7 +322,7 @@ func (h *tableHandler) HandleMessageList(response *responses.PaginatedMessagesRe
 		// If no field order specified, use default row
 		if len(config.FieldOrder) == 0 {
 			row = []string{
-				formatUUID(message.ApiID),
+				formatUUID(message.ID),
 				message.Sender,
 				message.Recipient,
 				message.Subject,
@@ -364,8 +364,7 @@ func (h *tableHandler) HandleSingleMessage(message *responses.Message, config Si
 	table.Header(headerArgs...)
 
 	// Core message details
-	addTableRow(table, []string{"API ID", formatUUID(message.ApiID)})
-	addTableRow(table, []string{"AhaSend ID", message.AhasendID})
+	addTableRow(table, []string{"API ID", formatUUID(message.ID)})
 	addTableRow(table, []string{"Account ID", formatUUID(message.AccountID)})
 	addTableRow(table, []string{"From", message.Sender})
 	addTableRow(table, []string{"To", message.Recipient})

@@ -138,7 +138,7 @@ func (h *csvHandler) HandleMessageList(response *responses.PaginatedMessagesResp
 	// Create field map for the first message to determine headers
 	firstMessage := response.Data[0]
 	fieldMap := map[string]string{
-		"api_id":       formatUUID(firstMessage.ApiID),
+		"api_id":       formatUUID(firstMessage.ID),
 		"sender":       firstMessage.Sender,
 		"recipient":    firstMessage.Recipient,
 		"subject":      firstMessage.Subject,
@@ -173,7 +173,7 @@ func (h *csvHandler) HandleMessageList(response *responses.PaginatedMessagesResp
 	// Write data rows
 	for _, message := range response.Data {
 		messageFieldMap := map[string]string{
-			"api_id":       formatUUID(message.ApiID),
+			"api_id":       formatUUID(message.ID),
 			"sender":       message.Sender,
 			"recipient":    message.Recipient,
 			"subject":      message.Subject,
@@ -210,8 +210,7 @@ func (h *csvHandler) HandleSingleMessage(message *responses.Message, config Sing
 
 	// Create field map
 	fieldMap := map[string]string{
-		"api_id":       formatUUID(message.ApiID),
-		"ahasend_id":   message.AhasendID,
+		"api_id":       formatUUID(message.ID),
 		"account_id":   formatUUID(message.AccountID),
 		"sender":       message.Sender,
 		"recipient":    message.Recipient,

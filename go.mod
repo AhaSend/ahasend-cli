@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.6
 
 require (
-	github.com/AhaSend/ahasend-go v0.0.0-20250822083844-82c24b4ea642
+	github.com/AhaSend/ahasend-go v0.0.0-20250824225429-f5fededb9d66
 	github.com/google/uuid v1.6.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/sirupsen/logrus v1.9.3

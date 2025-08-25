@@ -107,7 +107,7 @@ func (h *plainHandler) HandleMessageList(response *responses.PaginatedMessagesRe
 			fmt.Fprintf(h.writer, "\n")
 		}
 
-		fmt.Fprintf(h.writer, "Message: %s\n", formatUUID(message.ApiID))
+		fmt.Fprintf(h.writer, "Message: %s\n", formatUUID(message.ID))
 		fmt.Fprintf(h.writer, "  From: %s\n", message.Sender)
 		fmt.Fprintf(h.writer, "  To: %s\n", message.Recipient)
 		fmt.Fprintf(h.writer, "  Subject: %s\n", message.Subject)
@@ -140,8 +140,7 @@ func (h *plainHandler) HandleSingleMessage(message *responses.Message, config Si
 
 	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
 
-	fmt.Fprintf(h.writer, "API ID: %s\n", formatUUID(message.ApiID))
-	fmt.Fprintf(h.writer, "AhaSend ID: %s\n", message.AhasendID)
+	fmt.Fprintf(h.writer, "API ID: %s\n", formatUUID(message.ID))
 	fmt.Fprintf(h.writer, "Account ID: %s\n", formatUUID(message.AccountID))
 	fmt.Fprintf(h.writer, "From: %s\n", message.Sender)
 	fmt.Fprintf(h.writer, "To: %s\n", message.Recipient)
