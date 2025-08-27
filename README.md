@@ -3,7 +3,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-00ADD8.svg)](https://go.dev/)
 [![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://ahasend.com/docs/api-reference)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-go)](https://goreportcard.com/report/github.com/AhaSend/ahasend-go)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache 2.0-green.svg)](https://opensource.org/licenses/apache-2.0)
 
 A powerful command-line interface for [AhaSend](https://ahasend.com), the reliable transactional email service. Send emails, manage domains, configure webhooks, and monitor email analytics directly from your terminal.
 
@@ -119,16 +119,23 @@ ahasend messages send \
   --show-metrics
 ```
 
-### 5. Test Webhooks
+### 5. Test Webhooks & Inbound Routes
 
 ```bash
-# Listen for incoming webhook events in real-time
+# Listen for outbound email webhook events in real-time
 ahasend webhooks listen http://localhost:8080/webhook \
   --events "on_delivered,on_opened,on_clicked"
 
 # Trigger test webhook events for development
 ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
   --events "on_delivered,on_opened"
+
+# Listen for inbound email route events
+ahasend routes listen --recipient "*@example.com" \
+  --forward-to http://localhost:3000/webhook
+
+# Trigger route events for testing (development only)
+ahasend routes trigger route-id-here
 ```
 
 ## Command Reference
@@ -243,6 +250,29 @@ ahasend webhooks trigger webhook-id-here \
 
 # List all configured webhooks
 ahasend webhooks list --output table
+```
+
+### Inbound Email Route Testing
+
+```bash
+# Listen for inbound emails with temporary route
+ahasend routes listen --recipient "*@example.com" \
+  --forward-to http://localhost:3000/webhook
+
+# Listen with existing route and slim output
+ahasend routes listen --route-id abc123 \
+  --slim-output
+
+# Test route processing without real emails (dev only)
+ahasend routes trigger route-id-here
+
+# Create and test a support email route
+ahasend routes create \
+  --match-recipient "support@example.com" \
+  --forward-to "team@company.com"
+
+ahasend routes listen --recipient "support@example.com" \
+  --forward-to http://localhost:8080/support-webhook
 ```
 
 ### Monitoring and Analytics

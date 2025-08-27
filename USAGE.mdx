@@ -718,7 +718,7 @@ ahasend webhooks trigger my-webhook-id --all-events
 
 ### Route Commands
 
-Routes allow you to set up email forwarding and processing rules.
+Routes allow you to set up email forwarding and processing rules for inbound email handling.
 
 #### `ahasend routes list`
 
@@ -734,6 +734,104 @@ ahasend routes create \
   --forward-to "team@example.com" \
   --description "Support email routing"
 ```
+
+#### `ahasend routes listen`
+
+Listen for inbound email routing events in real-time using WebSocket connection. This command is essential for testing inbound email processing and webhook integrations.
+
+<Note>
+Attachment data is not sent over WebSocket for performance reasons. Only email metadata and content are transmitted.
+</Note>
+
+**Available Event Type:**
+- `message.routing` - Triggered when an inbound email matches a route
+
+**Usage Options:**
+
+<Tabs>
+<Tab title="Existing Route">
+Use with an existing route ID:
+
+```bash
+# Listen to events from existing route
+ahasend routes listen --route-id abcd1234-5678-90ef-abcd-1234567890ab
+```
+</Tab>
+
+<Tab title="Temporary Route">
+Create a temporary route with recipient pattern:
+
+```bash
+# Listen with wildcard pattern (temporary route)
+ahasend routes listen --recipient "*@example.com"
+
+# Listen for specific subdomain patterns
+ahasend routes listen --recipient "support-*@example.com"
+```
+</Tab>
+</Tabs>
+
+**Event Forwarding to Local Endpoints:**
+
+```bash
+# Forward events to local development server
+ahasend routes listen \
+  --recipient "*@example.com" \
+  --forward-to http://localhost:3000/webhook
+
+# Skip SSL verification for self-signed certificates
+ahasend routes listen \
+  --route-id abcd1234-5678-90ef-abcd-1234567890ab \
+  --forward-to https://localhost:8443/webhook \
+  --skip-verify
+```
+
+**Output Formats:**
+
+```bash
+# Full event details (default)
+ahasend routes listen --route-id abc123
+
+# Slim output for minimal console display
+ahasend routes listen --route-id abc123 --slim-output
+```
+
+**Flags:**
+- `--route-id` - Use existing route ID (mutually exclusive with --recipient)
+- `--recipient` - Recipient pattern for temporary route (supports wildcards)
+- `--forward-to` - Local endpoint URL to forward events to
+- `--skip-verify` - Skip SSL certificate verification for local endpoints
+- `--slim-output` - Minimal event display format
+
+**Event Forwarding Details:**
+- Events are signed using the standard-webhooks specification
+- Generated webhook secret is displayed when connection starts
+- Forwarded requests include proper webhook headers:
+  - `webhook-id` - Unique message identifier
+  - `webhook-timestamp` - Unix timestamp
+  - `webhook-signature` - HMAC signature for verification
+
+#### `ahasend routes trigger`
+
+Trigger route events manually for development and testing purposes. This development-only feature allows testing webhook endpoints without waiting for real inbound emails.
+
+<Warning>
+This is a development-only feature and may not be available in production environments.
+</Warning>
+
+```bash
+# Trigger a message.routing event for testing
+ahasend routes trigger abcd1234-5678-90ef-abcd-1234567890ab
+```
+
+**Use Cases:**
+- Testing webhook endpoint integration
+- Development workflow validation
+- Debugging route processing logic
+- Integration testing without sending real emails
+
+**Finding Route IDs:**
+Use `ahasend routes list` to find available route IDs for testing.
 
 ### Suppression Management Commands
 
