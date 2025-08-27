@@ -3,7 +3,7 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-00ADD8.svg)](https://go.dev/)
 [![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://ahasend.com/docs/api-reference)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-go)](https://goreportcard.com/report/github.com/AhaSend/ahasend-go)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](https://opensource.org/licenses/apache-2.0)
+[![License: Apache 2.0](https://img.shields.io/github/license/ahasend/ahasend-cli)](https://opensource.org/licenses/apache-2.0)
 
 A powerful command-line interface for [AhaSend](https://ahasend.com), the reliable transactional email service. Send emails, manage domains, configure webhooks, and monitor email analytics directly from your terminal.
 
