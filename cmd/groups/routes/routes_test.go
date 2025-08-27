@@ -912,7 +912,7 @@ func TestDisplayEvent_SlimOutput(t *testing.T) {
 	// Restore stdout and read output
 	w.Close()
 	os.Stdout = oldStdout
-	
+
 	buf := make([]byte, 1024)
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
@@ -960,7 +960,7 @@ func TestDisplayEvent_FullOutput(t *testing.T) {
 	// Restore stdout and read output
 	w.Close()
 	os.Stdout = oldStdout
-	
+
 	buf := make([]byte, 2048)
 	n, _ := r.Read(buf)
 	output := string(buf[:n])

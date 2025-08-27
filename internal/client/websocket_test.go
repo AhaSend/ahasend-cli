@@ -52,16 +52,16 @@ func TestInitiateRouteStream_Success(t *testing.T) {
 				// Verify request method and path
 				assert.Equal(t, "POST", r.Method)
 				assert.Contains(t, r.URL.Path, "/routes/stream")
-				
+
 				// Verify authorization header
 				assert.NotEmpty(t, r.Header.Get("Authorization"))
 				assert.Contains(t, r.Header.Get("Authorization"), "Bearer")
-				
+
 				// Verify query parameters
 				for key, value := range tt.wantQuery {
 					assert.Equal(t, value, r.URL.Query().Get(key))
 				}
-				
+
 				// Send mock response
 				response := RouteStreamResponse{
 					RouteID: tt.wantRouteID,
@@ -71,13 +71,13 @@ func TestInitiateRouteStream_Success(t *testing.T) {
 				json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
-			
+
 			// Create client with test server
 			client := createTestClient(t, server.URL)
-			
+
 			// Call InitiateRouteStream
 			resp, err := client.InitiateRouteStream(tt.routeID, tt.recipient)
-			
+
 			// Verify response
 			require.NoError(t, err)
 			assert.NotNil(t, resp)
@@ -115,13 +115,13 @@ func TestInitiateRouteStream_ValidationErrors(t *testing.T) {
 				t.Fatal("Server should not be called for validation errors")
 			}))
 			defer server.Close()
-			
+
 			// Create client with test server
 			client := createTestClient(t, server.URL)
-			
+
 			// Call InitiateRouteStream
 			resp, err := client.InitiateRouteStream(tt.routeID, tt.recipient)
-			
+
 			// Verify error
 			assert.Error(t, err)
 			assert.Nil(t, resp)
@@ -168,13 +168,13 @@ func TestInitiateRouteStream_ServerErrors(t *testing.T) {
 				w.WriteHeader(tt.statusCode)
 			}))
 			defer server.Close()
-			
+
 			// Create client with test server
 			client := createTestClient(t, server.URL)
-			
+
 			// Call InitiateRouteStream
 			resp, err := client.InitiateRouteStream(tt.routeID, tt.recipient)
-			
+
 			// Verify error
 			assert.Error(t, err)
 			assert.Nil(t, resp)
@@ -208,12 +208,12 @@ func TestInitiateWebhookStream_Success(t *testing.T) {
 				// Verify request method and path
 				assert.Equal(t, "POST", r.Method)
 				assert.Contains(t, r.URL.Path, "/webhooks/stream")
-				
+
 				// Verify webhook_id query parameter if provided
 				if tt.webhookID != "" {
 					assert.Equal(t, tt.webhookID, r.URL.Query().Get("webhook_id"))
 				}
-				
+
 				// Send mock response
 				response := WebhookStreamResponse{
 					WebhookID: tt.wantWebhookID,
@@ -223,13 +223,13 @@ func TestInitiateWebhookStream_Success(t *testing.T) {
 				json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
-			
+
 			// Create client with test server
 			client := createTestClient(t, server.URL)
-			
+
 			// Call InitiateWebhookStream
 			resp, err := client.InitiateWebhookStream(tt.webhookID)
-			
+
 			// Verify response
 			require.NoError(t, err)
 			assert.NotNil(t, resp)
@@ -246,13 +246,13 @@ func TestInitiateRouteStream_JSONDecodeError(t *testing.T) {
 		w.Write([]byte("invalid json"))
 	}))
 	defer server.Close()
-	
+
 	// Create client with test server
 	client := createTestClient(t, server.URL)
-	
+
 	// Call InitiateRouteStream
 	resp, err := client.InitiateRouteStream("test-route-123", "")
-	
+
 	// Verify error
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -263,7 +263,7 @@ func TestInitiateRouteStream_JSONDecodeError(t *testing.T) {
 func createTestClient(t *testing.T, serverURL string) *Client {
 	apiKey := "test-api-key"
 	accountID := uuid.New().String()
-	
+
 	// Create SDK config with test server URL
 	config := api.NewConfiguration()
 	config.Host = serverURL[7:] // Remove http:// prefix
@@ -273,10 +273,10 @@ func createTestClient(t *testing.T, serverURL string) *Client {
 	config.RetryConfig = api.RetryConfig{
 		Enabled: false,
 	}
-	
+
 	// Create auth context
 	auth := context.WithValue(context.Background(), api.ContextAccessToken, apiKey)
-	
+
 	// Create our wrapper client
 	client := &Client{
 		APIClient:   api.NewAPIClientWithConfig(config),
@@ -285,6 +285,6 @@ func createTestClient(t *testing.T, serverURL string) *Client {
 		config:      config,
 		rateLimiter: NewRateLimiter(50, 100),
 	}
-	
+
 	return client
 }

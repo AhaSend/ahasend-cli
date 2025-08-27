@@ -465,7 +465,7 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_ParameterValida
 // TestRoutesListenCommand_MockWebSocketConnection tests WebSocket connection workflow
 func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_MockWebSocketConnection() {
 	// Test the WebSocket connection workflow data structures
-	
+
 	// Mock route stream response for existing route
 	mockStreamResponse := struct {
 		RouteID string `json:"route_id"`
@@ -474,12 +474,12 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_MockWebSocketCo
 		RouteID: "550e8400-e29b-41d4-a716-446655440001",
 		WsURL:   "wss://ws.example.com/routes/stream",
 	}
-	
+
 	// Verify mock response structure
 	suite.NotNil(mockStreamResponse)
 	suite.Equal("550e8400-e29b-41d4-a716-446655440001", mockStreamResponse.RouteID)
 	suite.True(strings.HasPrefix(mockStreamResponse.WsURL, "wss://"))
-	
+
 	// Test with recipient pattern - backend creates temporary route
 	mockStreamResponseRecipient := struct {
 		RouteID string `json:"route_id"`
@@ -488,17 +488,17 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_MockWebSocketCo
 		RouteID: "temp-route-456", // Backend creates temporary route
 		WsURL:   "wss://ws.example.com/routes/stream",
 	}
-	
+
 	// Verify temporary route creation response
 	suite.Equal("temp-route-456", mockStreamResponseRecipient.RouteID)
 	suite.True(strings.HasPrefix(mockStreamResponseRecipient.WsURL, "wss://"))
-	
+
 	// Test JSON serialization of responses
 	jsonData, err := json.Marshal(mockStreamResponse)
 	suite.NoError(err)
 	suite.Contains(string(jsonData), "route_id")
 	suite.Contains(string(jsonData), "ws_url")
-	
+
 	// Future: Test actual WebSocket connection and message handling
 	// mockWebSocket := &mocks.MockWebSocketClient{}
 	// mockMessage := &client.WebSocketMessage{
@@ -521,11 +521,11 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_MockWebSocketCo
 // TestRoutesListenCommand_EventProcessing tests event processing logic
 func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_EventProcessing() {
 	// Test event processing and display logic
-	
+
 	// Create mock route event data
 	eventData := map[string]interface{}{
 		"type":    "message.routing",
-		"from":    "sender@example.com", 
+		"from":    "sender@example.com",
 		"to":      "recipient@company.com",
 		"subject": "Test Inbound Email",
 		"body":    "This is a test inbound email message",
@@ -534,26 +534,26 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_EventProcessing
 			"date":       "Mon, 26 Aug 2025 22:00:00 +0000",
 		},
 	}
-	
+
 	// Verify event data structure
 	suite.Equal("message.routing", eventData["type"])
 	suite.Equal("sender@example.com", eventData["from"])
 	suite.Equal("recipient@company.com", eventData["to"])
 	suite.Equal("Test Inbound Email", eventData["subject"])
 	suite.NotNil(eventData["headers"])
-	
+
 	// Test that event data can be serialized for forwarding
 	jsonData, err := json.Marshal(eventData)
 	suite.NoError(err)
 	suite.NotEmpty(jsonData)
-	
+
 	// Verify JSON deserialization
 	var parsed map[string]interface{}
 	err = json.Unmarshal(jsonData, &parsed)
 	suite.NoError(err)
 	suite.Equal("message.routing", parsed["type"])
 	suite.Equal("sender@example.com", parsed["from"])
-	
+
 	// Future: Test actual event processing
 	// msg := &client.WebSocketMessage{
 	//     Type:      "event",
@@ -564,11 +564,11 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_EventProcessing
 	//         Timestamp: time.Now().Unix(),
 	//     },
 	// }
-	
+
 	// Test display functions
 	// suite.NotPanics(func() { displayEvent(msg, false) }) // Full output
 	// suite.NotPanics(func() { displayEvent(msg, true) })  // Slim output
-	
+
 	// Test forwarding with mock HTTP server
 	// mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	//     suite.Equal("POST", r.Method)
@@ -578,7 +578,7 @@ func (suite *RoutesIntegrationTestSuite) TestRoutesListenCommand_EventProcessing
 	//     w.WriteHeader(http.StatusOK)
 	// }))
 	// defer mockServer.Close()
-	
+
 	// signer := webhooks.NewSigner("test-secret")
 	// httpClient := &http.Client{Timeout: 5 * time.Second}
 	// forwardEvent(httpClient, mockServer.URL, msg.Event, signer)

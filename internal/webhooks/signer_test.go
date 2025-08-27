@@ -28,11 +28,11 @@ func TestGenerateWebhookSecret(t *testing.T) {
 			if tt.name == "generates valid webhook secret" {
 				secret, err := GenerateWebhookSecret()
 				require.NoError(t, err)
-				
+
 				// Check format: aha-whsec-<64 chars>
 				assert.True(t, strings.HasPrefix(secret, "aha-whsec-"))
 				assert.Equal(t, 74, len(secret)) // "aha-whsec-" (10) + 64 chars
-				
+
 				// Check that the random part only contains valid characters
 				randomPart := strings.TrimPrefix(secret, "aha-whsec-")
 				for _, c := range randomPart {
@@ -71,11 +71,11 @@ func TestGenerateMsgID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.name == "generates valid UUID v7" {
 				msgID := GenerateMsgID()
-				
+
 				// Verify it's a valid UUID
 				parsed, err := uuid.Parse(msgID)
 				require.NoError(t, err)
-				
+
 				// Verify it's version 7 (time-ordered)
 				assert.Equal(t, uuid.Version(7), parsed.Version())
 			} else if tt.name == "generates unique IDs" {
@@ -91,13 +91,13 @@ func TestGenerateMsgID(t *testing.T) {
 				id1 := GenerateMsgID()
 				time.Sleep(10 * time.Millisecond)
 				id2 := GenerateMsgID()
-				
+
 				// Parse UUIDs
 				uuid1, err := uuid.Parse(id1)
 				require.NoError(t, err)
 				uuid2, err := uuid.Parse(id2)
 				require.NoError(t, err)
-				
+
 				// For UUIDv7, earlier timestamps result in lexicographically smaller UUIDs
 				assert.True(t, id1 < id2, "IDs should be time-ordered")
 				assert.Equal(t, uuid.Version(7), uuid1.Version())
@@ -146,44 +146,44 @@ func TestSigner_Sign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			signer := NewSigner(tt.secret)
 			signature, err := signer.Sign(tt.msgID, tt.timestamp, tt.payload)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
-			
+
 			require.NoError(t, err)
-			
+
 			// Signature format: v1,<base64-encoded-signature>
 			assert.True(t, strings.HasPrefix(signature, "v1,"))
-			
+
 			// Verify the signature is valid base64
 			signaturePart := strings.TrimPrefix(signature, "v1,")
 			_, err = base64.StdEncoding.DecodeString(signaturePart)
 			assert.NoError(t, err, "Signature should be valid base64")
-			
+
 			// Verify deterministic: same inputs produce same signature
 			signature2, err := signer.Sign(tt.msgID, tt.timestamp, tt.payload)
 			require.NoError(t, err)
 			assert.Equal(t, signature, signature2, "Signatures should be deterministic")
-			
+
 			// Verify different inputs produce different signatures
 			if tt.name == "signs payload correctly" {
 				// Different message ID
 				diffSig1, err := signer.Sign("different-id", tt.timestamp, tt.payload)
 				require.NoError(t, err)
 				assert.NotEqual(t, signature, diffSig1, "Different message IDs should produce different signatures")
-				
+
 				// Different timestamp
 				diffSig2, err := signer.Sign(tt.msgID, time.Unix(9999999999, 0), tt.payload)
 				require.NoError(t, err)
 				assert.NotEqual(t, signature, diffSig2, "Different timestamps should produce different signatures")
-				
+
 				// Different payload
 				diffSig3, err := signer.Sign(tt.msgID, tt.timestamp, []byte(`{"different": "data"}`))
 				require.NoError(t, err)
 				assert.NotEqual(t, signature, diffSig3, "Different payloads should produce different signatures")
-				
+
 				// Different secret
 				diffSigner := NewSigner("different-secret")
 				diffSig4, err := diffSigner.Sign(tt.msgID, tt.timestamp, tt.payload)
@@ -245,12 +245,12 @@ func TestGenerateRandomString(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := generateRandomString(tt.length)
 			assert.Equal(t, tt.length, len(result))
-			
+
 			// Check all characters are valid
 			for _, c := range result {
 				assert.True(t, isValidRandomChar(c), "Invalid character in random string: %c", c)
 			}
-			
+
 			// Check uniqueness (generate multiple and ensure they're different)
 			if tt.length > 10 {
 				results := make(map[string]bool)

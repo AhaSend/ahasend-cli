@@ -169,14 +169,14 @@ func TestJSONOutputFormat(t *testing.T) {
 				if err == nil {
 					if jsonMap, ok := jsonData.(map[string]interface{}); ok {
 						// Skip field checking if we got an error response or empty response
-						// Examples: 
+						// Examples:
 						// - {"message": "Domain not found"}
-						// - {"empty": true, "message": "No profiles found"}  
+						// - {"empty": true, "message": "No profiles found"}
 						// - {"error": true, "message": "no default profile found..."}
 						if _, hasMessage := jsonMap["message"]; hasMessage {
-							if len(jsonMap) == 1 || 
-							   (len(jsonMap) == 2 && jsonMap["empty"] == true) ||
-							   (len(jsonMap) == 2 && jsonMap["error"] == true) {
+							if len(jsonMap) == 1 ||
+								(len(jsonMap) == 2 && jsonMap["empty"] == true) ||
+								(len(jsonMap) == 2 && jsonMap["error"] == true) {
 								// This is likely an error response or empty state, skip field checking
 								return
 							}
