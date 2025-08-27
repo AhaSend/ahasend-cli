@@ -206,6 +206,16 @@ func (h *jsonHandler) HandleDeleteRoute(success bool, config DeleteConfig) error
 	return h.printJSON(result)
 }
 
+func (h *jsonHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
+	result := map[string]interface{}{
+		"success":  true,
+		"route_id": routeID,
+		"event":    "message.routing",
+		"message":  config.SuccessMessage,
+	}
+	return h.printJSON(result)
+}
+
 // Suppression responses
 func (h *jsonHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
 	if response == nil {

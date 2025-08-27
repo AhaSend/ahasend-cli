@@ -589,6 +589,19 @@ func (m *MockClient) InitiateWebhookStream(webhookID string) (*client.WebhookStr
 	return args.Get(0).(*client.WebhookStreamResponse), args.Error(1)
 }
 
+func (m *MockClient) InitiateRouteStream(routeID, recipient string) (*client.RouteStreamResponse, error) {
+	args := m.Called(routeID, recipient)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*client.RouteStreamResponse), args.Error(1)
+}
+
+func (m *MockClient) TriggerRoute(routeID string) error {
+	args := m.Called(routeID)
+	return args.Error(0)
+}
+
 func (m *MockClient) ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipVerify bool) (*client.WebSocketClient, error) {
 	args := m.Called(wsURL, webhookID, forceReconnect, skipVerify)
 	if args.Get(0) == nil {

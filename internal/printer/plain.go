@@ -587,6 +587,11 @@ func (h *plainHandler) HandleDeleteRoute(success bool, config DeleteConfig) erro
 	return nil
 }
 
+func (h *plainHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
+	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
+	return nil
+}
+
 // Suppression responses
 func (h *plainHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
 	if len(response.Data) == 0 {

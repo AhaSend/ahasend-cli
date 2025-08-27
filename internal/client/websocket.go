@@ -20,6 +20,11 @@ type WebhookStreamResponse struct {
 	WsURL     string `json:"ws_url"`
 }
 
+type RouteStreamResponse struct {
+	RouteID string `json:"route_id"`
+	WsURL   string `json:"ws_url"`
+}
+
 type WebSocketMessage struct {
 	Type      string `json:"type"`
 	Event     *Event `json:"event,omitempty"`
@@ -85,6 +90,65 @@ func (c *Client) InitiateWebhookStream(webhookID string) (*WebhookStreamResponse
 	}
 
 	var response WebhookStreamResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+func (c *Client) InitiateRouteStream(routeID, recipient string) (*RouteStreamResponse, error) {
+	endpoint := fmt.Sprintf("/v2/accounts/%s/routes/stream", c.accountID)
+
+	// Validate parameters - exactly one must be provided
+	if routeID == "" && recipient == "" {
+		return nil, fmt.Errorf("either route_id or recipient must be provided")
+	}
+	if routeID != "" && recipient != "" {
+		return nil, fmt.Errorf("only one of route_id or recipient can be provided, not both")
+	}
+
+	// Create request URL using SDK configuration
+	baseURL := fmt.Sprintf("%s://%s", c.config.Scheme, c.config.Host)
+	fullURL := fmt.Sprintf("%s%s", baseURL, endpoint)
+
+	req, err := http.NewRequest("POST", fullURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add authorization header
+	apiKey := c.auth.Value(api.ContextAccessToken).(string)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	// Add query parameters based on what was provided
+	q := req.URL.Query()
+	if routeID != "" {
+		q.Add("route_id", routeID)
+	}
+	if recipient != "" {
+		q.Add("recipient", recipient)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	// Execute request with rate limiting
+	ctx := context.Background()
+	if err := c.rateLimiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var response RouteStreamResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
 	}

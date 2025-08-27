@@ -33,6 +33,8 @@ Common workflow:
 	cmd.AddCommand(NewCreateCommand())
 	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewDeleteCommand())
+	cmd.AddCommand(NewListenCommand())
+	cmd.AddCommand(NewTriggerCommand())
 
 	return cmd
 }

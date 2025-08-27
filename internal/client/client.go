@@ -708,6 +708,69 @@ func (c *Client) TriggerWebhook(webhookID string, events []string) error {
 	return fmt.Errorf("webhook trigger failed: %s", errorResp.Message)
 }
 
+// TriggerRoute triggers route events for development testing
+func (c *Client) TriggerRoute(routeID string) error {
+	// Create empty payload (routes don't have events parameter)
+	payload := map[string]interface{}{}
+
+	// Marshal the payload
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request payload: %w", err)
+	}
+
+	// Build the URL
+	endpoint := fmt.Sprintf("/v2/accounts/%s/routes/%s/trigger", c.accountID, routeID)
+	fullURL := fmt.Sprintf("%s://%s%s", c.config.Scheme, c.config.Host, endpoint)
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Add authentication and headers
+	apiKey := c.auth.Value(api.ContextAccessToken).(string)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	logger.Get().WithFields(map[string]interface{}{
+		"method":   "POST",
+		"endpoint": endpoint,
+		"route_id": routeID,
+	}).Debug("Sending route trigger request")
+
+	// Send the request with rate limiting
+	ctx := context.Background()
+	if err := c.rateLimiter.Wait(ctx); err != nil {
+		return err
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send trigger request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle the response
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		logger.Get().WithFields(map[string]interface{}{
+			"route_id": routeID,
+			"status":   resp.StatusCode,
+		}).Debug("Route trigger successful")
+		return nil
+	}
+
+	// Parse error response
+	var errorResp common.ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errorResp); err != nil {
+		return fmt.Errorf("route trigger failed with status %d", resp.StatusCode)
+	}
+
+	return fmt.Errorf("route trigger failed: %s", errorResp.Message)
+}
+
 // setConfigFromURL parses the API URL and sets the SDK configuration
 func setConfigFromURL(config *api.Configuration, apiURL string) error {
 	// Parse the URL

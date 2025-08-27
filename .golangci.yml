@@ -39,6 +39,7 @@ linters:
         - (*github.com/AhaSend/ahasend-cli/internal/client.WebSocketClient).Close
         - (*github.com/fatih/color.Color).Println
         - (*github.com/fatih/color.Color).Printf
+        - (*github.com/fatih/color.Color).Print
 
 
 formatters:

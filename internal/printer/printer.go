@@ -62,6 +62,7 @@ type ResponseHandler interface {
 	HandleCreateRoute(route *responses.Route, config CreateConfig) error
 	HandleUpdateRoute(route *responses.Route, config UpdateConfig) error
 	HandleDeleteRoute(success bool, config DeleteConfig) error
+	HandleTriggerRoute(routeID string, config TriggerConfig) error
 
 	// Suppression responses
 	HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error
@@ -344,6 +345,9 @@ func (h *unsupportedHandler) HandleUpdateRoute(route *responses.Route, config Up
 }
 
 func (h *unsupportedHandler) HandleDeleteRoute(success bool, config DeleteConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+func (h *unsupportedHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
 	return fmt.Errorf("unsupported output format: %s", h.format)
 }
 

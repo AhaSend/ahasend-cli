@@ -2,11 +2,19 @@ package routes
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/AhaSend/ahasend-cli/internal/client"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
@@ -18,7 +26,7 @@ import (
 func TestRoutesCommand_Structure(t *testing.T) {
 	// Create a fresh routes command and verify it has expected subcommands
 	routesCmd := NewCommand()
-	expectedSubcommands := []string{"list", "get", "create", "update", "delete"}
+	expectedSubcommands := []string{"list", "get", "create", "update", "delete", "listen"}
 
 	subcommands := make([]string, 0)
 	for _, cmd := range routesCmd.Commands() {
@@ -59,8 +67,8 @@ func TestRoutesCommand_SubcommandCount(t *testing.T) {
 	cmd := NewCommand()
 	subcommands := cmd.Commands()
 
-	// Should have exactly 5 subcommands
-	assert.Equal(t, 5, len(subcommands), "routes command should have exactly 5 subcommands")
+	// Should have exactly 7 subcommands (including listen and trigger)
+	assert.Equal(t, 7, len(subcommands), "routes command should have exactly 7 subcommands")
 }
 
 // Test list command structure and flags
@@ -755,4 +763,403 @@ func TestRoutesFullIntegration_MockPattern(t *testing.T) {
 
 	// Note: Full integration tests with command execution would be implemented
 	// in separate integration test files that can import both cmd and routes packages
+}
+
+// ================================
+// Routes Listen Command Tests
+// ================================
+
+func TestListenCommand_Structure(t *testing.T) {
+	listenCmd := NewListenCommand()
+	assert.Equal(t, "listen", listenCmd.Name())
+	assert.Equal(t, "Listen for inbound email events in real-time", listenCmd.Short)
+	assert.NotEmpty(t, listenCmd.Long)
+	assert.NotEmpty(t, listenCmd.Example)
+	assert.True(t, listenCmd.SilenceUsage)
+}
+
+func TestListenCommand_Flags(t *testing.T) {
+	listenCmd := NewListenCommand()
+	flags := listenCmd.Flags()
+
+	expectedFlags := []string{
+		"route-id", "recipient", "forward-to", "skip-verify", "slim-output",
+	}
+
+	for _, flagName := range expectedFlags {
+		flag := flags.Lookup(flagName)
+		assert.NotNil(t, flag, "listen command should have %s flag", flagName)
+	}
+
+	// Test flag types
+	assert.Equal(t, "string", flags.Lookup("route-id").Value.Type())
+	assert.Equal(t, "string", flags.Lookup("recipient").Value.Type())
+	assert.Equal(t, "string", flags.Lookup("forward-to").Value.Type())
+	assert.Equal(t, "bool", flags.Lookup("skip-verify").Value.Type())
+	assert.Equal(t, "bool", flags.Lookup("slim-output").Value.Type())
+}
+
+func TestValidateListenParameters_Success(t *testing.T) {
+	tests := []struct {
+		name      string
+		routeID   string
+		recipient string
+	}{
+		{
+			name:      "with route ID only",
+			routeID:   "550e8400-e29b-41d4-a716-446655440001",
+			recipient: "",
+		},
+		{
+			name:      "with recipient pattern only",
+			routeID:   "",
+			recipient: "*@example.com",
+		},
+		{
+			name:      "with complex recipient pattern",
+			routeID:   "",
+			recipient: "support-*@company.org",
+		},
+		{
+			name:      "with specific recipient",
+			routeID:   "",
+			recipient: "test@domain.co.uk",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateListenParameters(tt.routeID, tt.recipient)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateListenParameters_ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		routeID   string
+		recipient string
+		wantError string
+	}{
+		{
+			name:      "no parameters provided",
+			routeID:   "",
+			recipient: "",
+			wantError: "either --route-id or --recipient must be provided",
+		},
+		{
+			name:      "both parameters provided",
+			routeID:   "550e8400-e29b-41d4-a716-446655440001",
+			recipient: "*@example.com",
+			wantError: "only one of --route-id or --recipient can be provided, not both",
+		},
+		{
+			name:      "recipient without @ symbol",
+			routeID:   "",
+			recipient: "invalid-pattern",
+			wantError: "recipient pattern must be an email pattern",
+		},
+		{
+			name:      "recipient with too many wildcards",
+			routeID:   "",
+			recipient: "*@*.*.*",
+			wantError: "recipient pattern contains too many wildcards",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateListenParameters(tt.routeID, tt.recipient)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantError)
+		})
+	}
+}
+
+func TestDisplayEvent_SlimOutput(t *testing.T) {
+	// Create test event data
+	eventData := map[string]interface{}{
+		"type":    "message.routing",
+		"from":    "sender@example.com",
+		"to":      "recipient@company.com",
+		"subject": "Test Email Subject",
+		"body":    "This is a test email body",
+	}
+
+	// Create test WebSocket message
+	msg := &client.WebSocketMessage{
+		Type:      "event",
+		Timestamp: time.Now().Unix(),
+		Event: &client.Event{
+			Type:      "message.routing",
+			StreamID:  "stream-123",
+			AccountID: "account-456",
+			Data:      eventData,
+			Metadata:  map[string]string{"source": "test"},
+			Timestamp: time.Now().Unix(),
+		},
+	}
+
+	// Capture output for slim mode
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Test slim output
+	displayEvent(msg, true)
+
+	// Restore stdout and read output
+	w.Close()
+	os.Stdout = oldStdout
+	
+	buf := make([]byte, 1024)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	// Verify slim output contains key information
+	assert.Contains(t, output, "sender@example.com")
+	assert.Contains(t, output, "recipient@company.com")
+	assert.Contains(t, output, "Test Email Subject")
+	// Slim output should NOT contain full JSON structure
+	assert.NotContains(t, output, "{\n")
+}
+
+func TestDisplayEvent_FullOutput(t *testing.T) {
+	// Create test event data
+	eventData := map[string]interface{}{
+		"type":    "message.routing",
+		"from":    "sender@example.com",
+		"to":      "recipient@company.com",
+		"subject": "Test Email Subject",
+		"body":    "This is a test email body",
+	}
+
+	// Create test WebSocket message
+	msg := &client.WebSocketMessage{
+		Type:      "event",
+		Timestamp: time.Now().Unix(),
+		Event: &client.Event{
+			Type:      "message.routing",
+			StreamID:  "stream-123",
+			AccountID: "account-456",
+			Data:      eventData,
+			Metadata:  map[string]string{"source": "test"},
+			Timestamp: time.Now().Unix(),
+		},
+	}
+
+	// Capture output for full mode
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Test full output
+	displayEvent(msg, false)
+
+	// Restore stdout and read output
+	w.Close()
+	os.Stdout = oldStdout
+	
+	buf := make([]byte, 2048)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	// Verify full output contains complete JSON structure
+	assert.Contains(t, output, "\"from\":")
+	assert.Contains(t, output, "\"to\":")
+	assert.Contains(t, output, "\"subject\":")
+	assert.Contains(t, output, "\"body\":")
+	assert.Contains(t, output, "sender@example.com")
+	assert.Contains(t, output, "recipient@company.com")
+}
+
+func TestDisplayEvent_ReplayEvent(t *testing.T) {
+	// Create test event data
+	eventData := map[string]interface{}{
+		"type": "message.routing",
+		"from": "sender@example.com",
+	}
+
+	// Create test WebSocket message with replay type
+	msg := &client.WebSocketMessage{
+		Type:      "replay",
+		Timestamp: time.Now().Unix(),
+		Event: &client.Event{
+			Type:      "message.routing",
+			StreamID:  "stream-123",
+			AccountID: "account-456",
+			Data:      eventData,
+			Metadata:  map[string]string{"source": "replay"},
+			Timestamp: time.Now().Unix(),
+		},
+	}
+
+	// Test that displayEvent doesn't panic with replay type
+	// The actual display formatting is tested implicitly through the function execution
+	assert.NotPanics(t, func() {
+		displayEvent(msg, false)
+	})
+
+	// Test the message type logic - replay events should be handled
+	assert.Equal(t, "replay", msg.Type)
+	assert.Equal(t, "message.routing", eventData["type"])
+}
+
+func TestDisplayEvent_NilEvent(t *testing.T) {
+	// Create test WebSocket message with nil event
+	msg := &client.WebSocketMessage{
+		Type:      "event",
+		Timestamp: time.Now().Unix(),
+		Event:     nil,
+	}
+
+	// Capture output
+	var buf bytes.Buffer
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Test with nil event - should not panic
+	displayEvent(msg, false)
+
+	// Restore stdout and read output
+	w.Close()
+	os.Stdout = oldStdout
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Should produce no output for nil event
+	assert.Empty(t, strings.TrimSpace(output))
+}
+
+func TestForwardEvent_Success(t *testing.T) {
+	// Create test server
+	receivedHeaders := make(map[string]string)
+	var receivedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Capture headers
+		receivedHeaders["Content-Type"] = r.Header.Get("Content-Type")
+		receivedHeaders["webhook-id"] = r.Header.Get("webhook-id")
+		receivedHeaders["webhook-timestamp"] = r.Header.Get("webhook-timestamp")
+		receivedHeaders["webhook-signature"] = r.Header.Get("webhook-signature")
+
+		// Capture body
+		var err error
+		receivedBody, err = io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Create test event
+	eventData := map[string]interface{}{
+		"type": "message.routing",
+		"from": "test@example.com",
+		"to":   "recipient@company.com",
+	}
+
+	event := &client.Event{
+		Type:      "message.routing",
+		StreamID:  "stream-123",
+		AccountID: "account-456",
+		Data:      eventData,
+		Metadata:  map[string]string{"source": "test"},
+		Timestamp: time.Now().Unix(),
+	}
+
+	// Create signer
+	signer := webhooks.NewSigner("test-secret")
+
+	// Create HTTP client
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	// Forward the event
+	forwardEvent(httpClient, server.URL, event, signer)
+
+	// Give time for async operation
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify headers were set correctly
+	assert.Equal(t, "application/json", receivedHeaders["Content-Type"])
+	assert.NotEmpty(t, receivedHeaders["webhook-id"])
+	assert.NotEmpty(t, receivedHeaders["webhook-timestamp"])
+	assert.NotEmpty(t, receivedHeaders["webhook-signature"])
+
+	// Verify signature format
+	assert.True(t, strings.HasPrefix(receivedHeaders["webhook-signature"], "v1,"))
+
+	// Verify body contains event data
+	var receivedData map[string]interface{}
+	err := json.Unmarshal(receivedBody, &receivedData)
+	require.NoError(t, err)
+	assert.Equal(t, "message.routing", receivedData["type"])
+	assert.Equal(t, "test@example.com", receivedData["from"])
+	assert.Equal(t, "recipient@company.com", receivedData["to"])
+}
+
+func TestForwardEvent_ServerError(t *testing.T) {
+	// Create test server that returns error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// Create test event
+	eventData := map[string]interface{}{
+		"type": "message.routing",
+		"from": "test@example.com",
+	}
+
+	event := &client.Event{
+		Type:      "message.routing",
+		StreamID:  "stream-123",
+		AccountID: "account-456",
+		Data:      eventData,
+		Metadata:  map[string]string{"source": "test"},
+		Timestamp: time.Now().Unix(),
+	}
+
+	// Create signer and HTTP client
+	signer := webhooks.NewSigner("test-secret")
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	// Forward the event - should not panic even with server error
+	forwardEvent(httpClient, server.URL, event, signer)
+
+	// Give time for async operation
+	time.Sleep(100 * time.Millisecond)
+
+	// Test completes successfully even with server error (error is logged, not returned)
+}
+
+func TestForwardEvent_InvalidURL(t *testing.T) {
+	// Create test event
+	eventData := map[string]interface{}{
+		"type": "message.routing",
+		"from": "test@example.com",
+	}
+
+	event := &client.Event{
+		Type:      "message.routing",
+		StreamID:  "stream-123",
+		AccountID: "account-456",
+		Data:      eventData,
+		Metadata:  map[string]string{"source": "test"},
+		Timestamp: time.Now().Unix(),
+	}
+
+	// Create signer and HTTP client
+	signer := webhooks.NewSigner("test-secret")
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	// Forward to invalid URL - should not panic
+	forwardEvent(httpClient, "invalid-url", event, signer)
+
+	// Give time for async operation
+	time.Sleep(100 * time.Millisecond)
+
+	// Test completes successfully even with invalid URL (error is logged, not returned)
 }

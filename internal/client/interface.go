@@ -51,6 +51,10 @@ type AhaSendClient interface {
 	UpdateRoute(routeID string, req requests.UpdateRouteRequest) (*responses.Route, error)
 	DeleteRoute(routeID string) error
 
+	// Route streaming operations (development only)
+	InitiateRouteStream(routeID, recipient string) (*RouteStreamResponse, error)
+	TriggerRoute(routeID string) error
+
 	// Suppression operations
 	ListSuppressions(params requests.GetSuppressionsParams) (*responses.PaginatedSuppressionsResponse, error)
 	CreateSuppression(req requests.CreateSuppressionRequest) (*responses.CreateSuppressionResponse, error)

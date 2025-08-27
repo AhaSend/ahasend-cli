@@ -731,6 +731,12 @@ func (h *csvHandler) HandleDeleteRoute(success bool, config DeleteConfig) error 
 	return nil
 }
 
+func (h *csvHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
+	// CSV format doesn't output data for trigger operations
+	// Success/failure is handled via exit codes and error messages
+	return nil
+}
+
 // Suppression responses
 func (h *csvHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
 	if len(response.Data) == 0 {

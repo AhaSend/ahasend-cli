@@ -1007,6 +1007,23 @@ func (h *tableHandler) HandleDeleteRoute(success bool, config DeleteConfig) erro
 	return nil
 }
 
+func (h *tableHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+
+	// Show trigger summary
+	table := h.createBorderedTable()
+	table.Header("Field", "Value")
+
+	addTableRow(table, []string{"Operation", "Trigger Route"})
+	addTableRow(table, []string{"Route ID", routeID})
+	addTableRow(table, []string{"Event Type", "message.routing"})
+	addTableRow(table, []string{"Success", "✓ True"})
+
+	renderTable(table)
+
+	return nil
+}
+
 // Suppression responses
 func (h *tableHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
 	if len(response.Data) == 0 {
