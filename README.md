@@ -1,8 +1,9 @@
 # AhaSend CLI
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-00ADD8.svg)](https://go.dev/)
-[![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://docs.ahasend.com/api)
+[![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://ahasend.com/docs/api-reference)
+[![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-go)](https://goreportcard.com/report/github.com/AhaSend/ahasend-go)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A powerful command-line interface for [AhaSend](https://ahasend.com), the reliable transactional email service. Send emails, manage domains, configure webhooks, and monitor email analytics directly from your terminal.
 
@@ -371,14 +372,14 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## Documentation
 
 - [Full CLI Documentation](USAGE.mdx)
-- [AhaSend API Documentation](https://docs.ahasend.com/api)
+- [AhaSend API Documentation](https://ahasend.com/docs/api-reference)
 - [AhaSend Website](https://ahasend.com)
 
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/AhaSend/ahasend-cli/issues)
 - **Email**: support@ahasend.com
-- **Documentation**: [docs.ahasend.com](https://docs.ahasend.com)
+- **Documentation**: [ahasend.com/docs](https://ahasend.com/docs)
 
 ## License
 
