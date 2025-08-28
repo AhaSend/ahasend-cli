@@ -1,11 +1,13 @@
 # AhaSend CLI
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-00ADD8.svg)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://go.dev/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-go)](https://goreportcard.com/report/github.com/AhaSend/ahasend-go)
 [![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://ahasend.com/docs/api-reference)
 [![License: Apache 2.0](https://img.shields.io/github/license/ahasend/ahasend-cli)](https://opensource.org/licenses/apache-2.0)
 
 A powerful command-line interface for [AhaSend](https://ahasend.com), the reliable transactional email service. Send emails, manage domains, configure webhooks, and monitor email analytics directly from your terminal.
+
+![demo](docs/demo.gif)
 
 ## Features
 
@@ -124,11 +126,11 @@ ahasend messages send \
 ```bash
 # Listen for outbound email webhook events in real-time
 ahasend webhooks listen http://localhost:8080/webhook \
-  --events "on_delivered,on_opened,on_clicked"
+  --events "message.delivered,message.opened,message.clicked"
 
 # Trigger test webhook events for development
 ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-  --events "on_delivered,on_opened"
+  --events "message.delivered,message.opened"
 
 # Listen for inbound email route events
 ahasend routes listen --recipient "*@example.com" \
