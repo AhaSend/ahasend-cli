@@ -27,11 +27,11 @@ Note: This is a development-only feature and may not be available in
 production environments.`,
 		Example: `  # Trigger a single event
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-    --events "on_delivered"
+    --events "message.delivered"
 
   # Trigger multiple events
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-    --events "on_delivered,on_opened,on_clicked"
+    --events "message.delivered,message.opened,message.clicked"
 
   # Trigger all available events
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
@@ -110,31 +110,31 @@ func runWebhooksTrigger(cmd *cobra.Command, args []string) error {
 
 func getAllValidTriggerEvents() []string {
 	return []string{
-		"on_reception",
-		"on_delivered",
-		"on_transient_error",
-		"on_failed",
-		"on_bounced",
-		"on_suppressed",
-		"on_suppression_created",
-		"on_dns_error",
-		"on_opened",
-		"on_clicked",
+		"message.reception",
+		"message.delivered",
+		"message.transient_error",
+		"message.failed",
+		"message.bounced",
+		"message.suppressed",
+		"message.opened",
+		"message.clicked",
+		"suppression.created",
+		"domain.dns_error",
 	}
 }
 
 func validateTriggerEvents(events []string) ([]string, error) {
 	validEvents := map[string]bool{
-		"on_reception":           true,
-		"on_delivered":           true,
-		"on_transient_error":     true,
-		"on_failed":              true,
-		"on_bounced":             true,
-		"on_suppressed":          true,
-		"on_suppression_created": true,
-		"on_dns_error":           true,
-		"on_opened":              true,
-		"on_clicked":             true,
+		"message.reception":       true,
+		"message.delivered":       true,
+		"message.transient_error": true,
+		"message.failed":          true,
+		"message.bounced":         true,
+		"message.suppressed":      true,
+		"message.opened":          true,
+		"message.clicked":         true,
+		"suppression.created":     true,
+		"domain.dns_error":        true,
 	}
 
 	var validatedEvents []string
