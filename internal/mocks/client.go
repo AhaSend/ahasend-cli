@@ -500,7 +500,7 @@ func (m *MockClient) NewMockSuppressionsResponse(suppressions []responses.Suppre
 }
 
 // NewMockSMTPCredential creates a mock SMTP credential for testing
-func (m *MockClient) NewMockSMTPCredential(id uint64, name, username, scope string, sandbox bool, domains []string) *responses.SMTPCredential {
+func (m *MockClient) NewMockSMTPCredential(id uint64, name, scope string, sandbox bool, domains []string) *responses.SMTPCredential {
 	createdAt := time.Now().Add(-24 * time.Hour)
 	updatedAt := time.Now().Add(-1 * time.Hour)
 
@@ -508,7 +508,6 @@ func (m *MockClient) NewMockSMTPCredential(id uint64, name, username, scope stri
 		Object:    "smtp_credential",
 		ID:        id,
 		Name:      name,
-		Username:  username,
 		Scope:     scope,
 		Sandbox:   sandbox,
 		CreatedAt: createdAt,

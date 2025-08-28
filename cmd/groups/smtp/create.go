@@ -40,16 +40,12 @@ as it will only be shown once and cannot be retrieved later.`,
 
   # Create sandbox credential for testing
   ahasend smtp create --name "Test Server" --sandbox
-
-  # Create with custom username
-  ahasend smtp create --name "API Server" --username "api-server-smtp"`,
+`,
 		RunE: runSMTPCreate,
 	}
 
 	// Add flags
 	cmd.Flags().String("name", "", "Credential name (required)")
-	cmd.Flags().String("username", "", "SMTP username (auto-generated if not provided)")
-	cmd.Flags().String("password", "", "SMTP password (auto-generated if not provided)")
 	cmd.Flags().String("scope", "global", "Credential scope (global or scoped)")
 	cmd.Flags().StringSlice("domains", []string{}, "Allowed domains for scoped credentials (comma-separated)")
 	cmd.Flags().Bool("sandbox", false, "Create as sandbox credential for testing")
@@ -69,8 +65,6 @@ func runSMTPCreate(cmd *cobra.Command, args []string) error {
 
 	// Get flag values
 	name, _ := cmd.Flags().GetString("name")
-	username, _ := cmd.Flags().GetString("username")
-	password, _ := cmd.Flags().GetString("password")
 	scope, _ := cmd.Flags().GetString("scope")
 	domains, _ := cmd.Flags().GetStringSlice("domains")
 	sandbox, _ := cmd.Flags().GetBool("sandbox")
@@ -78,7 +72,7 @@ func runSMTPCreate(cmd *cobra.Command, args []string) error {
 
 	// Interactive mode if name not provided
 	if name == "" && !nonInteractive {
-		name, username, password, scope, domains, sandbox, err = promptSMTPCredentialDetails()
+		name, scope, domains, sandbox, err = promptSMTPCredentialDetails()
 		if err != nil {
 			return err
 		}
@@ -99,32 +93,19 @@ func runSMTPCreate(cmd *cobra.Command, args []string) error {
 		return errors.NewValidationError("domains are required for scoped credentials", nil)
 	}
 
-	// Generate username if not provided
-	if username == "" {
-		username = generateUsername(name)
-	}
-
-	// Generate secure password if not provided
-	if password == "" {
-		password = generateSecurePassword()
-	}
-
 	logger.Get().WithFields(map[string]interface{}{
-		"name":     name,
-		"username": username,
-		"scope":    scope,
-		"sandbox":  sandbox,
-		"domains":  domains,
+		"name":    name,
+		"scope":   scope,
+		"sandbox": sandbox,
+		"domains": domains,
 	}).Debug("Creating SMTP credential")
 
 	// Create the request
 	req := requests.CreateSMTPCredentialRequest{
-		Name:     name,
-		Username: username,
-		Password: password,
-		Scope:    scope,
-		Sandbox:  sandbox,
-		Domains:  domains,
+		Name:    name,
+		Scope:   scope,
+		Sandbox: sandbox,
+		Domains: domains,
 	}
 
 	// Create SMTP credential
@@ -141,11 +122,11 @@ func runSMTPCreate(cmd *cobra.Command, args []string) error {
 	return handler.HandleCreateSMTP(credential, printer.CreateConfig{
 		SuccessMessage: "SMTP credential created successfully",
 		ItemName:       "smtp_credential",
-		FieldOrder:     []string{"id", "name", "username", "scope", "domains", "sandbox", "created_at", "updated_at"},
+		FieldOrder:     []string{"id", "name", "username", "password", "scope", "domains", "sandbox", "created_at", "updated_at"},
 	})
 }
 
-func promptSMTPCredentialDetails() (name, username, password, scope string, domains []string, sandbox bool, err error) {
+func promptSMTPCredentialDetails() (name, scope string, domains []string, sandbox bool, err error) {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Create SMTP Credential")
@@ -155,23 +136,15 @@ func promptSMTPCredentialDetails() (name, username, password, scope string, doma
 	fmt.Print("Credential name: ")
 	name, err = reader.ReadString('\n')
 	if err != nil {
-		return "", "", "", "", nil, false, fmt.Errorf("failed to read name: %w", err)
+		return "", "", nil, false, fmt.Errorf("failed to read name: %w", err)
 	}
 	name = strings.TrimSpace(name)
-
-	// Prompt for username (optional)
-	fmt.Printf("Username (leave empty for auto-generated): ")
-	username, err = reader.ReadString('\n')
-	if err != nil {
-		return "", "", "", "", nil, false, fmt.Errorf("failed to read username: %w", err)
-	}
-	username = strings.TrimSpace(username)
 
 	// Prompt for scope
 	fmt.Print("Scope (global/scoped) [global]: ")
 	scope, err = reader.ReadString('\n')
 	if err != nil {
-		return "", "", "", "", nil, false, fmt.Errorf("failed to read scope: %w", err)
+		return "", "", nil, false, fmt.Errorf("failed to read scope: %w", err)
 	}
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
@@ -183,7 +156,7 @@ func promptSMTPCredentialDetails() (name, username, password, scope string, doma
 		fmt.Print("Allowed domains (comma-separated): ")
 		domainsStr, err := reader.ReadString('\n')
 		if err != nil {
-			return "", "", "", "", nil, false, fmt.Errorf("failed to read domains: %w", err)
+			return "", "", nil, false, fmt.Errorf("failed to read domains: %w", err)
 		}
 		domainsStr = strings.TrimSpace(domainsStr)
 		if domainsStr != "" {
@@ -200,7 +173,7 @@ func promptSMTPCredentialDetails() (name, username, password, scope string, doma
 	fmt.Print("Sandbox mode for testing? (y/N): ")
 	sandboxStr, err := reader.ReadString('\n')
 	if err != nil {
-		return "", "", "", "", nil, false, fmt.Errorf("failed to read sandbox mode: %w", err)
+		return "", "", nil, false, fmt.Errorf("failed to read sandbox mode: %w", err)
 	}
 	sandboxStr = strings.ToLower(strings.TrimSpace(sandboxStr))
 	sandbox = sandboxStr == "y" || sandboxStr == "yes"
@@ -208,7 +181,7 @@ func promptSMTPCredentialDetails() (name, username, password, scope string, doma
 	// Password will be auto-generated
 	fmt.Println("\nA secure password will be generated automatically.")
 
-	return name, username, password, scope, domains, sandbox, nil
+	return name, scope, domains, sandbox, nil
 }
 
 func generateUsername(name string) string {

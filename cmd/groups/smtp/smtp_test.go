@@ -197,14 +197,6 @@ func TestCreateCommand_Flags(t *testing.T) {
 	assert.NotNil(t, nameFlag)
 	assert.Equal(t, "string", nameFlag.Value.Type())
 
-	usernameFlag := flags.Lookup("username")
-	assert.NotNil(t, usernameFlag)
-	assert.Equal(t, "string", usernameFlag.Value.Type())
-
-	passwordFlag := flags.Lookup("password")
-	assert.NotNil(t, passwordFlag)
-	assert.Equal(t, "string", passwordFlag.Value.Type())
-
 	scopeFlag := flags.Lookup("scope")
 	assert.NotNil(t, scopeFlag)
 	assert.Equal(t, "string", scopeFlag.Value.Type())
@@ -240,13 +232,11 @@ func TestCreateCommand_FlagParsing(t *testing.T) {
 			name: "global scope credential",
 			args: []string{
 				"--name", "Test Credential",
-				"--username", "test-user",
 				"--scope", "global",
 				"--non-interactive",
 			},
 			expected: map[string]interface{}{
 				"name":            "Test Credential",
-				"username":        "test-user",
 				"scope":           "global",
 				"non-interactive": true,
 			},
@@ -282,11 +272,6 @@ func TestCreateCommand_FlagParsing(t *testing.T) {
 			if expectedName, ok := tt.expected["name"]; ok {
 				name, _ := cmd.Flags().GetString("name")
 				assert.Equal(t, expectedName, name)
-			}
-
-			if expectedUsername, ok := tt.expected["username"]; ok {
-				username, _ := cmd.Flags().GetString("username")
-				assert.Equal(t, expectedUsername, username)
 			}
 
 			if expectedScope, ok := tt.expected["scope"]; ok {
@@ -635,7 +620,6 @@ func TestSMTPCommands_HelpOutputs(t *testing.T) {
 				"Usage:",
 				"Create a new SMTP credential",
 				"--name",
-				"--username",
 				"--scope",
 				"--domains",
 				"--sandbox",
@@ -717,69 +701,6 @@ func TestScopeValidation_InvalidScopes(t *testing.T) {
 	}
 }
 
-// Username generation tests
-func TestUsernameGeneration_Patterns(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string // partial match expected
-	}{
-		{
-			name:     "simple name",
-			input:    "Test Server",
-			expected: "test-server-",
-		},
-		{
-			name:     "name with special characters",
-			input:    "My@Server#1",
-			expected: "myserver1-",
-		},
-		{
-			name:     "empty name",
-			input:    "",
-			expected: "-", // Should handle empty input gracefully
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := generateUsername(tt.input)
-
-			// Check that the result contains the expected prefix
-			assert.True(t, strings.HasPrefix(result, tt.expected),
-				"Generated username should start with %s, got %s", tt.expected, result)
-
-			// Check that a random suffix was added
-			assert.True(t, len(result) > len(tt.expected),
-				"Generated username should have a random suffix")
-		})
-	}
-}
-
-// Password generation tests
-func TestPasswordGeneration_Security(t *testing.T) {
-	// Generate multiple passwords and ensure they're different
-	passwords := make([]string, 10)
-	for i := 0; i < 10; i++ {
-		passwords[i] = generateSecurePassword()
-	}
-
-	// Check that all passwords are different
-	for i := 0; i < len(passwords); i++ {
-		for j := i + 1; j < len(passwords); j++ {
-			assert.NotEqual(t, passwords[i], passwords[j],
-				"Generated passwords should be unique")
-		}
-	}
-
-	// Check password length and format
-	for _, password := range passwords {
-		assert.NotEmpty(t, password, "Password should not be empty")
-		assert.True(t, len(password) > 10,
-			"Password should be reasonably long for security")
-	}
-}
-
 // Mock data tests for SMTP credentials
 func TestMockSMTPCredentialHelpers(t *testing.T) {
 	mockClient := &mocks.MockClient{}
@@ -788,7 +709,6 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 		credential := mockClient.NewMockSMTPCredential(
 			1,
 			"Test Credential",
-			"test-user",
 			"global",
 			false,
 			nil,
@@ -796,7 +716,6 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 
 		assert.Equal(t, uint64(1), credential.ID)
 		assert.Equal(t, "Test Credential", credential.Name)
-		assert.Equal(t, "test-user", credential.Username)
 		assert.Equal(t, "global", credential.Scope)
 		assert.False(t, credential.Sandbox)
 		assert.Empty(t, credential.Domains)
@@ -808,7 +727,6 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 		credential := mockClient.NewMockSMTPCredential(
 			1,
 			"Marketing Credential",
-			"marketing-user",
 			"scoped",
 			false,
 			domains,
@@ -817,7 +735,6 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 		// Parse the expected UUID for comparison
 		assert.Equal(t, uint64(1), credential.ID)
 		assert.Equal(t, "Marketing Credential", credential.Name)
-		assert.Equal(t, "marketing-user", credential.Username)
 		assert.Equal(t, "scoped", credential.Scope)
 		assert.False(t, credential.Sandbox)
 		assert.Equal(t, domains, credential.Domains)
@@ -827,7 +744,6 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 		credential := mockClient.NewMockSMTPCredential(
 			1,
 			"Test Credential",
-			"test-user",
 			"global",
 			true,
 			nil,
@@ -835,15 +751,14 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 
 		assert.Equal(t, uint64(1), credential.ID)
 		assert.Equal(t, "Test Credential", credential.Name)
-		assert.Equal(t, "test-user", credential.Username)
 		assert.Equal(t, "global", credential.Scope)
 		assert.True(t, credential.Sandbox)
 	})
 
 	t.Run("SMTP credentials response", func(t *testing.T) {
 		credentials := []responses.SMTPCredential{
-			*mockClient.NewMockSMTPCredential(1, "Credential 1", "user1", "global", false, nil),
-			*mockClient.NewMockSMTPCredential(2, "Credential 2", "user2", "scoped", false, []string{"example.com"}),
+			*mockClient.NewMockSMTPCredential(1, "Credential 1", "global", false, nil),
+			*mockClient.NewMockSMTPCredential(2, "Credential 2", "scoped", false, []string{"example.com"}),
 		}
 		response := mockClient.NewMockSMTPCredentialsResponse(credentials, true)
 

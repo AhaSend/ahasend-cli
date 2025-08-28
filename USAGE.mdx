@@ -638,16 +638,16 @@ ahasend webhooks listen http://localhost:8080/webhook \
 ```
 
 **Available Event Types:**
-- `on_reception` - Email received by AhaSend
-- `on_delivered` - Email delivered to recipient
-- `on_transient_error` - Temporary delivery failure
-- `on_failed` - Permanent delivery failure
-- `on_bounced` - Email bounced
-- `on_suppressed` - Email suppressed
-- `on_suppression_created` - New suppression added
-- `on_dns_error` - DNS resolution failure
-- `on_opened` - Email opened by recipient
-- `on_clicked` - Link clicked in email
+- `message.reception` - Email received by AhaSend
+- `message.delivered` - Email delivered to recipient
+- `message.transient_error` - Temporary delivery failure
+- `message.failed` - Permanent delivery failure
+- `message.bounced` - Email bounced
+- `message.suppressed` - Email suppressed
+- `suppression.created` - New suppression added
+- `domain.dns_error` - DNS resolution failure
+- `message.opened` - Email opened by recipient
+- `message.clicked` - Link clicked in email
 
 **Flags:**
 - `--events` - Comma-separated list of events to listen for (or "all")
@@ -667,11 +667,11 @@ Trigger webhook events for testing purposes. This is a development-only feature 
 ```bash
 # Trigger a single event
 ahasend webhooks trigger webhook_1234567890abcdef \
-  --events "on_delivered"
+  --events "message.delivered"
 
 # Trigger multiple events
 ahasend webhooks trigger webhook_1234567890abcdef \
-  --events "on_delivered,on_opened,on_clicked"
+  --events "message.delivered,message.opened,message.clicked"
 
 # Trigger all available events
 ahasend webhooks trigger webhook_1234567890abcdef \
@@ -683,16 +683,16 @@ ahasend webhooks trigger webhook_1234567890abcdef \
 - `--all-events` - Trigger all available event types
 
 **Available Events for Triggering:**
-- `on_reception`
-- `on_delivered`
-- `on_transient_error`
-- `on_failed`
-- `on_bounced`
-- `on_suppressed`
-- `on_suppression_created`
-- `on_dns_error`
-- `on_opened`
-- `on_clicked`
+- `message.reception`
+- `message.delivered`
+- `message.transient_error`
+- `message.failed`
+- `message.bounced`
+- `message.suppressed`
+- `suppression.created`
+- `domain.dns_error`
+- `message.opened`
+- `message.clicked`
 
 <Warning>
 The trigger command is only available in development environments and is intended for testing webhook integrations. It will not work in production.
@@ -702,15 +702,15 @@ The trigger command is only available in development environments and is intende
 
 ```bash
 # Test your webhook handler with a delivery event
-ahasend webhooks trigger my-webhook-id --events "on_delivered"
+ahasend webhooks trigger my-webhook-id --events "message.delivered"
 
 # Simulate a complete email lifecycle
 ahasend webhooks trigger my-webhook-id \
-  --events "on_reception,on_delivered,on_opened,on_clicked"
+  --events "message.reception,message.delivered,message.opened,message.clicked"
 
 # Test error handling
 ahasend webhooks trigger my-webhook-id \
-  --events "on_transient_error,on_failed,on_bounced"
+  --events "message.transient_error,message.failed,message.bounced"
 
 # Run comprehensive webhook tests
 ahasend webhooks trigger my-webhook-id --all-events
@@ -1242,19 +1242,19 @@ Test different scenarios by triggering specific event combinations:
 ```bash
 # Test successful delivery flow
 ahasend webhooks trigger webhook-id \
-  --events "on_reception,on_delivered,on_opened,on_clicked"
+  --events "message.reception,message.delivered,message.opened,message.clicked"
 
 # Test bounce handling
 ahasend webhooks trigger webhook-id \
-  --events "on_reception,on_bounced"
+  --events "message.reception,message.bounced"
 
 # Test suppression flow
 ahasend webhooks trigger webhook-id \
-  --events "on_suppressed,on_suppression_created"
+  --events "message.suppressed,suppression.created"
 
 # Test error scenarios
 ahasend webhooks trigger webhook-id \
-  --events "on_transient_error,on_failed,on_dns_error"
+  --events "message.transient_error,message.failed,domain.dns_error"
 ```
 
 #### Debugging Webhook Issues
