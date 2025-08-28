@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -493,13 +494,13 @@ func (c *Client) GetSMTPCredential(credentialID string) (*responses.SMTPCredenti
 		return nil, fmt.Errorf("invalid account ID format: %w", err)
 	}
 
-	// Parse the credential ID as UUID
-	credentialUUID, err := uuid.Parse(credentialID)
+	// Parse the credential ID as uint
+	credentialIDInt, err := strconv.ParseUint(credentialID, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credential ID format: %w", err)
 	}
 
-	resp, _, err := c.SMTPCredentialsAPI.GetSMTPCredential(c.auth, accountUUID, credentialUUID)
+	resp, _, err := c.SMTPCredentialsAPI.GetSMTPCredential(c.auth, accountUUID, credentialIDInt)
 	return resp, err
 }
 
@@ -523,13 +524,13 @@ func (c *Client) DeleteSMTPCredential(credentialID string) error {
 		return fmt.Errorf("invalid account ID format: %w", err)
 	}
 
-	// Parse the credential ID as UUID
-	credentialUUID, err := uuid.Parse(credentialID)
+	// Parse the credential ID as uint
+	credentialIDInt, err := strconv.ParseUint(credentialID, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid credential ID format: %w", err)
 	}
 
-	_, _, err = c.SMTPCredentialsAPI.DeleteSMTPCredential(c.auth, accountUUID, credentialUUID)
+	_, _, err = c.SMTPCredentialsAPI.DeleteSMTPCredential(c.auth, accountUUID, credentialIDInt)
 	return err
 }
 
