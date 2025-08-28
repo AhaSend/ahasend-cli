@@ -2,8 +2,6 @@ package smtp
 
 import (
 	"bufio"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -182,35 +180,4 @@ func promptSMTPCredentialDetails() (name, scope string, domains []string, sandbo
 	fmt.Println("\nA secure password will be generated automatically.")
 
 	return name, scope, domains, sandbox, nil
-}
-
-func generateUsername(name string) string {
-	// Create a username from the name
-	base := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
-	// Remove any special characters
-	var result strings.Builder
-	for _, ch := range base {
-		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
-			result.WriteRune(ch)
-		}
-	}
-
-	// Add a random suffix for uniqueness
-	randomBytes := make([]byte, 3)
-	rand.Read(randomBytes)
-	suffix := base64.RawURLEncoding.EncodeToString(randomBytes)[:4]
-
-	return fmt.Sprintf("%s-%s", result.String(), suffix)
-}
-
-func generateSecurePassword() string {
-	// Generate a secure random password
-	bytes := make([]byte, 24)
-	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to a less secure method if crypto/rand fails
-		return fmt.Sprintf("AhaSend-%d-Pass", os.Getpid())
-	}
-
-	// Use URL-safe base64 encoding for the password
-	return base64.RawURLEncoding.EncodeToString(bytes)
 }
