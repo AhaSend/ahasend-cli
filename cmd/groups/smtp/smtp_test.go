@@ -793,15 +793,11 @@ func TestSMTPAPI_MockInteractions(t *testing.T) {
 	t.Run("create SMTP credential request", func(t *testing.T) {
 		// Test CreateSMTPCredentialRequest construction
 		name := "Test Credential"
-		username := "test-user"
-		password := "secure-password"
 		scope := "global"
 
 		req := requests.CreateSMTPCredentialRequest{
-			Name:     name,
-			Username: username,
-			Password: password,
-			Scope:    scope,
+			Name:  name,
+			Scope: scope,
 		}
 
 		assert.NotNil(t, req)
