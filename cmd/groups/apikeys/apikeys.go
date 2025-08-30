@@ -25,17 +25,29 @@ Use these commands to create, list, update, and delete API keys as needed.`,
 		Example: `  # List all API keys
   ahasend apikeys list
 
-  # Create a new API key with full access
-  ahasend apikeys create --label "Production API" --scope full
+  # Create a new API key with messaging permissions
+  ahasend apikeys create --label "Production API" \
+    --scope messages:send:all \
+    --scope domains:read
 
-  # Create a limited scope API key
-  ahasend apikeys create --label "Analytics Only" --scope read-only
+  # Create a limited scope API key for analytics
+  ahasend apikeys create --label "Analytics Only" \
+    --scope statistics-transactional:read:all \
+    --scope messages:read:all
+
+  # Create domain-specific API key
+  ahasend apikeys create --label "App Emails" \
+    --scope messages:send:{app.example.com} \
+    --scope suppressions:read
 
   # Get details about a specific API key
   ahasend apikeys get ak_1234567890abcdef
 
-  # Update API key label
-  ahasend apikeys update ak_1234567890abcdef --label "Updated Label"
+  # Update API key label and scopes
+  ahasend apikeys update ak_1234567890abcdef \
+    --label "Updated Label" \
+    --scope messages:send:all \
+    --scope webhooks:read:all
 
   # Delete an API key
   ahasend apikeys delete ak_1234567890abcdef`,

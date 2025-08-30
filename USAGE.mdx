@@ -970,7 +970,72 @@ Create a new API key.
 ```bash
 ahasend apikeys create \
   --label "Production API" \
-  --scope full
+  --scope messages:send:all \
+  --scope domains:read \
+  --scope domains:write
+```
+
+**Available Scopes:**
+
+API keys require specific scopes to define permissions. Choose scopes based on the principle of least privilege:
+
+**Account Management:**
+- `accounts:read` - View account information  
+- `accounts:write` - Update account settings
+- `accounts:billing` - Access billing information
+- `accounts:members:read/add/update/remove` - Manage team members
+
+**Domain Management:**
+- `domains:read` - List and view domain information
+- `domains:write` - Add and update domains
+- `domains:delete:all` - Delete any domain
+- `domains:delete:{domain}` - Delete specific domain only
+
+**Message Operations:**
+- `messages:send:all` - Send emails from any verified domain
+- `messages:send:{domain}` - Send emails from specific domain only
+- `messages:cancel:all` - Cancel scheduled messages from any domain
+- `messages:cancel:{domain}` - Cancel messages from specific domain only
+- `messages:read:all` - View message history for any domain
+- `messages:read:{domain}` - View messages from specific domain only
+
+**Webhook Management:**
+- `webhooks:read:all` - List webhooks for any domain
+- `webhooks:write:all` - Create/update webhooks for any domain
+- `webhooks:delete:all` - Delete webhooks for any domain
+- `webhooks:{operation}:{domain}` - Domain-specific webhook permissions
+
+**Other Scopes:**
+- `suppressions:read/write/delete/wipe` - Manage suppression lists
+- `routes:read:all/write:all/delete:all` - Manage email routing
+- `smtp-credentials:read:all/write:all/delete:all` - Manage SMTP credentials
+- `statistics-transactional:read:all` - View email statistics
+- `api-keys:read/write/delete` - Manage API keys
+
+**Examples:**
+
+```bash
+# Read-only analytics key
+ahasend apikeys create \
+  --label "Analytics Dashboard" \
+  --scope statistics-transactional:read:all \
+  --scope messages:read:all
+
+# Domain-specific sending key
+ahasend apikeys create \
+  --label "App Email Service" \
+  --scope messages:send:{app.example.com} \
+  --scope suppressions:read
+
+# Full administrative access
+ahasend apikeys create \
+  --label "Admin API Key" \
+  --scope messages:send:all \
+  --scope messages:cancel:all \
+  --scope domains:read \
+  --scope domains:write \
+  --scope webhooks:read:all \
+  --scope webhooks:write:all
 ```
 
 #### `ahasend apikeys get`
