@@ -401,6 +401,22 @@ func (h *tableHandler) HandleSingleMessage(message *responses.Message, config Si
 	}
 	addTableRow(table, []string{"Retain Until", formatTime(message.RetainUntil)})
 
+	// Content - show truncated preview in table format
+	if message.Content != nil {
+		content := *message.Content
+		if content != "" {
+			contentPreview := content
+			if len(contentPreview) > 100 {
+				contentPreview = contentPreview[:97] + "..."
+			}
+			// Replace newlines with spaces for table display
+			contentPreview = strings.ReplaceAll(contentPreview, "\n", " ")
+			contentPreview = strings.ReplaceAll(contentPreview, "\r", "")
+			addTableRow(table, []string{"Content Preview", contentPreview})
+			addTableRow(table, []string{"Content Size", fmt.Sprintf("%d bytes", len(content))})
+		}
+	}
+
 	renderTable(table)
 
 	return nil

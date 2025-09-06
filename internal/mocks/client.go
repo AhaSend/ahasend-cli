@@ -103,6 +103,14 @@ func (m *MockClient) GetMessages(params requests.GetMessagesParams) (*responses.
 	return args.Get(0).(*responses.PaginatedMessagesResponse), args.Error(1)
 }
 
+func (m *MockClient) GetMessage(messageID string) (*responses.Message, error) {
+	args := m.Called(messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.Message), args.Error(1)
+}
+
 // Domain operations methods
 
 func (m *MockClient) ListDomains(limit *int32, cursor *string) (*responses.PaginatedDomainsResponse, error) {

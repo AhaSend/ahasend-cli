@@ -230,13 +230,22 @@ func (h *csvHandler) HandleSingleMessage(message *responses.Message, config Sing
 		"retain_until": formatTime(message.RetainUntil),
 	}
 
+	// Add content fields if content exists
+	if message.Content != nil {
+		fieldMap["content"] = *message.Content
+		fieldMap["content_size"] = formatInt(len(*message.Content))
+	} else {
+		fieldMap["content"] = ""
+		fieldMap["content_size"] = "0"
+	}
+
 	// Get headers respecting field order
 	var headers []string
 	if len(config.FieldOrder) > 0 {
 		headers = getCSVHeaders(fieldMap, config.FieldOrder)
 	} else {
 		// Default headers for single message
-		headers = []string{"id", "account_id", "sender", "recipient", "subject", "status", "direction", "created", "updated", "delivered", "opens", "clicks", "attempts", "bounce_class", "message_id", "domain_id", "tags", "retain_until"}
+		headers = []string{"id", "account_id", "sender", "recipient", "subject", "status", "direction", "created", "updated", "delivered", "opens", "clicks", "attempts", "bounce_class", "message_id", "domain_id", "tags", "retain_until", "content_size", "content"}
 	}
 
 	// Write headers

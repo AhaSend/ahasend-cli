@@ -169,6 +169,15 @@ func (h *plainHandler) HandleSingleMessage(message *responses.Message, config Si
 	}
 	fmt.Fprintf(h.writer, "Retain Until: %s\n", formatTime(message.RetainUntil))
 
+	// Content - show full content in plain format
+	if message.Content != nil {
+		content := *message.Content
+		if content != "" {
+			fmt.Fprintf(h.writer, "Content Size: %d bytes\n", len(content))
+			fmt.Fprintf(h.writer, "Content:\n%s\n", content)
+		}
+	}
+
 	return nil
 }
 

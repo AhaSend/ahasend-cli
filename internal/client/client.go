@@ -251,6 +251,44 @@ func (c *Client) GetMessages(params requests.GetMessagesParams) (*responses.Pagi
 	return response, err
 }
 
+// GetMessage retrieves a single message by ID
+func (c *Client) GetMessage(messageID string) (*responses.Message, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	messageUUID, err := uuid.Parse(messageID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message ID format: %w", err)
+	}
+
+	// Log API request
+	endpoint := fmt.Sprintf("/accounts/%s/messages/%s", c.accountID, messageID)
+	startTime := time.Now()
+
+	logger.Get().WithFields(map[string]interface{}{
+		"message_id": messageID,
+	}).Debug("API Request")
+
+	response, _, err := c.MessagesAPI.GetMessage(c.auth, accountUUID, messageUUID)
+
+	duration := time.Since(startTime)
+
+	if err != nil {
+		logger.APIError("GET", endpoint, 0, err, duration)
+	} else {
+		logger.APICall("GET", endpoint, duration)
+		logger.Get().WithFields(map[string]interface{}{
+			"message_id":     response.ID,
+			"message_status": response.Status,
+			"has_content":    response.Content != nil && *response.Content != "",
+		}).Debug("API Response")
+	}
+
+	return response, err
+}
+
 // CreateWebhookVerifier creates a webhook verifier for the given secret
 func (c *Client) CreateWebhookVerifier(secret string) (*webhooks.WebhookVerifier, error) {
 	verifier, err := webhooks.NewWebhookVerifier(secret)

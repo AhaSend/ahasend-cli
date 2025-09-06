@@ -50,7 +50,7 @@ func TestMessagesCommand_SubcommandCount(t *testing.T) {
 	subcommands := cmd.Commands()
 
 	// Should have exactly 3 subcommands
-	assert.Equal(t, 3, len(subcommands), "messages command should have exactly 3 subcommands")
+	assert.Equal(t, 4, len(subcommands), "messages command should have exactly 3 subcommands")
 }
 
 // Benchmark tests

@@ -30,6 +30,7 @@ Common workflow:
 	// Add subcommands
 	cmd.AddCommand(NewSendCommand())
 	cmd.AddCommand(NewListCommand())
+	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewCancelCommand())
 
 	return cmd

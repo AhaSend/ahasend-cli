@@ -24,6 +24,7 @@ type AhaSendClient interface {
 	SendMessageWithIdempotencyKey(req requests.CreateMessageRequest, idempotencyKey string) (*responses.CreateMessageResponse, error)
 	CancelMessage(accountID, messageID string) (*common.SuccessResponse, error)
 	GetMessages(params requests.GetMessagesParams) (*responses.PaginatedMessagesResponse, error)
+	GetMessage(messageID string) (*responses.Message, error)
 
 	// Domain operations
 	ListDomains(limit *int32, cursor *string) (*responses.PaginatedDomainsResponse, error)
