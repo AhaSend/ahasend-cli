@@ -248,26 +248,26 @@ func TestCreateCommand_FlagParsing(t *testing.T) {
 			name: "all flags provided",
 			args: []string{
 				"--label", "Production API",
-				"--scope", "full",
-				"--scope", "read",
+				"--scope", "messages:send:all",
+				"--scope", "domains:read",
 			},
 			expected: map[string]interface{}{
 				"label": "Production API",
-				"scope": []string{"full", "read"},
+				"scope": []string{"messages:send:all", "domains:read"},
 			},
 		},
 		{
 			name: "single scope",
-			args: []string{"--scope", "messages:write"},
+			args: []string{"--scope", "messages:send:all"},
 			expected: map[string]interface{}{
-				"scope": []string{"messages:write"},
+				"scope": []string{"messages:send:all"},
 			},
 		},
 		{
 			name: "multiple scopes comma-separated",
-			args: []string{"--scope", "messages:write,domains:read"},
+			args: []string{"--scope", "messages:send:all,domains:read"},
 			expected: map[string]interface{}{
-				"scope": []string{"messages:write", "domains:read"},
+				"scope": []string{"messages:send:all", "domains:read"},
 			},
 		},
 	}
@@ -352,17 +352,17 @@ func TestUpdateCommand_FlagParsing(t *testing.T) {
 		},
 		{
 			name: "update scopes",
-			args: []string{"ak_1234", "--scope", "full", "--scope", "read"},
+			args: []string{"ak_1234", "--scope", "messages:send:all", "--scope", "domains:read"},
 			expected: map[string]interface{}{
-				"scope": []string{"full", "read"},
+				"scope": []string{"messages:send:all", "domains:read"},
 			},
 		},
 		{
 			name: "update both label and scopes",
-			args: []string{"ak_1234", "--label", "Updated", "--scope", "messages:write"},
+			args: []string{"ak_1234", "--label", "Updated", "--scope", "messages:send:all"},
 			expected: map[string]interface{}{
 				"label": "Updated",
-				"scope": []string{"messages:write"},
+				"scope": []string{"messages:send:all"},
 			},
 		},
 	}
@@ -452,12 +452,12 @@ func TestAPIKeysList_MockIntegration(t *testing.T) {
 func TestAPIKeysGet_MockIntegration(t *testing.T) {
 	// Test API key get functionality mock structure
 	keyID := "ak_550e8400e29b41d4a716446655440003"
-	apiKey := createMockAPIKey(keyID, "Test API Key", []string{"messages:write", "domains:read"}, true)
+	apiKey := createMockAPIKey(keyID, "Test API Key", []string{"messages:send:all", "domains:read"}, true)
 
 	assert.NotNil(t, apiKey)
 	assert.Equal(t, keyID, apiKey.ID)
 	assert.Equal(t, "Test API Key", apiKey.Label)
-	assert.Contains(t, apiKey.Scopes, "messages:write")
+	assert.Contains(t, apiKey.Scopes, "messages:send:all")
 	assert.Contains(t, apiKey.Scopes, "domains:read")
 	assert.True(t, apiKey.Active)
 }
@@ -466,7 +466,7 @@ func TestAPIKeysCreate_MockIntegration(t *testing.T) {
 	// Test API key creation mock structure
 	createRequest := MockCreateAPIKeyRequest{
 		Label:  "New API Key",
-		Scopes: []string{"messages:write"},
+		Scopes: []string{"messages:send:all"},
 	}
 
 	createdKey := createMockAPIKey("ak_550e8400e29b41d4a716446655440004", createRequest.Label, createRequest.Scopes, true)
@@ -482,11 +482,11 @@ func TestAPIKeysCreate_MockIntegration(t *testing.T) {
 func TestAPIKeysUpdate_MockIntegration(t *testing.T) {
 	// Test API key update mock structure
 	keyID := "ak_550e8400e29b41d4a716446655440005"
-	originalKey := createMockAPIKey(keyID, "Original Label", []string{"read"}, true)
+	originalKey := createMockAPIKey(keyID, "Original Label", []string{"domains:read"}, true)
 
 	updateRequest := MockUpdateAPIKeyRequest{
 		Label:  stringPtr("Updated Label"),
-		Scopes: []string{"messages:write", "full"},
+		Scopes: []string{"messages:send:all", "domains:read"},
 	}
 
 	updatedKey := createMockAPIKey(keyID, *updateRequest.Label, updateRequest.Scopes, true)
@@ -494,8 +494,8 @@ func TestAPIKeysUpdate_MockIntegration(t *testing.T) {
 	assert.NotNil(t, updatedKey)
 	assert.Equal(t, originalKey.ID, updatedKey.ID)
 	assert.Equal(t, "Updated Label", updatedKey.Label)
-	assert.Contains(t, updatedKey.Scopes, "messages:write")
-	assert.Contains(t, updatedKey.Scopes, "full")
+	assert.Contains(t, updatedKey.Scopes, "messages:send:all")
+	assert.Contains(t, updatedKey.Scopes, "domains:read")
 }
 
 func TestAPIKeysDelete_MockIntegration(t *testing.T) {
@@ -552,10 +552,9 @@ func TestAPIKeys_APIErrors(t *testing.T) {
 // Test scope validation
 func TestAPIKey_ScopeValidation(t *testing.T) {
 	validScopes := []string{
-		"full",
-		"read",
-		"messages:write",
-		"messages:read",
+		"messages:send:all",
+		"messages:cancel:all",
+		"messages:read:all",
 		"domains:read",
 		"domains:write",
 		"statistics:read",
@@ -722,7 +721,7 @@ func BenchmarkAPIKeyID_Validation(b *testing.B) {
 }
 
 func BenchmarkScope_Validation(b *testing.B) {
-	testScope := "messages:write"
+	testScope := "messages:send:all"
 	for i := 0; i < b.N; i++ {
 		_ = isValidScope(testScope)
 	}
@@ -805,19 +804,18 @@ func isValidAPIKeyID(id string) bool {
 // isValidScope validates API key scope format
 func isValidScope(scope string) bool {
 	validScopes := map[string]bool{
-		"full":               true,
-		"read":               true,
-		"messages:write":     true,
-		"messages:read":      true,
-		"domains:read":       true,
-		"domains:write":      true,
-		"statistics:read":    true,
-		"webhooks:read":      true,
-		"webhooks:write":     true,
-		"routes:read":        true,
-		"routes:write":       true,
-		"suppressions:read":  true,
-		"suppressions:write": true,
+		"messages:send:all":   true,
+		"messages:cancel:all": true,
+		"messages:read:all":   true,
+		"domains:read":        true,
+		"domains:write":       true,
+		"statistics:read":     true,
+		"webhooks:read":       true,
+		"webhooks:write":      true,
+		"routes:read":         true,
+		"routes:write":        true,
+		"suppressions:read":   true,
+		"suppressions:write":  true,
 	}
 	return validScopes[scope]
 }

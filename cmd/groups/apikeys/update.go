@@ -30,12 +30,21 @@ API key and delete the old one.`,
 
   # Update API key scopes
   ahasend apikeys update ak_1234567890abcdef \
-    --scope messages:read,messages:write,statistics:read
+    --scope messages:send:all \
+    --scope messages:read:all \
+    --scope statistics-transactional:read:all
 
   # Update both label and scopes
   ahasend apikeys update ak_1234567890abcdef \
     --label "Production API v2" \
-    --scope full
+    --scope messages:send:all \
+    --scope domains:read \
+    --scope domains:write
+
+  # Update to domain-specific scopes
+  ahasend apikeys update ak_1234567890abcdef \
+    --scope messages:send:{example.com} \
+    --scope webhooks:read:{example.com}
 
   # JSON output for automation
   ahasend apikeys update ak_1234567890abcdef \
