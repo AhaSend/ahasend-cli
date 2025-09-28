@@ -12,6 +12,10 @@ github.com/AhaSend/ahasend-go v0.0.0-20250906143152-a2029c8b3a1e h1:L+JU/9zuDZsJ
 github.com/AhaSend/ahasend-go v0.0.0-20250906143152-a2029c8b3a1e/go.mod h1:BJj1JleSwPU+c/a18jvESou4MgP3yfayEwj/lZ+zLbI=
 github.com/AhaSend/ahasend-go v0.0.0-20250906150905-8d141ac7bff3 h1:Tk7Q+WawFaJv23fu0xN1bQbaMXcddbraj4uE07OG9gY=
 github.com/AhaSend/ahasend-go v0.0.0-20250906150905-8d141ac7bff3/go.mod h1:BJj1JleSwPU+c/a18jvESou4MgP3yfayEwj/lZ+zLbI=
+github.com/AhaSend/ahasend-go v0.0.0-20250906153048-6fa7715e9a5c h1:WXNSceFO+1c6Crhawi5lEpZwwU3LxQiFae1HuY+aHG0=
+github.com/AhaSend/ahasend-go v0.0.0-20250906153048-6fa7715e9a5c/go.mod h1:BJj1JleSwPU+c/a18jvESou4MgP3yfayEwj/lZ+zLbI=
+github.com/AhaSend/ahasend-go v0.0.0-20250928134944-b67e0c6de5cd h1:v6j/XPdLWFzXiPQdxoodVGzDspku6o4tX3HFmrNadIo=
+github.com/AhaSend/ahasend-go v0.0.0-20250928134944-b67e0c6de5cd/go.mod h1:BJj1JleSwPU+c/a18jvESou4MgP3yfayEwj/lZ+zLbI=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

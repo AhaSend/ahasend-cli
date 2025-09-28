@@ -166,7 +166,14 @@ func (c *Client) ListDomains(limit *int32, cursor *string) (*responses.Paginated
 		return nil, fmt.Errorf("invalid account ID format: %w", err)
 	}
 
-	response, _, err := c.DomainsAPI.GetDomains(c.auth, accountUUID, nil, limit, cursor)
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	response, _, err := c.DomainsAPI.GetDomains(c.auth, accountUUID, nil, pagination)
 	return response, err
 }
 
@@ -304,8 +311,10 @@ func (c *Client) ListWebhooks(limit *int32, cursor *string) (*responses.Paginate
 	}
 
 	params := api.GetWebhooksParams{
-		Limit:  limit,
-		Cursor: cursor,
+		PaginationParams: common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		},
 	}
 	response, _, err := c.WebhooksAPI.GetWebhooks(c.auth, accountUUID, params)
 
@@ -386,7 +395,14 @@ func (c *Client) ListRoutes(limit *int32, cursor *string) (*responses.PaginatedR
 		return nil, fmt.Errorf("invalid account ID format: %w", err)
 	}
 
-	response, _, err := c.RoutesAPI.GetRoutes(c.auth, accountUUID, limit, cursor)
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	response, _, err := c.RoutesAPI.GetRoutes(c.auth, accountUUID, pagination)
 	return response, err
 }
 
@@ -520,7 +536,14 @@ func (c *Client) ListSMTPCredentials(limit *int32, cursor *string) (*responses.P
 		return nil, fmt.Errorf("invalid account ID format: %w", err)
 	}
 
-	resp, _, err := c.SMTPCredentialsAPI.GetSMTPCredentials(c.auth, accountUUID, limit, cursor)
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	resp, _, err := c.SMTPCredentialsAPI.GetSMTPCredentials(c.auth, accountUUID, pagination)
 	return resp, err
 }
 
@@ -617,7 +640,14 @@ func (c *Client) ListAPIKeys(limit *int32, cursor *string) (*responses.Paginated
 		return nil, fmt.Errorf("invalid account ID: %v", err)
 	}
 
-	response, _, err := c.APIKeysAPI.GetAPIKeys(c.auth, accountUUID, limit, cursor)
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	response, _, err := c.APIKeysAPI.GetAPIKeys(c.auth, accountUUID, pagination)
 	return response, err
 }
 

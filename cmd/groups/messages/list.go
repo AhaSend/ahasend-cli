@@ -11,6 +11,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/output"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	ahasend "github.com/AhaSend/ahasend-go"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -199,8 +200,10 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		MessageIDHeader: ahasend.String(messageID),
 		FromTime:        fromTime,
 		ToTime:          toTime,
-		Limit:           ahasend.Int32(int32(limit)),
-		Cursor:          ahasend.String(cursor),
+		PaginationParams: common.PaginationParams{
+			Limit:  ahasend.Int32(int32(limit)),
+			Cursor: ahasend.String(cursor),
+		},
 	}
 
 	// Execute the request through our client wrapper (includes retry logic and logging)

@@ -5,6 +5,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/client"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
@@ -85,9 +86,11 @@ func runSuppressionsList(cmd *cobra.Command, args []string) error {
 
 func fetchSuppressions(ahaSendClient client.AhaSendClient, email string, limit *int32, cursor, domain *string) (*responses.PaginatedSuppressionsResponse, error) {
 	params := requests.GetSuppressionsParams{
-		Limit:  limit,
-		Cursor: cursor,
 		Domain: domain,
+		PaginationParams: common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		},
 	}
 
 	// Only add email parameter if it's provided

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
@@ -590,16 +591,18 @@ func TestSuppressionsAPI_MockInteractions(t *testing.T) {
 	t.Run("list suppressions parameters", func(t *testing.T) {
 		// Test parameter construction for ListSuppressions
 		params := requests.GetSuppressionsParams{
-			Limit:  func() *int32 { limit := int32(50); return &limit }(),
-			Cursor: func() *string { cursor := "next-token"; return &cursor }(),
 			Domain: func() *string { domain := "example.com"; return &domain }(),
+			PaginationParams: common.PaginationParams{
+				Limit:  func() *int32 { limit := int32(50); return &limit }(),
+				Cursor: func() *string { cursor := "next-token"; return &cursor }(),
+			},
 		}
 
 		// Verify parameters are constructed correctly
-		assert.NotNil(t, params.Limit)
-		assert.Equal(t, int32(50), *params.Limit)
-		assert.NotNil(t, params.Cursor)
-		assert.Equal(t, "next-token", *params.Cursor)
+		assert.NotNil(t, params.PaginationParams.Limit)
+		assert.Equal(t, int32(50), *params.PaginationParams.Limit)
+		assert.NotNil(t, params.PaginationParams.Cursor)
+		assert.Equal(t, "next-token", *params.PaginationParams.Cursor)
 		assert.NotNil(t, params.Domain)
 		assert.Equal(t, "example.com", *params.Domain)
 	})

@@ -234,7 +234,9 @@ func TestClient_GetMessages_InvalidAccountID(t *testing.T) {
 	require.NoError(t, err)
 
 	params := requests.GetMessagesParams{
-		Limit: int32Ptr(10),
+		PaginationParams: common.PaginationParams{
+			Limit: int32Ptr(10),
+		},
 	}
 
 	response, err := client.GetMessages(params)
@@ -295,8 +297,10 @@ func TestGetMessagesParams_ParameterBuilding(t *testing.T) {
 		MessageIDHeader: &messageID,
 		FromTime:        &fromTime,
 		ToTime:          &toTime,
-		Limit:           &limit,
-		Cursor:          &cursor,
+		PaginationParams: common.PaginationParams{
+			Limit:  &limit,
+			Cursor: &cursor,
+		},
 	}
 
 	// Test that all parameters are properly set
