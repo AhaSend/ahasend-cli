@@ -23,6 +23,8 @@ Common workflow:
 	cmd.AddCommand(NewCreateCommand())
 	cmd.AddCommand(NewListCommand())
 	cmd.AddCommand(NewGetCommand())
+	cmd.AddCommand(NewEditCommand())
+	cmd.AddCommand(NewCheckDNSCommand())
 	cmd.AddCommand(NewVerifyCommand())
 	cmd.AddCommand(NewDeleteCommand())
 

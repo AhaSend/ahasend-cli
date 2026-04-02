@@ -61,6 +61,9 @@ For relative times, you can use:
   # List messages between specific dates
   ahasend messages list --from-time 2024-01-01T00:00:00Z --to-time 2024-01-31T23:59:59Z
 
+  # List messages with specific tags
+  ahasend messages list --tags welcome --tags onboarding
+
   # List with multiple filters
   ahasend messages list --sender noreply@example.com --recipient user@example.com --subject "Welcome" --status delivered --status deferred
 
@@ -79,6 +82,7 @@ For relative times, you can use:
 	cmd.Flags().String("subject", "", "Filter by subject text (partial match)")
 	cmd.Flags().String("message-id", "", "Filter by message ID header")
 	cmd.Flags().StringSlice("status", []string{}, "Filter by message status (can be used multiple times)")
+	cmd.Flags().StringSlice("tags", []string{}, "Filter by tags (can be used multiple times)")
 	cmd.Flags().String("from-time", "", "Filter messages created after this time (RFC3339 or relative like '24h', '7d')")
 	cmd.Flags().String("to-time", "", "Filter messages created before this time (RFC3339 or relative)")
 
@@ -114,6 +118,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	subject, _ := cmd.Flags().GetString("subject")
 	messageID, _ := cmd.Flags().GetString("message-id")
 	statuses, _ := cmd.Flags().GetStringSlice("status")
+	tags, _ := cmd.Flags().GetStringSlice("tags")
 	fromTimeStr, _ := cmd.Flags().GetString("from-time")
 	toTimeStr, _ := cmd.Flags().GetString("to-time")
 	limit, _ := cmd.Flags().GetInt("limit")
@@ -185,6 +190,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		"subject":    subject,
 		"message_id": messageID,
 		"statuses":   statuses,
+		"tags":       tags,
 		"from_time":  fromTime,
 		"to_time":    toTime,
 		"limit":      limit,
@@ -194,6 +200,7 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 	// Build parameters for the client wrapper
 	params := requests.GetMessagesParams{
 		Status:          ahasend.String(normalizedStatus),
+		Tags:            tags,
 		Sender:          ahasend.String(sender),
 		Recipient:       ahasend.String(recipient),
 		Subject:         ahasend.String(subject),

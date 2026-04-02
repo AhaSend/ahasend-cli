@@ -51,8 +51,8 @@ func TestDomainsCommand_SubcommandCount(t *testing.T) {
 	cmd := NewCommand()
 	subcommands := cmd.Commands()
 
-	// Should have exactly 5 subcommands
-	assert.Equal(t, 5, len(subcommands), "domains command should have exactly 5 subcommands")
+	// Should have exactly 7 subcommands
+	assert.Equal(t, 7, len(subcommands), "domains command should have exactly 7 subcommands")
 }
 
 // Benchmark tests

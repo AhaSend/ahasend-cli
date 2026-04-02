@@ -30,6 +30,8 @@ type AhaSendClient interface {
 	ListDomains(limit *int32, cursor *string) (*responses.PaginatedDomainsResponse, error)
 	CreateDomain(domain string) (*responses.Domain, error)
 	GetDomain(domain string) (*responses.Domain, error)
+	UpdateDomain(domain string, req requests.UpdateDomainRequest) (*responses.Domain, error)
+	CheckDomainDNS(domain string) (*responses.Domain, error)
 	DeleteDomain(domain string) (*common.SuccessResponse, error)
 
 	// Webhook operations

@@ -137,8 +137,27 @@ func (m *MockClient) GetDomain(domain string) (*responses.Domain, error) {
 	return args.Get(0).(*responses.Domain), args.Error(1)
 }
 
+func (m *MockClient) UpdateDomain(domain string, req requests.UpdateDomainRequest) (*responses.Domain, error) {
+	args := m.Called(domain, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.Domain), args.Error(1)
+}
+
+func (m *MockClient) CheckDomainDNS(domain string) (*responses.Domain, error) {
+	args := m.Called(domain)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.Domain), args.Error(1)
+}
+
 func (m *MockClient) DeleteDomain(domain string) (*common.SuccessResponse, error) {
 	args := m.Called(domain)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*common.SuccessResponse), args.Error(1)
 }
 

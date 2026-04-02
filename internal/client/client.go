@@ -203,6 +203,28 @@ func (c *Client) GetDomain(domain string) (*responses.Domain, error) {
 	return response, err
 }
 
+// UpdateDomain updates domain settings
+func (c *Client) UpdateDomain(domain string, req requests.UpdateDomainRequest) (*responses.Domain, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	response, _, err := c.DomainsAPI.UpdateDomain(c.auth, accountUUID, domain, req)
+	return response, err
+}
+
+// CheckDomainDNS triggers a DNS validation check for a domain
+func (c *Client) CheckDomainDNS(domain string) (*responses.Domain, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	response, _, err := c.DomainsAPI.CheckDomainDNS(c.auth, accountUUID, domain)
+	return response, err
+}
+
 // DeleteDomain deletes a domain
 func (c *Client) DeleteDomain(domain string) (*common.SuccessResponse, error) {
 	accountUUID, err := uuid.Parse(c.accountID)
