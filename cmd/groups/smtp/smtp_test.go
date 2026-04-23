@@ -9,6 +9,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -714,7 +715,7 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 			nil,
 		)
 
-		assert.Equal(t, uint64(1), credential.ID)
+		assert.NotEqual(t, uuid.Nil, credential.ID)
 		assert.Equal(t, "Test Credential", credential.Name)
 		assert.Equal(t, "global", credential.Scope)
 		assert.False(t, credential.Sandbox)
@@ -732,8 +733,7 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 			domains,
 		)
 
-		// Parse the expected UUID for comparison
-		assert.Equal(t, uint64(1), credential.ID)
+		assert.NotEqual(t, uuid.Nil, credential.ID)
 		assert.Equal(t, "Marketing Credential", credential.Name)
 		assert.Equal(t, "scoped", credential.Scope)
 		assert.False(t, credential.Sandbox)
@@ -749,7 +749,7 @@ func TestMockSMTPCredentialHelpers(t *testing.T) {
 			nil,
 		)
 
-		assert.Equal(t, uint64(1), credential.ID)
+		assert.NotEqual(t, uuid.Nil, credential.ID)
 		assert.Equal(t, "Test Credential", credential.Name)
 		assert.Equal(t, "global", credential.Scope)
 		assert.True(t, credential.Sandbox)

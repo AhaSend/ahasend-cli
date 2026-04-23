@@ -474,7 +474,7 @@ func TestClient_CreateWebhook_Success(t *testing.T) {
 	req := requests.CreateWebhookRequest{
 		Name:    "Test Webhook",
 		URL:     "https://example.com/webhook",
-		Enabled: true,
+		Enabled: ahasend.Bool(true),
 	}
 
 	_, err = client.CreateWebhook(req)

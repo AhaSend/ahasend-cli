@@ -286,7 +286,7 @@ func createRoute(client client.AhaSendClient, config RouteCreateConfig) (*respon
 	req.Headers = config.IncludeHeaders
 	req.GroupByMessageId = config.GroupByMessageID
 	req.StripReplies = config.StripReplies
-	req.Enabled = config.Enabled
+	req.Enabled = &config.Enabled
 
 	// Create the route
 	route, err := client.CreateRoute(req)

@@ -16,6 +16,7 @@ package mocks
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/AhaSend/ahasend-go/models/common"
@@ -489,6 +490,8 @@ func (m *MockClient) NewMockSuppression(email, reason, domain string) *responses
 	expiresAt := time.Time{} // Zero time means never expires
 
 	suppression := &responses.Suppression{
+		Object:    "suppression",
+		ID:        uuid.New(),
 		Email:     email,
 		CreatedAt: createdAt,
 		ExpiresAt: expiresAt,
@@ -532,8 +535,8 @@ func (m *MockClient) NewMockSMTPCredential(id uint64, name, scope string, sandbo
 	updatedAt := time.Now().Add(-1 * time.Hour)
 
 	credential := &responses.SMTPCredential{
-		Object:    "smtp_credential",
-		ID:        id,
+		Object:    "credential_smtp",
+		ID:        uuid.NewSHA1(uuid.NameSpaceOID, []byte(strconv.FormatUint(id, 10))),
 		Name:      name,
 		Scope:     scope,
 		Sandbox:   sandbox,

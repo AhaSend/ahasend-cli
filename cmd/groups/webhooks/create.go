@@ -150,10 +150,11 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create webhook request
+	enabled := !disabled
 	req := requests.CreateWebhookRequest{
 		Name:    name,
 		URL:     webhookURL,
-		Enabled: !disabled,
+		Enabled: &enabled,
 	}
 
 	// Set event types
@@ -242,7 +243,8 @@ func runInteractiveWebhookCreate() (*requests.CreateWebhookRequest, error) {
 		return nil, fmt.Errorf("failed to read enabled preference: %w", err)
 	}
 	enabled = strings.TrimSpace(strings.ToLower(enabled))
-	req.Enabled = enabled == "y" || enabled == "yes"
+	enabledValue := enabled == "y" || enabled == "yes"
+	req.Enabled = &enabledValue
 
 	// Interactive event selection
 	fmt.Println("\nSelect event types to listen for:")

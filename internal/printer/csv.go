@@ -340,7 +340,6 @@ func (h *csvHandler) HandleWebhookList(response *responses.PaginatedWebhooksResp
 	fieldMap := map[string]string{
 		"name":       firstWebhook.Name,
 		"id":         formatUUID(firstWebhook.ID),
-		"account_id": formatUUID(firstWebhook.AccountID),
 		"url":        firstWebhook.URL,
 		"enabled":    formatBooleanStatus(firstWebhook.Enabled),
 		"events":     formatWebhookEvents(&firstWebhook),
@@ -370,7 +369,6 @@ func (h *csvHandler) HandleWebhookList(response *responses.PaginatedWebhooksResp
 		webhookFieldMap := map[string]string{
 			"name":       webhook.Name,
 			"id":         formatUUID(webhook.ID),
-			"account_id": formatUUID(webhook.AccountID),
 			"url":        webhook.URL,
 			"enabled":    formatBooleanStatus(webhook.Enabled),
 			"events":     formatWebhookEvents(&webhook),
@@ -402,7 +400,6 @@ func (h *csvHandler) HandleSingleWebhook(webhook *responses.Webhook, config Sing
 	fieldMap := map[string]string{
 		"name":       webhook.Name,
 		"id":         formatUUID(webhook.ID),
-		"account_id": formatUUID(webhook.AccountID),
 		"url":        webhook.URL,
 		"enabled":    formatBooleanStatus(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
@@ -419,7 +416,7 @@ func (h *csvHandler) HandleSingleWebhook(webhook *responses.Webhook, config Sing
 		headers = getCSVHeaders(fieldMap, config.FieldOrder)
 	} else {
 		// Default headers for single webhook
-		headers = []string{"name", "id", "account_id", "url", "enabled", "events", "secret", "scope", "domains", "created_at", "updated_at"}
+		headers = []string{"name", "id", "url", "enabled", "events", "secret", "scope", "domains", "created_at", "updated_at"}
 	}
 
 	// Write headers
@@ -448,7 +445,6 @@ func (h *csvHandler) HandleCreateWebhook(webhook *responses.Webhook, config Crea
 	fieldMap := map[string]string{
 		"name":       webhook.Name,
 		"id":         formatUUID(webhook.ID),
-		"account_id": formatUUID(webhook.AccountID),
 		"url":        webhook.URL,
 		"enabled":    formatBooleanStatus(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
@@ -493,7 +489,6 @@ func (h *csvHandler) HandleUpdateWebhook(webhook *responses.Webhook, config Upda
 	fieldMap := map[string]string{
 		"name":       webhook.Name,
 		"id":         formatUUID(webhook.ID),
-		"account_id": formatUUID(webhook.AccountID),
 		"url":        webhook.URL,
 		"enabled":    formatBooleanStatus(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
@@ -758,13 +753,11 @@ func (h *csvHandler) HandleSuppressionList(response *responses.PaginatedSuppress
 	// Create field map for the first suppression to determine headers
 	firstSuppression := response.Data[0]
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", firstSuppression.ID),
+		"id":         formatUUID(firstSuppression.ID),
 		"email":      firstSuppression.Email,
 		"domain":     firstSuppression.Domain,
 		"reason":     firstSuppression.Reason,
-		"account_id": formatUUID(firstSuppression.AccountID),
 		"created_at": formatTime(firstSuppression.CreatedAt),
-		"updated_at": formatTime(firstSuppression.UpdatedAt),
 		"expires_at": formatTime(firstSuppression.ExpiresAt),
 	}
 
@@ -777,13 +770,11 @@ func (h *csvHandler) HandleSuppressionList(response *responses.PaginatedSuppress
 	// Write data rows
 	for _, suppression := range response.Data {
 		suppressionFieldMap := map[string]string{
-			"id":         fmt.Sprintf("%d", suppression.ID),
+			"id":         formatUUID(suppression.ID),
 			"email":      suppression.Email,
 			"domain":     suppression.Domain,
 			"reason":     suppression.Reason,
-			"account_id": formatUUID(suppression.AccountID),
 			"created_at": formatTime(suppression.CreatedAt),
-			"updated_at": formatTime(suppression.UpdatedAt),
 			"expires_at": formatTime(suppression.ExpiresAt),
 		}
 
@@ -805,13 +796,11 @@ func (h *csvHandler) HandleSingleSuppression(suppression *responses.Suppression,
 	defer flushCSVWriter(writer)
 
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", suppression.ID),
+		"id":         formatUUID(suppression.ID),
 		"email":      suppression.Email,
 		"domain":     suppression.Domain,
 		"reason":     suppression.Reason,
-		"account_id": formatUUID(suppression.AccountID),
 		"created_at": formatTime(suppression.CreatedAt),
-		"updated_at": formatTime(suppression.UpdatedAt),
 		"expires_at": formatTime(suppression.ExpiresAt),
 	}
 
@@ -839,13 +828,11 @@ func (h *csvHandler) HandleCreateSuppression(response *responses.CreateSuppressi
 	// Create field map for the first suppression to determine headers
 	firstSuppression := response.Data[0]
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", firstSuppression.ID),
+		"id":         formatUUID(firstSuppression.ID),
 		"email":      firstSuppression.Email,
 		"domain":     firstSuppression.Domain,
 		"reason":     firstSuppression.Reason,
-		"account_id": formatUUID(firstSuppression.AccountID),
 		"created_at": formatTime(firstSuppression.CreatedAt),
-		"updated_at": formatTime(firstSuppression.UpdatedAt),
 		"expires_at": formatTime(firstSuppression.ExpiresAt),
 	}
 
@@ -857,13 +844,11 @@ func (h *csvHandler) HandleCreateSuppression(response *responses.CreateSuppressi
 	// Write data rows
 	for _, suppression := range response.Data {
 		suppressionFieldMap := map[string]string{
-			"id":         fmt.Sprintf("%d", suppression.ID),
+			"id":         formatUUID(suppression.ID),
 			"email":      suppression.Email,
 			"domain":     suppression.Domain,
 			"reason":     suppression.Reason,
-			"account_id": formatUUID(suppression.AccountID),
 			"created_at": formatTime(suppression.CreatedAt),
-			"updated_at": formatTime(suppression.UpdatedAt),
 			"expires_at": formatTime(suppression.ExpiresAt),
 		}
 
@@ -893,13 +878,11 @@ func (h *csvHandler) HandleCheckSuppression(suppression *responses.Suppression, 
 		defer flushCSVWriter(writer)
 
 		fieldMap := map[string]string{
-			"id":         fmt.Sprintf("%d", suppression.ID),
+			"id":         formatUUID(suppression.ID),
 			"email":      suppression.Email,
 			"domain":     suppression.Domain,
 			"reason":     suppression.Reason,
-			"account_id": formatUUID(suppression.AccountID),
 			"created_at": formatTime(suppression.CreatedAt),
-			"updated_at": formatTime(suppression.UpdatedAt),
 			"expires_at": formatTime(suppression.ExpiresAt),
 		}
 
@@ -929,13 +912,12 @@ func (h *csvHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentials
 	// First credential to establish headers
 	firstCred := response.Data[0]
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", firstCred.ID),
+		"id":         formatUUID(firstCred.ID),
 		"name":       firstCred.Name,
 		"username":   firstCred.Username,
 		"scope":      firstCred.Scope,
 		"domains":    formatStringSlice(firstCred.Domains),
 		"sandbox":    fmt.Sprintf("%t", firstCred.Sandbox),
-		"account_id": formatUUID(firstCred.AccountID),
 		"created_at": formatTime(firstCred.CreatedAt),
 		"updated_at": formatTime(firstCred.UpdatedAt),
 	}
@@ -948,13 +930,12 @@ func (h *csvHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentials
 	// Write all credentials
 	for _, credential := range response.Data {
 		fieldMap := map[string]string{
-			"id":         fmt.Sprintf("%d", credential.ID),
+			"id":         formatUUID(credential.ID),
 			"name":       credential.Name,
 			"username":   credential.Username,
 			"scope":      credential.Scope,
 			"domains":    formatStringSlice(credential.Domains),
 			"sandbox":    fmt.Sprintf("%t", credential.Sandbox),
-			"account_id": formatUUID(credential.AccountID),
 			"created_at": formatTime(credential.CreatedAt),
 			"updated_at": formatTime(credential.UpdatedAt),
 		}
@@ -977,14 +958,13 @@ func (h *csvHandler) HandleSingleSMTP(credential *responses.SMTPCredential, conf
 	defer flushCSVWriter(writer)
 
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", credential.ID),
+		"id":         formatUUID(credential.ID),
 		"name":       credential.Name,
 		"username":   credential.Username,
 		"password":   "[HIDDEN]", // Never show password
 		"scope":      credential.Scope,
 		"domains":    formatStringSlice(credential.Domains),
 		"sandbox":    fmt.Sprintf("%t", credential.Sandbox),
-		"account_id": formatUUID(credential.AccountID),
 		"created_at": formatTime(credential.CreatedAt),
 		"updated_at": formatTime(credential.UpdatedAt),
 	}
@@ -1017,14 +997,13 @@ func (h *csvHandler) HandleCreateSMTP(credential *responses.SMTPCredential, conf
 	}
 
 	fieldMap := map[string]string{
-		"id":         fmt.Sprintf("%d", credential.ID),
+		"id":         formatUUID(credential.ID),
 		"name":       credential.Name,
 		"username":   credential.Username,
 		"password":   passwordValue,
 		"scope":      credential.Scope,
 		"domains":    formatStringSlice(credential.Domains),
 		"sandbox":    fmt.Sprintf("%t", credential.Sandbox),
-		"account_id": formatUUID(credential.AccountID),
 		"created_at": formatTime(credential.CreatedAt),
 	}
 

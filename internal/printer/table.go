@@ -509,7 +509,6 @@ func (h *tableHandler) HandleWebhookList(response *responses.PaginatedWebhooksRe
 			"created_at": "Created",
 			"updated_at": "Updated",
 			"id":         "ID",
-			"account_id": "Account ID",
 			"secret":     "Secret",
 			"domains":    "Domains",
 			"scope":      "Scope",
@@ -547,7 +546,6 @@ func (h *tableHandler) HandleWebhookList(response *responses.PaginatedWebhooksRe
 				"created_at": formatTime(webhook.CreatedAt),
 				"updated_at": formatTime(webhook.UpdatedAt),
 				"id":         formatUUID(webhook.ID),
-				"account_id": formatUUID(webhook.AccountID),
 				"secret":     formatWebhookSecret(webhook.Secret),
 				"domains":    formatStringSlice(webhook.Domains),
 				"scope":      webhook.Scope,
@@ -602,7 +600,6 @@ func (h *tableHandler) HandleSingleWebhook(webhook *responses.Webhook, config Si
 	fieldMap := map[string]string{
 		"name":       webhook.Name,
 		"id":         formatUUID(webhook.ID),
-		"account_id": formatUUID(webhook.AccountID),
 		"url":        webhook.URL,
 		"enabled":    formatBooleanStatus(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
@@ -620,7 +617,6 @@ func (h *tableHandler) HandleSingleWebhook(webhook *responses.Webhook, config Si
 		fieldNameMap := map[string]string{
 			"name":       "Name",
 			"id":         "ID",
-			"account_id": "Account ID",
 			"url":        "URL",
 			"enabled":    "Enabled",
 			"events":     "Events",
@@ -645,7 +641,6 @@ func (h *tableHandler) HandleSingleWebhook(webhook *responses.Webhook, config Si
 		rows = [][]string{
 			{"Name", webhook.Name},
 			{"ID", formatUUID(webhook.ID)},
-			{"Account ID", formatUUID(webhook.AccountID)},
 			{"URL", webhook.URL},
 			{"Enabled", formatBooleanStatus(webhook.Enabled)},
 			{"Events", formatWebhookEvents(webhook)},
@@ -1105,7 +1100,7 @@ func (h *tableHandler) HandleSuppressionList(response *responses.PaginatedSuppre
 		for i, header := range headers {
 			switch header {
 			case "ID":
-				row[i] = fmt.Sprintf("%d", suppression.ID)
+				row[i] = formatUUID(suppression.ID)
 			case "Email":
 				row[i] = suppression.Email
 			case "Domain":
@@ -1150,8 +1145,7 @@ func (h *tableHandler) HandleSingleSuppression(suppression *responses.Suppressio
 	table.Header("Field", "Value")
 
 	addTableRow(table, []string{"Email", suppression.Email})
-	addTableRow(table, []string{"ID", fmt.Sprintf("%d", suppression.ID)})
-	addTableRow(table, []string{"Account ID", formatUUID(suppression.AccountID)})
+	addTableRow(table, []string{"ID", formatUUID(suppression.ID)})
 
 	if suppression.Domain != "" {
 		addTableRow(table, []string{"Domain", suppression.Domain})
@@ -1161,7 +1155,6 @@ func (h *tableHandler) HandleSingleSuppression(suppression *responses.Suppressio
 	}
 
 	addTableRow(table, []string{"Created", formatTime(suppression.CreatedAt)})
-	addTableRow(table, []string{"Updated", formatTime(suppression.UpdatedAt)})
 	addTableRow(table, []string{"Expires", formatTime(suppression.ExpiresAt)})
 
 	renderTable(table)
@@ -1191,7 +1184,7 @@ func (h *tableHandler) HandleCreateSuppression(response *responses.CreateSuppres
 
 		row := []string{
 			suppression.Email,
-			fmt.Sprintf("%d", suppression.ID),
+			formatUUID(suppression.ID),
 			domain,
 			reason,
 			formatTime(suppression.ExpiresAt),
@@ -1222,7 +1215,7 @@ func (h *tableHandler) HandleCheckSuppression(suppression *responses.Suppression
 			table.Header("Field", "Value")
 
 			addTableRow(table, []string{"Email", suppression.Email})
-			addTableRow(table, []string{"ID", fmt.Sprintf("%d", suppression.ID)})
+			addTableRow(table, []string{"ID", formatUUID(suppression.ID)})
 
 			if suppression.Domain != "" {
 				addTableRow(table, []string{"Domain", suppression.Domain})
@@ -1276,7 +1269,7 @@ func (h *tableHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentia
 		}
 
 		row := []string{
-			fmt.Sprintf("%d", credential.ID),
+			formatUUID(credential.ID),
 			credential.Name,
 			credential.Username,
 			credential.Scope,
@@ -1315,7 +1308,7 @@ func (h *tableHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 
 	// Add credential details
 	addTableRow(table, []string{"Name", credential.Name})
-	addTableRow(table, []string{"ID", fmt.Sprintf("%d", credential.ID)})
+	addTableRow(table, []string{"ID", formatUUID(credential.ID)})
 	addTableRow(table, []string{"Username", credential.Username})
 	addTableRow(table, []string{"Password", "[HIDDEN - Never displayed for security]"})
 	addTableRow(table, []string{"Scope", credential.Scope})
@@ -1327,7 +1320,6 @@ func (h *tableHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 	}
 
 	addTableRow(table, []string{"Sandbox Mode", formatBooleanStatus(credential.Sandbox)})
-	addTableRow(table, []string{"Account ID", formatUUID(credential.AccountID)})
 	addTableRow(table, []string{"Created", formatTime(credential.CreatedAt)})
 	addTableRow(table, []string{"Updated", formatTime(credential.UpdatedAt)})
 
@@ -1366,7 +1358,7 @@ func (h *tableHandler) HandleCreateSMTP(credential *responses.SMTPCredential, co
 	table.Header(headerArgs...)
 
 	addTableRow(table, []string{"Name", credential.Name})
-	addTableRow(table, []string{"ID", fmt.Sprintf("%d", credential.ID)})
+	addTableRow(table, []string{"ID", formatUUID(credential.ID)})
 	addTableRow(table, []string{"Username", credential.Username})
 
 	// Show password only on creation

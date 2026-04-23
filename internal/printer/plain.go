@@ -282,7 +282,6 @@ func (h *plainHandler) HandleSingleWebhook(webhook *responses.Webhook, config Si
 	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
 
 	fmt.Fprintf(h.writer, "Webhook ID: %s\n", formatUUID(webhook.ID))
-	fmt.Fprintf(h.writer, "Account ID: %s\n", formatUUID(webhook.AccountID))
 	fmt.Fprintf(h.writer, "Name: %s\n", webhook.Name)
 	fmt.Fprintf(h.writer, "URL: %s\n", webhook.URL)
 	fmt.Fprintf(h.writer, "Enabled: %s\n", formatBooleanStatus(webhook.Enabled))
@@ -616,7 +615,7 @@ func (h *plainHandler) HandleSuppressionList(response *responses.PaginatedSuppre
 		}
 
 		fmt.Fprintf(h.writer, "Email: %s\n", suppression.Email)
-		fmt.Fprintf(h.writer, "  ID: %d\n", suppression.ID)
+		fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(suppression.ID))
 		if suppression.Domain != "" {
 			fmt.Fprintf(h.writer, "  Domain: %s\n", suppression.Domain)
 		}
@@ -647,8 +646,7 @@ func (h *plainHandler) HandleSingleSuppression(suppression *responses.Suppressio
 
 	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
 	fmt.Fprintf(h.writer, "Email: %s\n", suppression.Email)
-	fmt.Fprintf(h.writer, "ID: %d\n", suppression.ID)
-	fmt.Fprintf(h.writer, "Account ID: %s\n", formatUUID(suppression.AccountID))
+	fmt.Fprintf(h.writer, "ID: %s\n", formatUUID(suppression.ID))
 	if suppression.Domain != "" {
 		fmt.Fprintf(h.writer, "Domain: %s\n", suppression.Domain)
 	}
@@ -656,7 +654,6 @@ func (h *plainHandler) HandleSingleSuppression(suppression *responses.Suppressio
 		fmt.Fprintf(h.writer, "Reason: %s\n", suppression.Reason)
 	}
 	fmt.Fprintf(h.writer, "Created: %s\n", formatTime(suppression.CreatedAt))
-	fmt.Fprintf(h.writer, "Updated: %s\n", formatTime(suppression.UpdatedAt))
 	fmt.Fprintf(h.writer, "Expires: %s\n", formatTime(suppression.ExpiresAt))
 	return nil
 }
@@ -674,7 +671,7 @@ func (h *plainHandler) HandleCreateSuppression(response *responses.CreateSuppres
 		}
 
 		fmt.Fprintf(h.writer, "Email: %s\n", suppression.Email)
-		fmt.Fprintf(h.writer, "  ID: %d\n", suppression.ID)
+		fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(suppression.ID))
 		if suppression.Domain != "" {
 			fmt.Fprintf(h.writer, "  Domain: %s\n", suppression.Domain)
 		}
@@ -703,7 +700,7 @@ func (h *plainHandler) HandleCheckSuppression(suppression *responses.Suppression
 		fmt.Fprintf(h.writer, "%s\n", config.FoundMessage)
 		if suppression != nil {
 			fmt.Fprintf(h.writer, "Email: %s\n", suppression.Email)
-			fmt.Fprintf(h.writer, "ID: %d\n", suppression.ID)
+			fmt.Fprintf(h.writer, "ID: %s\n", formatUUID(suppression.ID))
 			if suppression.Domain != "" {
 				fmt.Fprintf(h.writer, "Domain: %s\n", suppression.Domain)
 			}
@@ -734,7 +731,7 @@ func (h *plainHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentia
 		}
 
 		fmt.Fprintf(h.writer, "Name: %s\n", credential.Name)
-		fmt.Fprintf(h.writer, "  ID: %d\n", credential.ID)
+		fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(credential.ID))
 		fmt.Fprintf(h.writer, "  Username: %s\n", credential.Username)
 		fmt.Fprintf(h.writer, "  Scope: %s\n", credential.Scope)
 		if len(credential.Domains) > 0 {
@@ -767,7 +764,7 @@ func (h *plainHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
 
 	fmt.Fprintf(h.writer, "Name: %s\n", credential.Name)
-	fmt.Fprintf(h.writer, "ID: %d\n", credential.ID)
+	fmt.Fprintf(h.writer, "ID: %s\n", formatUUID(credential.ID))
 	fmt.Fprintf(h.writer, "Username: %s\n", credential.Username)
 	fmt.Fprintf(h.writer, "Password: %s\n", "[HIDDEN]") // Never show password
 	fmt.Fprintf(h.writer, "Scope: %s\n", credential.Scope)
@@ -775,7 +772,6 @@ func (h *plainHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 		fmt.Fprintf(h.writer, "Domains: %s\n", formatStringSlice(credential.Domains))
 	}
 	fmt.Fprintf(h.writer, "Sandbox: %s\n", formatBooleanStatus(credential.Sandbox))
-	fmt.Fprintf(h.writer, "Account ID: %s\n", formatUUID(credential.AccountID))
 	fmt.Fprintf(h.writer, "Created: %s\n", formatTime(credential.CreatedAt))
 	fmt.Fprintf(h.writer, "Updated: %s\n", formatTime(credential.UpdatedAt))
 
@@ -798,7 +794,7 @@ func (h *plainHandler) HandleCreateSMTP(credential *responses.SMTPCredential, co
 
 	fmt.Fprintf(h.writer, "Created SMTP Credential:\n")
 	fmt.Fprintf(h.writer, "  Name: %s\n", credential.Name)
-	fmt.Fprintf(h.writer, "  ID: %d\n", credential.ID)
+	fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(credential.ID))
 	fmt.Fprintf(h.writer, "  Username: %s\n", credential.Username)
 	// Show password only on creation
 	if credential.Password != "" {
