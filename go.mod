@@ -3,7 +3,7 @@ module github.com/AhaSend/ahasend-cli
 go 1.26.1
 
 require (
-	github.com/AhaSend/ahasend-go v0.0.0-20260418184627-ecb14ae78974
+	github.com/AhaSend/ahasend-go v0.0.0-20260615154630-644dd6729972
 	github.com/google/uuid v1.6.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/sirupsen/logrus v1.9.3
