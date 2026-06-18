@@ -1,123 +1,14 @@
 package apikeys
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/spf13/cobra"
 )
-
-// Define valid static scopes based on the backend implementation
-var validStaticScopes = map[string]bool{
-	// Messages scopes
-	"messages:send:all":   true,
-	"messages:cancel:all": true,
-	"messages:read:all":   true,
-
-	// Domain scopes
-	"domains:read":       true,
-	"domains:write":      true,
-	"domains:delete:all": true,
-
-	// Account scopes
-	"accounts:read":           true,
-	"accounts:write":          true,
-	"accounts:billing":        true,
-	"accounts:members:read":   true,
-	"accounts:members:add":    true,
-	"accounts:members:update": true,
-	"accounts:members:remove": true,
-
-	// Webhook scopes
-	"webhooks:read:all":   true,
-	"webhooks:write:all":  true,
-	"webhooks:delete:all": true,
-
-	// Route scopes
-	"routes:read:all":   true,
-	"routes:write:all":  true,
-	"routes:delete:all": true,
-
-	// Suppression scopes
-	"suppressions:read":   true,
-	"suppressions:write":  true,
-	"suppressions:delete": true,
-	"suppressions:wipe":   true,
-
-	// SMTP Credentials scopes
-	"smtp-credentials:read:all":   true,
-	"smtp-credentials:write:all":  true,
-	"smtp-credentials:delete:all": true,
-
-	// Statistics scopes
-	"statistics-transactional:read:all": true,
-
-	// API Keys scopes
-	"api-keys:read":   true,
-	"api-keys:write":  true,
-	"api-keys:delete": true,
-}
-
-// Valid dynamic scope prefixes that can have domain restrictions
-var validDynamicPrefixes = []string{
-	// Messages with domain restriction
-	"messages:send:{",
-	"messages:cancel:{",
-	"messages:read:{",
-
-	// Domain deletion with domain restriction
-	"domains:delete:{",
-
-	// Webhooks with domain restriction
-	"webhooks:read:{",
-	"webhooks:write:{",
-	"webhooks:delete:{",
-
-	// Routes with domain restriction
-	"routes:read:{",
-	"routes:write:{",
-	"routes:delete:{",
-
-	// SMTP Credentials with domain restriction
-	"smtp-credentials:read:{",
-	"smtp-credentials:write:{",
-	"smtp-credentials:delete:{",
-
-	// Statistics with domain restriction
-	"statistics-transactional:read:{",
-}
-
-// validateScope checks if a scope is valid (either static or dynamic)
-func validateScope(scope string) error {
-	// Check if it's a valid static scope
-	if validStaticScopes[scope] {
-		return nil
-	}
-
-	// Check if it's a valid dynamic scope with domain restriction
-	for _, prefix := range validDynamicPrefixes {
-		if strings.HasPrefix(scope, prefix) && strings.HasSuffix(scope, "}") {
-			// Extract domain and validate format
-			domain := strings.TrimSuffix(strings.TrimPrefix(scope, prefix), "}")
-			if domain == "" {
-				return fmt.Errorf("empty domain in dynamic scope: %s", scope)
-			}
-			// Basic domain validation (could be enhanced)
-			if !strings.Contains(domain, ".") {
-				return fmt.Errorf("invalid domain format in scope: %s", scope)
-			}
-			// Note: The domain must exist in your account for the API to accept it
-			return nil
-		}
-	}
-
-	return fmt.Errorf("invalid scope: %s", scope)
-}
 
 // NewCreateCommand creates the apikeys create command
 func NewCreateCommand() *cobra.Command {
@@ -147,6 +38,8 @@ Available Scopes:
   SMTP: smtp-credentials:read:all, smtp-credentials:write:all, smtp-credentials:delete:all
   Statistics: statistics-transactional:read:all
   API Keys: api-keys:read, api-keys:write, api-keys:delete
+  Sub-Accounts: sub-accounts:read, sub-accounts:write, sub-accounts:delete, sub-accounts:suspend, sub-accounts:usage
+  Sub-Account API Keys: sub-account-api-keys:read, sub-account-api-keys:write, sub-account-api-keys:delete
 
 Domain-restricted scopes can be created by appending {domain} to certain prefixes:
   messages:send:{example.com}, webhooks:read:{example.com}, etc.
@@ -198,7 +91,7 @@ func runAPIKeyCreate(cmd *cobra.Command, args []string) error {
 
 	// Validate all scopes before making the API call
 	for _, scope := range scopes {
-		if err := validateScope(scope); err != nil {
+		if err := validation.ValidateScope(scope); err != nil {
 			return errors.NewValidationError(err.Error(), nil)
 		}
 	}

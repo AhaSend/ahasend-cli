@@ -579,6 +579,236 @@ func (m *MockClient) GetDeliveryTimeStatistics(params requests.GetDeliveryTimeSt
 	return args.Get(0).(*responses.DeliveryTimeStatisticsResponse), args.Error(1)
 }
 
+// Sub-account operations methods
+func (m *MockClient) ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error) {
+	args := m.Called(limit, cursor)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.PaginatedSubAccountsResponse), args.Error(1)
+}
+
+func (m *MockClient) CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error) {
+	args := m.Called(req, idempotencyKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccount), args.Error(1)
+}
+
+func (m *MockClient) GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccountUsageResponse), args.Error(1)
+}
+
+func (m *MockClient) GetSubAccount(subAccountID string) (*responses.SubAccount, error) {
+	args := m.Called(subAccountID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccount), args.Error(1)
+}
+
+func (m *MockClient) UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error) {
+	args := m.Called(subAccountID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccount), args.Error(1)
+}
+
+func (m *MockClient) DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error) {
+	args := m.Called(subAccountID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+}
+
+func (m *MockClient) SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error) {
+	args := m.Called(subAccountID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccount), args.Error(1)
+}
+
+func (m *MockClient) UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error) {
+	args := m.Called(subAccountID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.SubAccount), args.Error(1)
+}
+
+// Sub-account API key operations methods
+func (m *MockClient) ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error) {
+	args := m.Called(subAccountID, limit, cursor)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.PaginatedAPIKeysResponse), args.Error(1)
+}
+
+func (m *MockClient) CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error) {
+	args := m.Called(subAccountID, req, idempotencyKey)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.APIKey), args.Error(1)
+}
+
+func (m *MockClient) GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error) {
+	args := m.Called(subAccountID, keyID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.APIKey), args.Error(1)
+}
+
+func (m *MockClient) UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
+	args := m.Called(subAccountID, keyID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*responses.APIKey), args.Error(1)
+}
+
+func (m *MockClient) DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error) {
+	args := m.Called(subAccountID, keyID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+}
+
+// NewMockSubAccount creates a mock sub-account for testing
+func (m *MockClient) NewMockSubAccount(idStr, parentIDStr, name, website, status string) *responses.SubAccount {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		id = uuid.New()
+	}
+
+	parentID, err := uuid.Parse(parentIDStr)
+	if err != nil {
+		parentID = uuid.New()
+	}
+
+	return &responses.SubAccount{
+		Object:          "sub_account",
+		ID:              id,
+		ParentAccountID: parentID,
+		CreatedAt:       time.Now().Add(-24 * time.Hour),
+		Name:            name,
+		Website:         website,
+		Status:          status,
+		MonthlyCredit:   50000,
+		DomainCount:     2,
+		MemberCount:     3,
+	}
+}
+
+// NewMockSubAccountsResponse creates a mock paginated sub-accounts response for testing
+func (m *MockClient) NewMockSubAccountsResponse(subAccounts []responses.SubAccount, hasMore bool) *responses.PaginatedSubAccountsResponse {
+	return &responses.PaginatedSubAccountsResponse{
+		Object: "list",
+		Data:   subAccounts,
+		Pagination: common.PaginationInfo{
+			HasMore:    hasMore,
+			NextCursor: nil,
+		},
+	}
+}
+
+// NewMockSubAccountUsageResponse creates a mock sub-account usage response for testing
+func (m *MockClient) NewMockSubAccountUsageResponse(parentIDStr, subAccountIDStr, subAccountName string) *responses.SubAccountUsageResponse {
+	parentID, err := uuid.Parse(parentIDStr)
+	if err != nil {
+		parentID = uuid.New()
+	}
+
+	subAccountID, err := uuid.Parse(subAccountIDStr)
+	if err != nil {
+		subAccountID = uuid.New()
+	}
+
+	return &responses.SubAccountUsageResponse{
+		BillingPeriod: responses.SubAccountUsageBillingPeriod{
+			Start: time.Now().AddDate(0, 0, -30),
+			End:   time.Now(),
+		},
+		Currency:         "usd",
+		AllocationMethod: "proportional",
+		Parent: responses.SubAccountUsageBreakdown{
+			AccountID:      &parentID,
+			ReceptionCount: 1000,
+			AllocatedCost:  10,
+		},
+		SubAccounts: []responses.SubAccountUsageBreakdown{
+			{
+				AccountID:      &subAccountID,
+				Name:           &subAccountName,
+				ReceptionCount: 3000,
+				AllocatedCost:  30,
+			},
+		},
+		Total: responses.SubAccountUsageBreakdown{
+			ReceptionCount: 4000,
+			AllocatedCost:  40,
+		},
+	}
+}
+
+// NewMockAPIKey creates a mock API key for testing
+func (m *MockClient) NewMockAPIKey(idStr, accountIDStr, label string, scopes []string) *responses.APIKey {
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		id = uuid.New()
+	}
+
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		accountID = uuid.New()
+	}
+
+	apiKeyScopes := make([]responses.APIKeyScope, 0, len(scopes))
+	for _, scope := range scopes {
+		apiKeyScopes = append(apiKeyScopes, responses.APIKeyScope{
+			ID:        uuid.New(),
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+			UpdatedAt: time.Now().Add(-1 * time.Hour),
+			APIKeyID:  id,
+			Scope:     scope,
+		})
+	}
+
+	return &responses.APIKey{
+		Object:    "api_key",
+		ID:        id,
+		CreatedAt: time.Now().Add(-24 * time.Hour),
+		UpdatedAt: time.Now().Add(-1 * time.Hour),
+		AccountID: accountID,
+		Label:     label,
+		PublicKey: "aha-pk-test",
+		Scopes:    apiKeyScopes,
+	}
+}
+
+// NewMockAPIKeysResponse creates a mock paginated API keys response for testing
+func (m *MockClient) NewMockAPIKeysResponse(apiKeys []responses.APIKey, hasMore bool) *responses.PaginatedAPIKeysResponse {
+	return &responses.PaginatedAPIKeysResponse{
+		Object: "list",
+		Data:   apiKeys,
+		Pagination: common.PaginationInfo{
+			HasMore:    hasMore,
+			NextCursor: nil,
+		},
+	}
+}
+
 // API Key operations methods
 func (m *MockClient) ListAPIKeys(limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error) {
 	args := m.Called(limit, cursor)

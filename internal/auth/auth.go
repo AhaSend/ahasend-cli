@@ -11,6 +11,8 @@
 package auth
 
 import (
+	"sync"
+
 	"github.com/spf13/cobra"
 
 	"github.com/AhaSend/ahasend-cli/internal/client"
@@ -19,9 +21,39 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 )
 
+// ClientResolver resolves an authenticated AhaSend client for a command.
+type ClientResolver func(*cobra.Command) (client.AhaSendClient, error)
+
+var (
+	authenticatedClientResolverMu sync.RWMutex
+	authenticatedClientResolver   ClientResolver = defaultAuthenticatedClientResolver
+)
+
 // GetAuthenticatedClient returns an authenticated AhaSend client
 // It checks for global flags first, then falls back to profiles
 func GetAuthenticatedClient(cmd *cobra.Command) (client.AhaSendClient, error) {
+	authenticatedClientResolverMu.RLock()
+	resolver := authenticatedClientResolver
+	authenticatedClientResolverMu.RUnlock()
+
+	return resolver(cmd)
+}
+
+// SetAuthenticatedClientResolverForTesting overrides authenticated client resolution for tests.
+func SetAuthenticatedClientResolverForTesting(resolver ClientResolver) func() {
+	authenticatedClientResolverMu.Lock()
+	previous := authenticatedClientResolver
+	authenticatedClientResolver = resolver
+	authenticatedClientResolverMu.Unlock()
+
+	return func() {
+		authenticatedClientResolverMu.Lock()
+		authenticatedClientResolver = previous
+		authenticatedClientResolverMu.Unlock()
+	}
+}
+
+func defaultAuthenticatedClientResolver(cmd *cobra.Command) (client.AhaSendClient, error) {
 	// Check for global API key flags
 	apiKey, _ := cmd.Flags().GetString("api-key")
 	accountID, _ := cmd.Flags().GetString("account-id")

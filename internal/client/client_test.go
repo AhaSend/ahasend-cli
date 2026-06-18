@@ -1,6 +1,9 @@
 package client
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -8,6 +11,7 @@ import (
 	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
+	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -429,6 +433,672 @@ func TestClient_ErrorScenarios(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.expectedError)
 			}
 		})
+	}
+}
+
+func TestClient_SubAccountWrappers_InvalidParentAccountID(t *testing.T) {
+	client, err := NewClient("test-api-key", "invalid-uuid")
+	require.NoError(t, err)
+
+	validSubAccountID := uuid.New().String()
+	validKeyID := uuid.New().String()
+	createSubAccountReq := requests.CreateSubAccountRequest{
+		Name:    "Acme Subsidiary",
+		Website: "acme.example.com",
+	}
+	updateSubAccountReq := requests.UpdateSubAccountRequest{
+		Name: ahasend.String("Updated Subsidiary"),
+	}
+	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
+	createAPIKeyReq := requests.CreateAPIKeyRequest{
+		Label:  "Bootstrap key",
+		Scopes: []string{"messages:send:all"},
+	}
+	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
+		Label: ahasend.String("Updated bootstrap key"),
+	}
+
+	tests := []struct {
+		name string
+		call func(*Client) (any, error)
+	}{
+		{
+			name: "ListSubAccounts",
+			call: func(c *Client) (any, error) {
+				return c.ListSubAccounts(nil, nil)
+			},
+		},
+		{
+			name: "CreateSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.CreateSubAccount(createSubAccountReq, "sub-create-key")
+			},
+		},
+		{
+			name: "GetSubAccountsUsage",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountsUsage()
+			},
+		},
+		{
+			name: "GetSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccount(validSubAccountID)
+			},
+		},
+		{
+			name: "UpdateSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccount(validSubAccountID, updateSubAccountReq)
+			},
+		},
+		{
+			name: "DeleteSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccount(validSubAccountID)
+			},
+		},
+		{
+			name: "SuspendSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.SuspendSubAccount(validSubAccountID, suspendReq)
+			},
+		},
+		{
+			name: "UnsuspendSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.UnsuspendSubAccount(validSubAccountID)
+			},
+		},
+		{
+			name: "ListSubAccountAPIKeys",
+			call: func(c *Client) (any, error) {
+				return c.ListSubAccountAPIKeys(validSubAccountID, nil, nil)
+			},
+		},
+		{
+			name: "CreateSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.CreateSubAccountAPIKey(validSubAccountID, createAPIKeyReq, "key-create-key")
+			},
+		},
+		{
+			name: "GetSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountAPIKey(validSubAccountID, validKeyID)
+			},
+		},
+		{
+			name: "UpdateSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccountAPIKey(validSubAccountID, validKeyID, updateAPIKeyReq)
+			},
+		},
+		{
+			name: "DeleteSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccountAPIKey(validSubAccountID, validKeyID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := tt.call(client)
+
+			assert.Error(t, err)
+			assert.Nil(t, response)
+			assert.Contains(t, err.Error(), "invalid account ID format")
+		})
+	}
+}
+
+func TestClient_SubAccountWrappers_InvalidSubAccountID(t *testing.T) {
+	client, err := NewClient("test-api-key", uuid.New().String())
+	require.NoError(t, err)
+
+	validKeyID := uuid.New().String()
+	updateSubAccountReq := requests.UpdateSubAccountRequest{
+		Name: ahasend.String("Updated Subsidiary"),
+	}
+	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
+	createAPIKeyReq := requests.CreateAPIKeyRequest{
+		Label:  "Bootstrap key",
+		Scopes: []string{"messages:send:all"},
+	}
+	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
+		Label: ahasend.String("Updated bootstrap key"),
+	}
+
+	tests := []struct {
+		name string
+		call func(*Client) (any, error)
+	}{
+		{
+			name: "GetSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccount("invalid-uuid")
+			},
+		},
+		{
+			name: "UpdateSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccount("invalid-uuid", updateSubAccountReq)
+			},
+		},
+		{
+			name: "DeleteSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccount("invalid-uuid")
+			},
+		},
+		{
+			name: "SuspendSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.SuspendSubAccount("invalid-uuid", suspendReq)
+			},
+		},
+		{
+			name: "UnsuspendSubAccount",
+			call: func(c *Client) (any, error) {
+				return c.UnsuspendSubAccount("invalid-uuid")
+			},
+		},
+		{
+			name: "ListSubAccountAPIKeys",
+			call: func(c *Client) (any, error) {
+				return c.ListSubAccountAPIKeys("invalid-uuid", nil, nil)
+			},
+		},
+		{
+			name: "CreateSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.CreateSubAccountAPIKey("invalid-uuid", createAPIKeyReq, "key-create-key")
+			},
+		},
+		{
+			name: "GetSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountAPIKey("invalid-uuid", validKeyID)
+			},
+		},
+		{
+			name: "UpdateSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccountAPIKey("invalid-uuid", validKeyID, updateAPIKeyReq)
+			},
+		},
+		{
+			name: "DeleteSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccountAPIKey("invalid-uuid", validKeyID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := tt.call(client)
+
+			assert.Error(t, err)
+			assert.Nil(t, response)
+			assert.Contains(t, err.Error(), "invalid sub-account ID format")
+		})
+	}
+}
+
+func TestClient_SubAccountAPIKeyWrappers_InvalidAPIKeyID(t *testing.T) {
+	client, err := NewClient("test-api-key", uuid.New().String())
+	require.NoError(t, err)
+
+	validSubAccountID := uuid.New().String()
+	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
+		Label: ahasend.String("Updated bootstrap key"),
+	}
+
+	tests := []struct {
+		name string
+		call func(*Client) (any, error)
+	}{
+		{
+			name: "GetSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountAPIKey(validSubAccountID, "invalid-uuid")
+			},
+		},
+		{
+			name: "UpdateSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccountAPIKey(validSubAccountID, "invalid-uuid", updateAPIKeyReq)
+			},
+		},
+		{
+			name: "DeleteSubAccountAPIKey",
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccountAPIKey(validSubAccountID, "invalid-uuid")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, err := tt.call(client)
+
+			assert.Error(t, err)
+			assert.Nil(t, response)
+			assert.Contains(t, err.Error(), "invalid API key ID format")
+		})
+	}
+}
+
+func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
+	accountID := uuid.MustParse("9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1")
+	subAccountID := uuid.MustParse("2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a")
+	keyID := uuid.MustParse("13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd")
+	subAccountsPath := "/v2/accounts/" + accountID.String() + "/sub-accounts"
+	subAccountPath := subAccountsPath + "/" + subAccountID.String()
+	apiKeysPath := subAccountPath + "/api-keys"
+	apiKeyPath := apiKeysPath + "/" + keyID.String()
+	secretKey := "aha-sk-child-secret-key"
+
+	tests := []struct {
+		name            string
+		wantMethod      string
+		wantPath        string
+		wantIdempotency string
+		wantQuery       map[string]string
+		call            func(*Client) (any, error)
+		writeResponse   func(*testing.T, http.ResponseWriter)
+		assertBody      func(*testing.T, map[string]any)
+		assertResult    func(*testing.T, any)
+	}{
+		{
+			name:       "ListSubAccounts",
+			wantMethod: http.MethodGet,
+			wantPath:   subAccountsPath,
+			wantQuery: map[string]string{
+				"limit":  "25",
+				"cursor": "sub-cursor",
+			},
+			call: func(c *Client) (any, error) {
+				limit := int32(25)
+				cursor := "sub-cursor"
+				return c.ListSubAccounts(&limit, &cursor)
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, &responses.PaginatedSubAccountsResponse{
+					Object: "list",
+					Data:   []responses.SubAccount{clientTestSubAccount(accountID, subAccountID, "active")},
+					Pagination: common.PaginationInfo{
+						HasMore: false,
+					},
+				})
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.PaginatedSubAccountsResponse)
+				require.Len(t, response.Data, 1)
+				assert.Equal(t, subAccountID, response.Data[0].ID)
+				assert.False(t, response.Pagination.HasMore)
+			},
+		},
+		{
+			name:            "CreateSubAccount",
+			wantMethod:      http.MethodPost,
+			wantPath:        subAccountsPath,
+			wantIdempotency: "sub-create-key",
+			call: func(c *Client) (any, error) {
+				return c.CreateSubAccount(requests.CreateSubAccountRequest{
+					Name:          "Acme Subsidiary",
+					Website:       "acme.example.com",
+					MonthlyCredit: ahasend.Int64(50000),
+				}, "sub-create-key")
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusCreated, clientTestSubAccount(accountID, subAccountID, "active"))
+			},
+			assertBody: func(t *testing.T, body map[string]any) {
+				assert.Equal(t, "Acme Subsidiary", body["name"])
+				assert.Equal(t, "acme.example.com", body["website"])
+				assert.Equal(t, float64(50000), body["monthly_credit"])
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccount)
+				assert.Equal(t, subAccountID, response.ID)
+				assert.Equal(t, accountID, response.ParentAccountID)
+			},
+		},
+		{
+			name:       "GetSubAccountsUsage",
+			wantMethod: http.MethodGet,
+			wantPath:   subAccountsPath + "/usage",
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountsUsage()
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccountUsage(accountID, subAccountID))
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccountUsageResponse)
+				require.NotNil(t, response.Parent.AccountID)
+				assert.Equal(t, accountID, *response.Parent.AccountID)
+				require.Len(t, response.SubAccounts, 1)
+				require.NotNil(t, response.SubAccounts[0].AccountID)
+				assert.Equal(t, subAccountID, *response.SubAccounts[0].AccountID)
+			},
+		},
+		{
+			name:       "GetSubAccount",
+			wantMethod: http.MethodGet,
+			wantPath:   subAccountPath,
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccount(subAccountID.String())
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "active"))
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccount)
+				assert.Equal(t, subAccountID, response.ID)
+			},
+		},
+		{
+			name:       "UpdateSubAccount",
+			wantMethod: http.MethodPut,
+			wantPath:   subAccountPath,
+			call: func(c *Client) (any, error) {
+				return c.UpdateSubAccount(subAccountID.String(), requests.UpdateSubAccountRequest{
+					Name: ahasend.String("Updated Subsidiary"),
+				})
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "active"))
+			},
+			assertBody: func(t *testing.T, body map[string]any) {
+				assert.Equal(t, "Updated Subsidiary", body["name"])
+				assert.NotContains(t, body, "website")
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccount)
+				assert.Equal(t, subAccountID, response.ID)
+			},
+		},
+		{
+			name:       "DeleteSubAccount",
+			wantMethod: http.MethodDelete,
+			wantPath:   subAccountPath,
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccount(subAccountID.String())
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, &common.SuccessResponse{Message: "sub account deleted"})
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*common.SuccessResponse)
+				assert.Equal(t, "sub account deleted", response.Message)
+			},
+		},
+		{
+			name:       "SuspendSubAccount",
+			wantMethod: http.MethodPost,
+			wantPath:   subAccountPath + "/suspend",
+			call: func(c *Client) (any, error) {
+				return c.SuspendSubAccount(subAccountID.String(), requests.SuspendSubAccountRequest{
+					Reason: "Customer requested temporary pause",
+				})
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "suspended"))
+			},
+			assertBody: func(t *testing.T, body map[string]any) {
+				assert.Equal(t, "Customer requested temporary pause", body["reason"])
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccount)
+				assert.Equal(t, "suspended", response.Status)
+			},
+		},
+		{
+			name:       "UnsuspendSubAccount",
+			wantMethod: http.MethodPost,
+			wantPath:   subAccountPath + "/unsuspend",
+			call: func(c *Client) (any, error) {
+				return c.UnsuspendSubAccount(subAccountID.String())
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "active"))
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.SubAccount)
+				assert.Equal(t, "active", response.Status)
+			},
+		},
+		{
+			name:       "ListSubAccountAPIKeys",
+			wantMethod: http.MethodGet,
+			wantPath:   apiKeysPath,
+			wantQuery: map[string]string{
+				"limit":  "10",
+				"cursor": "key-cursor",
+			},
+			call: func(c *Client) (any, error) {
+				limit := int32(10)
+				cursor := "key-cursor"
+				return c.ListSubAccountAPIKeys(subAccountID.String(), &limit, &cursor)
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, &responses.PaginatedAPIKeysResponse{
+					Object: "list",
+					Data:   []responses.APIKey{clientTestAPIKey(subAccountID, keyID, nil)},
+					Pagination: common.PaginationInfo{
+						HasMore: false,
+					},
+				})
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.PaginatedAPIKeysResponse)
+				require.Len(t, response.Data, 1)
+				assert.Equal(t, keyID, response.Data[0].ID)
+				assert.Equal(t, subAccountID, response.Data[0].AccountID)
+			},
+		},
+		{
+			name:            "CreateSubAccountAPIKey",
+			wantMethod:      http.MethodPost,
+			wantPath:        apiKeysPath,
+			wantIdempotency: "key-create-key",
+			call: func(c *Client) (any, error) {
+				return c.CreateSubAccountAPIKey(subAccountID.String(), requests.CreateAPIKeyRequest{
+					Label:  "Bootstrap key",
+					Scopes: []string{"messages:send:all", "domains:read"},
+				}, "key-create-key")
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusCreated, clientTestAPIKey(subAccountID, keyID, &secretKey))
+			},
+			assertBody: func(t *testing.T, body map[string]any) {
+				assert.Equal(t, "Bootstrap key", body["label"])
+				assert.Equal(t, []any{"messages:send:all", "domains:read"}, body["scopes"])
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.APIKey)
+				assert.Equal(t, keyID, response.ID)
+				assert.Equal(t, subAccountID, response.AccountID)
+				require.NotNil(t, response.SecretKey)
+				assert.Equal(t, secretKey, *response.SecretKey)
+			},
+		},
+		{
+			name:       "GetSubAccountAPIKey",
+			wantMethod: http.MethodGet,
+			wantPath:   apiKeyPath,
+			call: func(c *Client) (any, error) {
+				return c.GetSubAccountAPIKey(subAccountID.String(), keyID.String())
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestAPIKey(subAccountID, keyID, nil))
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.APIKey)
+				assert.Equal(t, keyID, response.ID)
+				assert.Nil(t, response.SecretKey)
+			},
+		},
+		{
+			name:       "UpdateSubAccountAPIKey",
+			wantMethod: http.MethodPut,
+			wantPath:   apiKeyPath,
+			call: func(c *Client) (any, error) {
+				scopes := []string{"messages:send:all"}
+				return c.UpdateSubAccountAPIKey(subAccountID.String(), keyID.String(), requests.UpdateAPIKeyRequest{
+					Label:  ahasend.String("Updated bootstrap key"),
+					Scopes: &scopes,
+				})
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, clientTestAPIKey(subAccountID, keyID, nil))
+			},
+			assertBody: func(t *testing.T, body map[string]any) {
+				assert.Equal(t, "Updated bootstrap key", body["label"])
+				assert.Equal(t, []any{"messages:send:all"}, body["scopes"])
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*responses.APIKey)
+				assert.Equal(t, keyID, response.ID)
+			},
+		},
+		{
+			name:       "DeleteSubAccountAPIKey",
+			wantMethod: http.MethodDelete,
+			wantPath:   apiKeyPath,
+			call: func(c *Client) (any, error) {
+				return c.DeleteSubAccountAPIKey(subAccountID.String(), keyID.String())
+			},
+			writeResponse: func(t *testing.T, w http.ResponseWriter) {
+				writeClientTestJSON(t, w, http.StatusOK, &common.SuccessResponse{Message: "sub account api key deleted"})
+			},
+			assertResult: func(t *testing.T, result any) {
+				response := result.(*common.SuccessResponse)
+				assert.Equal(t, "sub account api key deleted", response.Message)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, tt.wantMethod, r.Method)
+				assert.Equal(t, tt.wantPath, r.URL.Path)
+				if tt.wantIdempotency != "" {
+					assert.Equal(t, tt.wantIdempotency, r.Header.Get("Idempotency-Key"))
+				}
+
+				for _, key := range []string{"limit", "cursor"} {
+					assert.Equal(t, tt.wantQuery[key], r.URL.Query().Get(key))
+				}
+
+				if tt.assertBody != nil {
+					var body map[string]any
+					err := json.NewDecoder(r.Body).Decode(&body)
+					require.NoError(t, err)
+					tt.assertBody(t, body)
+				}
+
+				tt.writeResponse(t, w)
+			})
+			defer cleanup()
+
+			result, err := tt.call(client)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			tt.assertResult(t, result)
+		})
+	}
+}
+
+func newClientTestServer(t *testing.T, accountID string, handler http.HandlerFunc) (*Client, func()) {
+	t.Helper()
+
+	server := httptest.NewServer(handler)
+	client, err := NewClient("test-api-key", accountID, server.URL)
+	require.NoError(t, err)
+
+	return client, server.Close
+}
+
+func writeClientTestJSON(t *testing.T, w http.ResponseWriter, status int, payload any) {
+	t.Helper()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	require.NoError(t, json.NewEncoder(w).Encode(payload))
+}
+
+func clientTestSubAccount(accountID, subAccountID uuid.UUID, status string) responses.SubAccount {
+	return responses.SubAccount{
+		Object:          "sub_account",
+		ID:              subAccountID,
+		ParentAccountID: accountID,
+		CreatedAt:       time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		Name:            "Acme Subsidiary",
+		Website:         "acme.example.com",
+		Status:          status,
+		MonthlyCredit:   50000,
+		DomainCount:     2,
+		MemberCount:     3,
+	}
+}
+
+func clientTestSubAccountUsage(accountID, subAccountID uuid.UUID) responses.SubAccountUsageResponse {
+	subAccountName := "Acme Subsidiary"
+
+	return responses.SubAccountUsageResponse{
+		BillingPeriod: responses.SubAccountUsageBillingPeriod{
+			Start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			End:   time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC),
+		},
+		Currency:         "usd",
+		AllocationMethod: "proportional",
+		Parent: responses.SubAccountUsageBreakdown{
+			AccountID:      &accountID,
+			ReceptionCount: 1000000,
+			AllocatedCost:  20,
+		},
+		SubAccounts: []responses.SubAccountUsageBreakdown{
+			{
+				AccountID:      &subAccountID,
+				Name:           &subAccountName,
+				ReceptionCount: 3000000,
+				AllocatedCost:  60,
+			},
+		},
+		RemovedSubAccounts: responses.SubAccountUsageBreakdown{},
+		Total: responses.SubAccountUsageBreakdown{
+			ReceptionCount: 4000000,
+			AllocatedCost:  80,
+		},
+	}
+}
+
+func clientTestAPIKey(accountID, keyID uuid.UUID, secretKey *string) responses.APIKey {
+	return responses.APIKey{
+		Object:    "api_key",
+		ID:        keyID,
+		CreatedAt: time.Date(2024, 1, 1, 0, 5, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2024, 1, 1, 0, 5, 0, 0, time.UTC),
+		AccountID: accountID,
+		Label:     "Bootstrap key",
+		PublicKey: "aha-pk-child-public-key",
+		Scopes: []responses.APIKeyScope{
+			{
+				ID:        uuid.MustParse("c574470d-76ef-4f74-9b24-70a583a17e03"),
+				CreatedAt: time.Date(2024, 1, 1, 0, 5, 0, 0, time.UTC),
+				UpdatedAt: time.Date(2024, 1, 1, 0, 5, 0, 0, time.UTC),
+				APIKeyID:  keyID,
+				Scope:     "messages:send:all",
+			},
+		},
+		SecretKey: secretKey,
 	}
 }
 

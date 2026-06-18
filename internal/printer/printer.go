@@ -86,6 +86,12 @@ type ResponseHandler interface {
 	HandleUpdateAPIKey(key *responses.APIKey, config UpdateConfig) error
 	HandleDeleteAPIKey(success bool, config DeleteConfig) error
 
+	// Sub-account responses
+	HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error
+	HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error
+	HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error
+	HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error
+
 	// Statistics responses
 	HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error
 	HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error
@@ -412,6 +418,22 @@ func (h *unsupportedHandler) HandleUpdateAPIKey(key *responses.APIKey, config Up
 }
 
 func (h *unsupportedHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+
+func (h *unsupportedHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+
+func (h *unsupportedHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+
+func (h *unsupportedHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
+	return fmt.Errorf("unsupported output format: %s", h.format)
+}
+
+func (h *unsupportedHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
 	return fmt.Errorf("unsupported output format: %s", h.format)
 }
 

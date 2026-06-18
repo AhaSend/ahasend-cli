@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -549,21 +550,36 @@ func TestAPIKeys_APIErrors(t *testing.T) {
 	}
 }
 
-// Test scope validation
+// Test scope validation using the shared validator
 func TestAPIKey_ScopeValidation(t *testing.T) {
 	validScopes := []string{
+		// Legacy static scopes preserved through the extraction
 		"messages:send:all",
 		"messages:cancel:all",
 		"messages:read:all",
 		"domains:read",
 		"domains:write",
-		"statistics:read",
-		"webhooks:read",
-		"webhooks:write",
-		"routes:read",
-		"routes:write",
+		"domains:delete:all",
+		"webhooks:read:all",
+		"webhooks:write:all",
+		"routes:read:all",
+		"routes:write:all",
 		"suppressions:read",
 		"suppressions:write",
+		"api-keys:read",
+		"api-keys:write",
+		"api-keys:delete",
+		// Legacy dynamic domain scope
+		"messages:send:{example.com}",
+		// New sub-account scopes
+		"sub-accounts:read",
+		"sub-accounts:write",
+		"sub-accounts:delete",
+		"sub-accounts:suspend",
+		"sub-accounts:usage",
+		"sub-account-api-keys:read",
+		"sub-account-api-keys:write",
+		"sub-account-api-keys:delete",
 	}
 
 	invalidScopes := []string{
@@ -572,19 +588,36 @@ func TestAPIKey_ScopeValidation(t *testing.T) {
 		"",
 		"write",          // too generic
 		"domains:delete", // not a valid operation
+		"sub-accounts:invalid",
 	}
 
 	for _, scope := range validScopes {
 		t.Run("valid_"+scope, func(t *testing.T) {
-			assert.True(t, isValidScope(scope), "scope %s should be valid", scope)
+			assert.NoError(t, validation.ValidateScope(scope), "scope %s should be valid", scope)
 		})
 	}
 
 	for _, scope := range invalidScopes {
 		t.Run("invalid_"+scope, func(t *testing.T) {
-			assert.False(t, isValidScope(scope), "scope %s should be invalid", scope)
+			assert.Error(t, validation.ValidateScope(scope), "scope %s should be invalid", scope)
 		})
 	}
+}
+
+// TestCreateCommand_NoIdempotencyKey confirms the top-level apikeys create
+// command does not expose an --idempotency-key flag and does not promise
+// replay-window recovery in its help text.
+func TestCreateCommand_NoIdempotencyKey(t *testing.T) {
+	cmd := NewCreateCommand()
+
+	assert.Nil(t, cmd.Flags().Lookup("idempotency-key"),
+		"top-level apikeys create must not have an --idempotency-key flag")
+
+	help := cmd.Long + " " + cmd.Example
+	assert.NotContains(t, strings.ToLower(help), "idempotency",
+		"top-level apikeys create help must not mention idempotency")
+	assert.NotContains(t, strings.ToLower(help), "replay",
+		"top-level apikeys create help must not promise replay recovery")
 }
 
 // Test API key ID validation
@@ -723,7 +756,7 @@ func BenchmarkAPIKeyID_Validation(b *testing.B) {
 func BenchmarkScope_Validation(b *testing.B) {
 	testScope := "messages:send:all"
 	for i := 0; i < b.N; i++ {
-		_ = isValidScope(testScope)
+		_ = validation.ValidateScope(testScope)
 	}
 }
 
@@ -799,25 +832,6 @@ func isValidAPIKeyID(id string) bool {
 		}
 	}
 	return true
-}
-
-// isValidScope validates API key scope format
-func isValidScope(scope string) bool {
-	validScopes := map[string]bool{
-		"messages:send:all":   true,
-		"messages:cancel:all": true,
-		"messages:read:all":   true,
-		"domains:read":        true,
-		"domains:write":       true,
-		"statistics:read":     true,
-		"webhooks:read":       true,
-		"webhooks:write":      true,
-		"routes:read":         true,
-		"routes:write":        true,
-		"suppressions:read":   true,
-		"suppressions:write":  true,
-	}
-	return validScopes[scope]
 }
 
 // mockDeleteAPIKey simulates API key deletion

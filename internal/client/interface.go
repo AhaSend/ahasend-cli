@@ -75,6 +75,23 @@ type AhaSendClient interface {
 	GetBounceStatistics(params requests.GetBounceStatisticsParams) (*responses.BounceStatisticsResponse, error)
 	GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatisticsParams) (*responses.DeliveryTimeStatisticsResponse, error)
 
+	// Sub-account operations
+	ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error)
+	CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error)
+	GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error)
+	GetSubAccount(subAccountID string) (*responses.SubAccount, error)
+	UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error)
+	DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error)
+	SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error)
+	UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error)
+
+	// Sub-account API key operations
+	ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)
+	CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error)
+	GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error)
+	UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
+	DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error)
+
 	// API Key operations
 	ListAPIKeys(limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)
 	GetAPIKey(keyID string) (*responses.APIKey, error)

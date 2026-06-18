@@ -1025,6 +1025,115 @@ func (h *plainHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) err
 	return nil
 }
 
+// Sub-account responses
+func (h *plainHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
+	if response == nil || len(response.Data) == 0 {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
+
+	for i, subAccount := range response.Data {
+		if i > 0 {
+			fmt.Fprintf(h.writer, "\n")
+		}
+
+		fmt.Fprintf(h.writer, "Name: %s\n", subAccount.Name)
+		fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(subAccount.ID))
+		fmt.Fprintf(h.writer, "  Status: %s\n", subAccount.Status)
+		if subAccount.Website != "" {
+			fmt.Fprintf(h.writer, "  Website: %s\n", subAccount.Website)
+		}
+		fmt.Fprintf(h.writer, "  Monthly Credit: %d\n", subAccount.MonthlyCredit)
+		fmt.Fprintf(h.writer, "  Domains: %d\n", subAccount.DomainCount)
+		fmt.Fprintf(h.writer, "  Members: %d\n", subAccount.MemberCount)
+		fmt.Fprintf(h.writer, "  Created: %s\n", formatTime(subAccount.CreatedAt))
+	}
+
+	if config.ShowPagination {
+		fmt.Fprintf(h.writer, "\n")
+		if response.Pagination.HasMore {
+			fmt.Fprintf(h.writer, "More sub-accounts available\n")
+		} else {
+			fmt.Fprintf(h.writer, "No more sub-accounts\n")
+		}
+	}
+
+	return nil
+}
+
+func (h *plainHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
+	if subAccount == nil {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+	h.printSubAccountDetails(subAccount)
+	return nil
+}
+
+func (h *plainHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
+	if subAccount == nil {
+		return h.HandleEmpty(config.SuccessMessage)
+	}
+
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+	h.printSubAccountDetails(subAccount)
+	return nil
+}
+
+// printSubAccountDetails renders the shared key-value view for a single sub-account.
+func (h *plainHandler) printSubAccountDetails(subAccount *responses.SubAccount) {
+	fmt.Fprintf(h.writer, "Name: %s\n", subAccount.Name)
+	fmt.Fprintf(h.writer, "ID: %s\n", formatUUID(subAccount.ID))
+	// ParentAccountID is non-nullable, so render it directly without a nil check.
+	fmt.Fprintf(h.writer, "Parent Account ID: %s\n", formatUUID(subAccount.ParentAccountID))
+	fmt.Fprintf(h.writer, "Status: %s\n", subAccount.Status)
+	if subAccount.Website != "" {
+		fmt.Fprintf(h.writer, "Website: %s\n", subAccount.Website)
+	}
+	fmt.Fprintf(h.writer, "Monthly Credit: %d\n", subAccount.MonthlyCredit)
+	fmt.Fprintf(h.writer, "Domain Count: %d\n", subAccount.DomainCount)
+	fmt.Fprintf(h.writer, "Member Count: %d\n", subAccount.MemberCount)
+	fmt.Fprintf(h.writer, "Created: %s\n", formatTime(subAccount.CreatedAt))
+	if subAccount.LastActivityAt != nil {
+		fmt.Fprintf(h.writer, "Last Activity: %s\n", formatTimePtr(subAccount.LastActivityAt))
+	} else {
+		fmt.Fprintf(h.writer, "Last Activity: Never\n")
+	}
+}
+
+func (h *plainHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
+	if response == nil {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	if config.SuccessMessage != "" {
+		fmt.Fprintf(h.writer, "%s\n", config.SuccessMessage)
+	}
+
+	fmt.Fprintf(h.writer, "Billing Period: %s\n", formatSubAccountBillingPeriod(response.BillingPeriod))
+	fmt.Fprintf(h.writer, "Currency: %s\n", response.Currency)
+	fmt.Fprintf(h.writer, "Allocation Method: %s\n", response.AllocationMethod)
+	if response.AllocationNote != "" {
+		fmt.Fprintf(h.writer, "Allocation Note: %s\n", response.AllocationNote)
+	}
+
+	for _, row := range subAccountUsageRows(response) {
+		fmt.Fprintf(h.writer, "\n%s:\n", row.name)
+		if row.accountID != "" {
+			fmt.Fprintf(h.writer, "  Account ID: %s\n", row.accountID)
+		}
+		fmt.Fprintf(h.writer, "  Reception Count: %d\n", row.breakdown.ReceptionCount)
+		fmt.Fprintf(h.writer, "  Allocated Cost: %s\n", formatFloat64(row.breakdown.AllocatedCost))
+	}
+
+	return nil
+}
+
 // Statistics responses
 func (h *plainHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
 	if len(response.Data) == 0 {
@@ -1198,6 +1307,9 @@ func (h *plainHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) e
 	if status.Account != nil {
 		fmt.Fprintf(h.writer, "\nAccount Details:\n")
 		fmt.Fprintf(h.writer, "  ID: %s\n", formatUUID(status.Account.ID))
+		if status.Account.ParentAccountID != nil {
+			fmt.Fprintf(h.writer, "  Parent Account ID: %s\n", formatUUID(*status.Account.ParentAccountID))
+		}
 		fmt.Fprintf(h.writer, "  Name: %s\n", status.Account.Name)
 		if status.Account.Website != nil {
 			fmt.Fprintf(h.writer, "  Website: %s\n", formatOptionalString(status.Account.Website))

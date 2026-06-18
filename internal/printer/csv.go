@@ -1311,6 +1311,128 @@ func (h *csvHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) error
 	return nil
 }
 
+// Sub-account responses
+func (h *csvHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
+	if response == nil || len(response.Data) == 0 {
+		return nil // No CSV output for empty results
+	}
+
+	writer := h.createCSVWriter()
+	defer flushCSVWriter(writer)
+
+	headers := getCSVHeaders(subAccountCSVFieldMap(response.Data[0]), config.FieldOrder)
+	if len(config.FieldOrder) == 0 {
+		headers = []string{"id", "name", "status", "website", "monthly_credit", "domain_count", "member_count", "parent_account_id", "created_at", "last_activity_at"}
+	}
+	if err := writeCSVHeaders(writer, headers); err != nil {
+		return err
+	}
+
+	for _, subAccount := range response.Data {
+		row := convertToCSVRow(subAccountCSVFieldMap(subAccount), headers)
+		if err := writeCSVRow(writer, row); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (h *csvHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
+	if subAccount == nil {
+		return nil // No CSV output for empty data
+	}
+
+	return h.writeSingleSubAccountCSV(*subAccount, config.FieldOrder)
+}
+
+func (h *csvHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
+	if subAccount == nil {
+		return nil // No CSV output for empty data
+	}
+
+	return h.writeSingleSubAccountCSV(*subAccount, config.FieldOrder)
+}
+
+// writeSingleSubAccountCSV writes a single sub-account row, sharing the field map
+// between the single and create renderers.
+func (h *csvHandler) writeSingleSubAccountCSV(subAccount responses.SubAccount, fieldOrder []string) error {
+	writer := h.createCSVWriter()
+	defer flushCSVWriter(writer)
+
+	fieldMap := subAccountCSVFieldMap(subAccount)
+
+	headers := fieldOrder
+	if len(headers) == 0 {
+		headers = []string{"id", "name", "status", "website", "monthly_credit", "domain_count", "member_count", "parent_account_id", "created_at", "last_activity_at"}
+	}
+	if err := writeCSVHeaders(writer, headers); err != nil {
+		return err
+	}
+
+	row := convertToCSVRow(fieldMap, headers)
+	return writeCSVRow(writer, row)
+}
+
+// subAccountCSVFieldMap maps a sub-account to its CSV field values. ParentAccountID is
+// non-nullable and is rendered directly without a nil check.
+func subAccountCSVFieldMap(subAccount responses.SubAccount) map[string]string {
+	lastActivity := ""
+	if subAccount.LastActivityAt != nil {
+		lastActivity = formatTime(*subAccount.LastActivityAt)
+	}
+
+	return map[string]string{
+		"id":                formatUUID(subAccount.ID),
+		"name":              subAccount.Name,
+		"status":            subAccount.Status,
+		"website":           subAccount.Website,
+		"monthly_credit":    formatInt(int(subAccount.MonthlyCredit)),
+		"domain_count":      formatInt(int(subAccount.DomainCount)),
+		"member_count":      formatInt(int(subAccount.MemberCount)),
+		"parent_account_id": formatUUID(subAccount.ParentAccountID),
+		"created_at":        formatTime(subAccount.CreatedAt),
+		"last_activity_at":  lastActivity,
+	}
+}
+
+func (h *csvHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
+	if response == nil {
+		return nil // No CSV output for empty data
+	}
+
+	writer := h.createCSVWriter()
+	defer flushCSVWriter(writer)
+
+	headers := []string{
+		"billing_period", "allocation_method", "currency",
+		"account_name", "account_id", "reception_count", "allocated_cost",
+	}
+	if err := writeCSVHeaders(writer, headers); err != nil {
+		return err
+	}
+
+	billingPeriod := formatSubAccountBillingPeriod(response.BillingPeriod)
+
+	for _, row := range subAccountUsageRows(response) {
+		fieldMap := map[string]string{
+			"billing_period":    billingPeriod,
+			"allocation_method": response.AllocationMethod,
+			"currency":          response.Currency,
+			"account_name":      row.name,
+			"account_id":        row.accountID,
+			"reception_count":   formatInt(int(row.breakdown.ReceptionCount)),
+			"allocated_cost":    formatFloat64(row.breakdown.AllocatedCost),
+		}
+
+		if err := writeCSVRow(writer, convertToCSVRow(fieldMap, headers)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Statistics responses
 func (h *csvHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
 	if len(response.Data) == 0 {
@@ -1544,6 +1666,9 @@ func (h *csvHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) err
 	// Add account fields if available
 	if status.Account != nil {
 		fieldMap["account_id"] = formatUUID(status.Account.ID)
+		if status.Account.ParentAccountID != nil {
+			fieldMap["parent_account_id"] = formatUUID(*status.Account.ParentAccountID)
+		}
 		fieldMap["account_name"] = status.Account.Name
 		fieldMap["website"] = formatOptionalString(status.Account.Website)
 		fieldMap["about"] = formatOptionalString(status.Account.About)
@@ -1578,7 +1703,7 @@ func (h *csvHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) err
 
 	// Use a predefined field order for consistency
 	fieldOrder := []string{
-		"profile", "api_key", "valid", "account_id", "account_name",
+		"profile", "api_key", "valid", "account_id", "parent_account_id", "account_name",
 		"website", "about", "created_at", "updated_at", "track_opens",
 		"track_clicks", "reject_bad_recipients", "reject_mistyped_recipients",
 		"message_metadata_retention", "message_data_retention",

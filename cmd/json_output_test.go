@@ -55,6 +55,43 @@ func TestJSONOutputValidation(t *testing.T) {
 			shouldError: false,
 			description: "Messages list should support JSON output",
 		},
+		// Sub-account commands
+		{
+			name:        "subaccounts_list_json",
+			args:        []string{"subaccounts", "list"},
+			useJSON:     true,
+			shouldError: false,
+			description: "Sub-accounts list should support JSON output",
+		},
+		{
+			name:        "subaccounts_get_json",
+			args:        []string{"subaccounts", "get", "sa_test"},
+			useJSON:     true,
+			shouldError: false,
+			description: "Sub-accounts get should support JSON output",
+		},
+		{
+			name:        "subaccounts_usage_json",
+			args:        []string{"subaccounts", "usage"},
+			useJSON:     true,
+			shouldError: false,
+			description: "Sub-accounts usage should support JSON output",
+		},
+		// Sub-account API key commands
+		{
+			name:        "subaccounts_apikeys_list_json",
+			args:        []string{"subaccounts", "api-keys", "list", "sa_test"},
+			useJSON:     true,
+			shouldError: false,
+			description: "Sub-account API keys list should support JSON output",
+		},
+		{
+			name:        "subaccounts_apikeys_get_json",
+			args:        []string{"subaccounts", "api-keys", "get", "sa_test", "ak_test"},
+			useJSON:     true,
+			shouldError: false,
+			description: "Sub-account API keys get should support JSON output",
+		},
 		// Regular table output tests
 		{
 			name:        "domains_list_table",
@@ -212,6 +249,18 @@ func TestJSONFlag(t *testing.T) {
 			args:        []string{"auth", "status", "--output", "json"},
 			shouldWork:  true,
 			description: "Auth status should work with --output json flag",
+		},
+		{
+			name:        "subaccounts_list_json_flag",
+			args:        []string{"subaccounts", "list", "--output", "json"},
+			shouldWork:  true,
+			description: "Sub-accounts list should work with --output json flag",
+		},
+		{
+			name:        "subaccounts_apikeys_list_json_flag",
+			args:        []string{"subaccounts", "api-keys", "list", "sa_test", "--output", "json"},
+			shouldWork:  true,
+			description: "Sub-account API keys list should work with --output json flag",
 		},
 	}
 

@@ -344,6 +344,35 @@ func (h *jsonHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) erro
 	return h.printJSON(result)
 }
 
+// Sub-account responses
+func (h *jsonHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
+	if response == nil {
+		return h.HandleEmpty(config.EmptyMessage)
+	}
+	return h.printJSON(response)
+}
+
+func (h *jsonHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
+	if subAccount == nil {
+		return h.HandleEmpty(config.EmptyMessage)
+	}
+	return h.printJSON(subAccount)
+}
+
+func (h *jsonHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
+	if subAccount == nil {
+		return h.HandleEmpty("No sub-account created")
+	}
+	return h.printJSON(subAccount)
+}
+
+func (h *jsonHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
+	if response == nil {
+		return h.HandleEmpty(config.EmptyMessage)
+	}
+	return h.printJSON(response)
+}
+
 // Statistics responses
 func (h *jsonHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
 	if response == nil {

@@ -15,6 +15,7 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 - **🌐 Domain Management**: Add, verify, and manage sending domains with DNS configuration
 - **🔔 Webhook Management**: Configure, test, and monitor real-time event notifications
 - **🔐 Authentication**: Secure profile-based authentication with API key management
+- **👥 Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
 - **🎨 Multiple Output Formats**: JSON, table, CSV, and plain text
@@ -162,6 +163,7 @@ ahasend routes trigger route-id-here
 | `suppressions` | Manage suppression lists |
 | `stats` | View email statistics |
 | `apikeys` | Manage API keys |
+| `subaccounts` | Manage sub-accounts and their nested API keys |
 | `smtp` | SMTP credentials and testing |
 | `routes` | Email routing rules |
 | `ping` | Test API connectivity |

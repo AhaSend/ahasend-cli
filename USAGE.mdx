@@ -10,6 +10,7 @@ The AhaSend CLI is a comprehensive command-line interface for the AhaSend email 
 - **Domain Management**: Add, verify, and manage sending domains with DNS configuration
 - **Webhook Management**: Configure real-time event notifications
 - **Authentication**: Secure profile-based authentication with API key management
+- **Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **Analytics**: Comprehensive email statistics and reporting
 - **Multiple Output Formats**: JSON, table, CSV, and plain text with color support
 - **Batch Processing**: High-performance concurrent operations with progress tracking
@@ -1061,6 +1062,139 @@ Delete an API key.
 ```bash
 ahasend apikeys delete ak_1234567890abcdef
 ```
+
+### Sub-Accounts Management Commands
+
+Manage sub-accounts under your AhaSend parent account, including provisioning,
+lifecycle changes, usage review, and the API keys nested under each sub-account.
+
+#### `ahasend subaccounts list`
+
+List all sub-accounts under the parent account with their status and credit
+allocation.
+
+```bash
+ahasend subaccounts list
+
+# With pagination
+ahasend subaccounts list --limit 50 --cursor <cursor>
+```
+
+#### `ahasend subaccounts get`
+
+Get detailed information about a specific sub-account.
+
+```bash
+ahasend subaccounts get <sub-account-id>
+```
+
+#### `ahasend subaccounts usage`
+
+Show usage allocation for the current billing period across the parent account
+and its sub-accounts.
+
+```bash
+ahasend subaccounts usage
+```
+
+#### `ahasend subaccounts create`
+
+Create a new sub-account.
+
+```bash
+ahasend subaccounts create \
+  --name "Acme Marketing" \
+  --website "https://acme.example.com" \
+  --monthly-credit 100000
+```
+
+Creation accepts an optional `--idempotency-key` so retries are safe; one is
+generated automatically if you do not provide it.
+
+#### `ahasend subaccounts update`
+
+Update an existing sub-account's name, website, or monthly credit allocation.
+
+```bash
+ahasend subaccounts update <sub-account-id> --name "Acme Sales"
+```
+
+#### `ahasend subaccounts suspend` / `ahasend subaccounts unsuspend`
+
+Suspend a sub-account (a reason is required) or restore a previously suspended
+one.
+
+```bash
+ahasend subaccounts suspend <sub-account-id> --reason "Payment overdue"
+ahasend subaccounts unsuspend <sub-account-id>
+```
+
+#### `ahasend subaccounts delete`
+
+Delete a sub-account. Use `--force` to skip the confirmation prompt.
+
+```bash
+ahasend subaccounts delete <sub-account-id>
+ahasend subaccounts delete <sub-account-id> --force
+```
+
+#### Sub-Account API Keys
+
+Each sub-account has its own API keys, managed through the nested
+`subaccounts api-keys` group (alias: `subaccounts apikeys`). Every command takes
+the sub-account ID as its first positional argument.
+
+```bash
+# List a sub-account's API keys
+ahasend subaccounts api-keys list <sub-account-id>
+
+# Inspect a single key (the secret is never displayed)
+ahasend subaccounts api-keys get <sub-account-id> <key-id>
+
+# Create a key for a sub-account
+ahasend subaccounts api-keys create <sub-account-id> \
+  --label "CI" \
+  --scope messages:send:all \
+  --scope domains:read
+
+# Update or delete a key
+ahasend subaccounts api-keys update <sub-account-id> <key-id> --label "Updated"
+ahasend subaccounts api-keys delete <sub-account-id> <key-id>
+```
+
+**One-time secret with a 5-minute replay window:**
+
+`ahasend subaccounts api-keys create` returns the key's `secret_key` exactly
+once. Provide your own `--idempotency-key` (or rely on the auto-generated one)
+to make retries safe. If the **same** `--idempotency-key` is replayed within the
+**5-minute** replay window, the API returns the original key including its
+one-time `secret_key`; after that window the secret can no longer be recovered.
+
+> This replay window applies **only** to `subaccounts api-keys create`. The
+> top-level `ahasend apikeys create` displays its secret once and cannot replay
+> or recover it with `--idempotency-key`.
+
+**Sub-account scopes:**
+
+Grant these scopes (on a parent-account key) to manage sub-accounts and their
+keys:
+
+- `sub-accounts:read` - List and view sub-accounts and usage
+- `sub-accounts:write` - Create and update sub-accounts
+- `sub-accounts:delete` - Delete sub-accounts
+- `sub-accounts:suspend` - Suspend and unsuspend sub-accounts
+- `sub-accounts:usage` - View sub-account usage allocation
+- `sub-account-api-keys:read` - List and view a sub-account's API keys
+- `sub-account-api-keys:write` - Create and update a sub-account's API keys
+- `sub-account-api-keys:delete` - Delete a sub-account's API keys
+
+**Idempotency conflicts (409/422):**
+
+Sub-account create commands surface server-side idempotency errors directly. A
+`409` conflict (the same idempotency key was used with a different request) and a
+`422` validation error are reported as-is. In JSON output mode the raw API error
+body is printed to stdout and the command exits `0` (the error payload is the
+output); table and plain output report the error and exit non-zero.
 
 ### Utility Commands
 

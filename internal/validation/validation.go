@@ -65,6 +65,25 @@ func ValidateUUID(id string) error {
 	return nil
 }
 
+// ValidateUUIDField validates that a named field contains a valid UUID format
+func ValidateUUIDField(fieldName, value string) error {
+	if value == "" {
+		return errors.NewValidationError(fieldName+" cannot be empty", nil)
+	}
+	if _, err := uuid.Parse(value); err != nil {
+		return errors.NewValidationError("invalid "+fieldName+" format: "+value, nil)
+	}
+	return nil
+}
+
+// ValidatePageLimit validates an optional page limit
+func ValidatePageLimit(limit int32) error {
+	if limit < 0 || limit > 100 {
+		return errors.NewValidationError("invalid page limit: "+strconv.FormatInt(int64(limit), 10)+" (must be between 0 and 100)", nil)
+	}
+	return nil
+}
+
 // ValidateDomainName validates a domain name format
 func ValidateDomainName(domain string) error {
 	if domain == "" {

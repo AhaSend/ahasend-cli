@@ -1766,6 +1766,120 @@ func (h *tableHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) err
 	return nil
 }
 
+// Sub-account responses
+func (h *tableHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
+	if response == nil || len(response.Data) == 0 {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+
+	table := h.createTable()
+	table.Header("Name", "ID", "Status", "Domains", "Members", "Monthly Credit", "Created")
+
+	for _, subAccount := range response.Data {
+		addTableRow(table, []string{
+			subAccount.Name,
+			formatUUID(subAccount.ID),
+			subAccount.Status,
+			formatInt(int(subAccount.DomainCount)),
+			formatInt(int(subAccount.MemberCount)),
+			formatInt(int(subAccount.MonthlyCredit)),
+			formatTime(subAccount.CreatedAt),
+		})
+	}
+
+	renderTable(table)
+
+	if config.ShowPagination && response.Pagination.HasMore {
+		fmt.Fprintf(h.writer, "\nMore sub-accounts available. Use --cursor to see next page.\n")
+	}
+
+	return nil
+}
+
+func (h *tableHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
+	if subAccount == nil {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+
+	renderTable(h.subAccountDetailTable(subAccount))
+	return nil
+}
+
+func (h *tableHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
+	if subAccount == nil {
+		return h.HandleEmpty(config.SuccessMessage)
+	}
+
+	fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+
+	renderTable(h.subAccountDetailTable(subAccount))
+	return nil
+}
+
+// subAccountDetailTable builds the shared field/value table for a single sub-account.
+func (h *tableHandler) subAccountDetailTable(subAccount *responses.SubAccount) *tablewriter.Table {
+	table := h.createBorderedTable()
+	table.Header("Field", "Value")
+
+	addTableRow(table, []string{"Name", subAccount.Name})
+	addTableRow(table, []string{"ID", formatUUID(subAccount.ID)})
+	// ParentAccountID is non-nullable, so render it directly without a nil check.
+	addTableRow(table, []string{"Parent Account ID", formatUUID(subAccount.ParentAccountID)})
+	addTableRow(table, []string{"Status", subAccount.Status})
+	addTableRow(table, []string{"Website", subAccount.Website})
+	addTableRow(table, []string{"Monthly Credit", formatInt(int(subAccount.MonthlyCredit))})
+	addTableRow(table, []string{"Domain Count", formatInt(int(subAccount.DomainCount))})
+	addTableRow(table, []string{"Member Count", formatInt(int(subAccount.MemberCount))})
+	addTableRow(table, []string{"Created", formatTime(subAccount.CreatedAt)})
+	if subAccount.LastActivityAt != nil {
+		addTableRow(table, []string{"Last Activity", formatTimePtr(subAccount.LastActivityAt)})
+	} else {
+		addTableRow(table, []string{"Last Activity", "Never"})
+	}
+
+	return table
+}
+
+func (h *tableHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
+	if response == nil {
+		fmt.Fprintf(h.writer, "%s\n", config.EmptyMessage)
+		return nil
+	}
+
+	if config.SuccessMessage != "" {
+		fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage)
+	}
+
+	fmt.Fprintf(h.writer, "Billing Period: %s\n", formatSubAccountBillingPeriod(response.BillingPeriod))
+	fmt.Fprintf(h.writer, "Currency: %s\n", response.Currency)
+	fmt.Fprintf(h.writer, "Allocation Method: %s\n", response.AllocationMethod)
+	if response.AllocationNote != "" {
+		fmt.Fprintf(h.writer, "Allocation Note: %s\n", response.AllocationNote)
+	}
+	fmt.Fprintf(h.writer, "\n")
+
+	table := h.createTable()
+	table.Header("Account", "Account ID", "Reception", "Allocated Cost")
+
+	for _, row := range subAccountUsageRows(response) {
+		addTableRow(table, []string{
+			row.name,
+			row.accountID,
+			formatInt(int(row.breakdown.ReceptionCount)),
+			formatFloat64(row.breakdown.AllocatedCost),
+		})
+	}
+
+	renderTable(table)
+	return nil
+}
+
 // Statistics responses
 func (h *tableHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
 	if len(response.Data) == 0 {
@@ -2201,6 +2315,9 @@ func (h *tableHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) e
 		accountTable.Header("Field", "Value")
 
 		addTableRow(accountTable, []string{"ID", formatUUID(status.Account.ID)})
+		if status.Account.ParentAccountID != nil {
+			addTableRow(accountTable, []string{"Parent Account ID", formatUUID(*status.Account.ParentAccountID)})
+		}
 		addTableRow(accountTable, []string{"Name", status.Account.Name})
 		if status.Account.Website != nil {
 			addTableRow(accountTable, []string{"Website", formatOptionalString(status.Account.Website)})
@@ -2312,4 +2429,75 @@ func addTableRow(table *tablewriter.Table, row []string) {
 // renderTable renders the table with proper formatting
 func renderTable(table *tablewriter.Table) {
 	table.Render()
+}
+
+// Sub-account usage shared helpers (used by table, plain, and CSV renderers)
+
+// subAccountUsageRow pairs a usage breakdown with its display label and account ID.
+type subAccountUsageRow struct {
+	name      string
+	accountID string
+	breakdown responses.SubAccountUsageBreakdown
+}
+
+// subAccountUsageRows returns the usage breakdown rows in their stable display order:
+// parent, then the API-ordered sub-accounts, then removed sub-accounts only when they
+// have a positive reception count, then the API-provided total. The total is taken
+// directly from response.Total and is never recomputed client-side.
+func subAccountUsageRows(response *responses.SubAccountUsageResponse) []subAccountUsageRow {
+	rows := []subAccountUsageRow{
+		{
+			name:      subAccountUsageName(response.Parent, "Parent"),
+			accountID: subAccountUsageAccountID(response.Parent),
+			breakdown: response.Parent,
+		},
+	}
+
+	for _, sub := range response.SubAccounts {
+		rows = append(rows, subAccountUsageRow{
+			name:      subAccountUsageName(sub, "Sub-Account"),
+			accountID: subAccountUsageAccountID(sub),
+			breakdown: sub,
+		})
+	}
+
+	// Removed sub-accounts are only shown when they carry usage.
+	if response.RemovedSubAccounts.ReceptionCount > 0 {
+		rows = append(rows, subAccountUsageRow{
+			name:      subAccountUsageName(response.RemovedSubAccounts, "Removed Sub-Accounts"),
+			accountID: subAccountUsageAccountID(response.RemovedSubAccounts),
+			breakdown: response.RemovedSubAccounts,
+		})
+	}
+
+	rows = append(rows, subAccountUsageRow{
+		name:      subAccountUsageName(response.Total, "Total"),
+		accountID: subAccountUsageAccountID(response.Total),
+		breakdown: response.Total,
+	})
+
+	return rows
+}
+
+// subAccountUsageName returns the breakdown's name, falling back to the provided
+// label when the API omits a name (e.g. for parent/removed/total buckets).
+func subAccountUsageName(b responses.SubAccountUsageBreakdown, fallback string) string {
+	if b.Name != nil && *b.Name != "" {
+		return *b.Name
+	}
+	return fallback
+}
+
+// subAccountUsageAccountID renders the optional account ID, returning an empty
+// string when it is absent.
+func subAccountUsageAccountID(b responses.SubAccountUsageBreakdown) string {
+	if b.AccountID != nil {
+		return formatUUID(*b.AccountID)
+	}
+	return ""
+}
+
+// formatSubAccountBillingPeriod renders a usage billing period as a "start to end" range.
+func formatSubAccountBillingPeriod(period responses.SubAccountUsageBillingPeriod) string {
+	return fmt.Sprintf("%s to %s", formatTime(period.Start), formatTime(period.End))
 }

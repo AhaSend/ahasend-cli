@@ -139,6 +139,349 @@ func TestMockClient_MessageMethods(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestMockClient_SubAccountMethods(t *testing.T) {
+	parentID := "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1"
+	subAccountID := "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a"
+	keyID := "13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd"
+	idempotencyKey := "sub-create-key"
+	keyIdempotencyKey := "key-create-key"
+	limit := int32(10)
+	cursor := "cursor-1"
+	subAccount := (&MockClient{}).NewMockSubAccount(subAccountID, parentID, "Acme Subsidiary", "acme.example.com", "active")
+	subAccounts := (&MockClient{}).NewMockSubAccountsResponse([]responses.SubAccount{*subAccount}, false)
+	usage := (&MockClient{}).NewMockSubAccountUsageResponse(parentID, subAccountID, "Acme Subsidiary")
+	apiKey := (&MockClient{}).NewMockAPIKey(keyID, subAccountID, "Bootstrap key", []string{"messages:send:all"})
+	apiKeys := (&MockClient{}).NewMockAPIKeysResponse([]responses.APIKey{*apiKey}, false)
+	success := &common.SuccessResponse{Message: "ok"}
+	createSubAccountReq := requests.CreateSubAccountRequest{
+		Name:    "Acme Subsidiary",
+		Website: "acme.example.com",
+	}
+	updateSubAccountReq := requests.UpdateSubAccountRequest{
+		Name: stringPointer("Updated Subsidiary"),
+	}
+	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
+	createAPIKeyReq := requests.CreateAPIKeyRequest{
+		Label:  "Bootstrap key",
+		Scopes: []string{"messages:send:all"},
+	}
+	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
+		Label: stringPointer("Updated bootstrap key"),
+	}
+
+	tests := []struct {
+		name     string
+		setup    func(*MockClient)
+		call     func(*MockClient) (any, error)
+		expected any
+	}{
+		{
+			name: "ListSubAccounts",
+			setup: func(m *MockClient) {
+				m.On("ListSubAccounts", &limit, &cursor).Return(subAccounts, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.ListSubAccounts(&limit, &cursor)
+			},
+			expected: subAccounts,
+		},
+		{
+			name: "CreateSubAccount",
+			setup: func(m *MockClient) {
+				m.On("CreateSubAccount", createSubAccountReq, idempotencyKey).Return(subAccount, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.CreateSubAccount(createSubAccountReq, idempotencyKey)
+			},
+			expected: subAccount,
+		},
+		{
+			name: "GetSubAccountsUsage",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccountsUsage").Return(usage, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccountsUsage()
+			},
+			expected: usage,
+		},
+		{
+			name: "GetSubAccount",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccount", subAccountID).Return(subAccount, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccount(subAccountID)
+			},
+			expected: subAccount,
+		},
+		{
+			name: "UpdateSubAccount",
+			setup: func(m *MockClient) {
+				m.On("UpdateSubAccount", subAccountID, updateSubAccountReq).Return(subAccount, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UpdateSubAccount(subAccountID, updateSubAccountReq)
+			},
+			expected: subAccount,
+		},
+		{
+			name: "DeleteSubAccount",
+			setup: func(m *MockClient) {
+				m.On("DeleteSubAccount", subAccountID).Return(success, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.DeleteSubAccount(subAccountID)
+			},
+			expected: success,
+		},
+		{
+			name: "SuspendSubAccount",
+			setup: func(m *MockClient) {
+				m.On("SuspendSubAccount", subAccountID, suspendReq).Return(subAccount, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.SuspendSubAccount(subAccountID, suspendReq)
+			},
+			expected: subAccount,
+		},
+		{
+			name: "UnsuspendSubAccount",
+			setup: func(m *MockClient) {
+				m.On("UnsuspendSubAccount", subAccountID).Return(subAccount, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UnsuspendSubAccount(subAccountID)
+			},
+			expected: subAccount,
+		},
+		{
+			name: "ListSubAccountAPIKeys",
+			setup: func(m *MockClient) {
+				m.On("ListSubAccountAPIKeys", subAccountID, &limit, &cursor).Return(apiKeys, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.ListSubAccountAPIKeys(subAccountID, &limit, &cursor)
+			},
+			expected: apiKeys,
+		},
+		{
+			name: "CreateSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("CreateSubAccountAPIKey", subAccountID, createAPIKeyReq, keyIdempotencyKey).Return(apiKey, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.CreateSubAccountAPIKey(subAccountID, createAPIKeyReq, keyIdempotencyKey)
+			},
+			expected: apiKey,
+		},
+		{
+			name: "GetSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccountAPIKey", subAccountID, keyID).Return(apiKey, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccountAPIKey(subAccountID, keyID)
+			},
+			expected: apiKey,
+		},
+		{
+			name: "UpdateSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("UpdateSubAccountAPIKey", subAccountID, keyID, updateAPIKeyReq).Return(apiKey, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UpdateSubAccountAPIKey(subAccountID, keyID, updateAPIKeyReq)
+			},
+			expected: apiKey,
+		},
+		{
+			name: "DeleteSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("DeleteSubAccountAPIKey", subAccountID, keyID).Return(success, nil)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.DeleteSubAccountAPIKey(subAccountID, keyID)
+			},
+			expected: success,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &MockClient{}
+			tt.setup(mockClient)
+
+			result, err := tt.call(mockClient)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestMockClient_SubAccountMethods_NilReturns(t *testing.T) {
+	subAccountID := "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a"
+	keyID := "13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd"
+	idempotencyKey := "sub-create-key"
+	keyIdempotencyKey := "key-create-key"
+	limit := int32(10)
+	cursor := "cursor-1"
+	createSubAccountReq := requests.CreateSubAccountRequest{
+		Name:    "Acme Subsidiary",
+		Website: "acme.example.com",
+	}
+	updateSubAccountReq := requests.UpdateSubAccountRequest{
+		Name: stringPointer("Updated Subsidiary"),
+	}
+	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
+	createAPIKeyReq := requests.CreateAPIKeyRequest{
+		Label:  "Bootstrap key",
+		Scopes: []string{"messages:send:all"},
+	}
+	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
+		Label: stringPointer("Updated bootstrap key"),
+	}
+
+	tests := []struct {
+		name  string
+		setup func(*MockClient)
+		call  func(*MockClient) (any, error)
+	}{
+		{
+			name: "ListSubAccounts",
+			setup: func(m *MockClient) {
+				m.On("ListSubAccounts", &limit, &cursor).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.ListSubAccounts(&limit, &cursor)
+			},
+		},
+		{
+			name: "CreateSubAccount",
+			setup: func(m *MockClient) {
+				m.On("CreateSubAccount", createSubAccountReq, idempotencyKey).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.CreateSubAccount(createSubAccountReq, idempotencyKey)
+			},
+		},
+		{
+			name: "GetSubAccountsUsage",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccountsUsage").Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccountsUsage()
+			},
+		},
+		{
+			name: "GetSubAccount",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccount", subAccountID).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccount(subAccountID)
+			},
+		},
+		{
+			name: "UpdateSubAccount",
+			setup: func(m *MockClient) {
+				m.On("UpdateSubAccount", subAccountID, updateSubAccountReq).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UpdateSubAccount(subAccountID, updateSubAccountReq)
+			},
+		},
+		{
+			name: "DeleteSubAccount",
+			setup: func(m *MockClient) {
+				m.On("DeleteSubAccount", subAccountID).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.DeleteSubAccount(subAccountID)
+			},
+		},
+		{
+			name: "SuspendSubAccount",
+			setup: func(m *MockClient) {
+				m.On("SuspendSubAccount", subAccountID, suspendReq).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.SuspendSubAccount(subAccountID, suspendReq)
+			},
+		},
+		{
+			name: "UnsuspendSubAccount",
+			setup: func(m *MockClient) {
+				m.On("UnsuspendSubAccount", subAccountID).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UnsuspendSubAccount(subAccountID)
+			},
+		},
+		{
+			name: "ListSubAccountAPIKeys",
+			setup: func(m *MockClient) {
+				m.On("ListSubAccountAPIKeys", subAccountID, &limit, &cursor).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.ListSubAccountAPIKeys(subAccountID, &limit, &cursor)
+			},
+		},
+		{
+			name: "CreateSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("CreateSubAccountAPIKey", subAccountID, createAPIKeyReq, keyIdempotencyKey).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.CreateSubAccountAPIKey(subAccountID, createAPIKeyReq, keyIdempotencyKey)
+			},
+		},
+		{
+			name: "GetSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("GetSubAccountAPIKey", subAccountID, keyID).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.GetSubAccountAPIKey(subAccountID, keyID)
+			},
+		},
+		{
+			name: "UpdateSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("UpdateSubAccountAPIKey", subAccountID, keyID, updateAPIKeyReq).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.UpdateSubAccountAPIKey(subAccountID, keyID, updateAPIKeyReq)
+			},
+		},
+		{
+			name: "DeleteSubAccountAPIKey",
+			setup: func(m *MockClient) {
+				m.On("DeleteSubAccountAPIKey", subAccountID, keyID).Return(nil, assert.AnError)
+			},
+			call: func(m *MockClient) (any, error) {
+				return m.DeleteSubAccountAPIKey(subAccountID, keyID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &MockClient{}
+			tt.setup(mockClient)
+
+			result, err := tt.call(mockClient)
+
+			assert.Error(t, err)
+			assert.Nil(t, result)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
 func TestMockClient_HelperMethods(t *testing.T) {
 	mockClient := &MockClient{}
 
@@ -157,6 +500,37 @@ func TestMockClient_HelperMethods(t *testing.T) {
 	// Test helper method for creating message response
 	messageResponse := mockClient.NewMockMessageResponse("msg-123")
 	assert.Equal(t, "msg-123", *messageResponse.Data[0].ID)
+
+	parentID := "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1"
+	subAccountID := "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a"
+	keyID := "13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd"
+
+	// Test helper method for creating a mock sub-account
+	subAccount := mockClient.NewMockSubAccount(subAccountID, parentID, "Acme Subsidiary", "acme.example.com", "active")
+	assert.Equal(t, subAccountID, subAccount.ID.String())
+	assert.Equal(t, parentID, subAccount.ParentAccountID.String())
+	assert.Equal(t, "Acme Subsidiary", subAccount.Name)
+
+	// Test helper method for creating sub-accounts response
+	subAccounts := mockClient.NewMockSubAccountsResponse([]responses.SubAccount{*subAccount}, false)
+	assert.Len(t, subAccounts.Data, 1)
+	assert.False(t, subAccounts.Pagination.HasMore)
+
+	// Test helper method for creating sub-account usage response
+	usage := mockClient.NewMockSubAccountUsageResponse(parentID, subAccountID, "Acme Subsidiary")
+	assert.Equal(t, "usd", usage.Currency)
+	assert.Len(t, usage.SubAccounts, 1)
+	assert.Equal(t, "Acme Subsidiary", *usage.SubAccounts[0].Name)
+
+	// Test helper method for creating API key fixtures
+	apiKey := mockClient.NewMockAPIKey(keyID, subAccountID, "Bootstrap key", []string{"messages:send:all"})
+	assert.Equal(t, keyID, apiKey.ID.String())
+	assert.Equal(t, subAccountID, apiKey.AccountID.String())
+	assert.Len(t, apiKey.Scopes, 1)
+
+	apiKeys := mockClient.NewMockAPIKeysResponse([]responses.APIKey{*apiKey}, false)
+	assert.Len(t, apiKeys.Data, 1)
+	assert.False(t, apiKeys.Pagination.HasMore)
 }
 
 func TestMockClient_ErrorHandling(t *testing.T) {
@@ -169,6 +543,10 @@ func TestMockClient_ErrorHandling(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	mockClient.AssertExpectations(t)
+}
+
+func stringPointer(v string) *string {
+	return &v
 }
 
 // BenchmarkMockClient_BasicOperations benchmarks basic mock operations

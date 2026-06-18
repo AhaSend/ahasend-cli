@@ -146,6 +146,56 @@ func TestValidateUUID(t *testing.T) {
 	}
 }
 
+func TestValidateUUIDField(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldName string
+		value     string
+		wantErr   bool
+		errorMsg  string
+	}{
+		{
+			name:      "valid sub-account ID",
+			fieldName: "sub-account ID",
+			value:     "550e8400-e29b-41d4-a716-446655440000",
+			wantErr:   false,
+		},
+		{
+			name:      "invalid sub-account ID format",
+			fieldName: "sub-account ID",
+			value:     "not-a-uuid",
+			wantErr:   true,
+			errorMsg:  "invalid sub-account ID format: not-a-uuid",
+		},
+		{
+			name:      "invalid API key ID format",
+			fieldName: "API key ID",
+			value:     "not-a-uuid",
+			wantErr:   true,
+			errorMsg:  "invalid API key ID format: not-a-uuid",
+		},
+		{
+			name:      "empty field value",
+			fieldName: "sub-account ID",
+			value:     "",
+			wantErr:   true,
+			errorMsg:  "sub-account ID cannot be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateUUIDField(tt.fieldName, tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errorMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateDomainName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -256,6 +306,46 @@ func TestValidateOutputFormat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateOutputFormat(tt.format)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidatePageLimit(t *testing.T) {
+	tests := []struct {
+		name    string
+		limit   int32
+		wantErr bool
+	}{
+		{
+			name:    "negative limit",
+			limit:   -1,
+			wantErr: true,
+		},
+		{
+			name:    "zero limit",
+			limit:   0,
+			wantErr: false,
+		},
+		{
+			name:    "maximum limit",
+			limit:   100,
+			wantErr: false,
+		},
+		{
+			name:    "over maximum limit",
+			limit:   101,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidatePageLimit(tt.limit)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

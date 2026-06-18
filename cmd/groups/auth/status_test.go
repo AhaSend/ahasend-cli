@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -183,6 +186,62 @@ func TestStatusCommand_DefaultValues(t *testing.T) {
 
 	profile, _ := cmd.Flags().GetString("profile")
 	assert.Empty(t, profile, "Profile should default to empty string")
+}
+
+// TestAuthStatus_ParentAccountIDRendering verifies that the printer handlers
+// surface the parent account ID when the authenticated account is itself a
+// sub-account (non-nil ParentAccountID), and omit it otherwise. It does not
+// alter the AuthStatus construction contract.
+func TestAuthStatus_ParentAccountIDRendering(t *testing.T) {
+	parentID := uuid.New()
+
+	subAccountStatus := func() *printer.AuthStatus {
+		return &printer.AuthStatus{
+			Profile: "default",
+			APIKey:  "test-key...abcd",
+			Valid:   true,
+			Account: &responses.Account{
+				ID:              uuid.New(),
+				Name:            "Sub Account",
+				ParentAccountID: &parentID,
+			},
+		}
+	}
+
+	rootAccountStatus := func() *printer.AuthStatus {
+		return &printer.AuthStatus{
+			Profile: "default",
+			APIKey:  "test-key...abcd",
+			Valid:   true,
+			Account: &responses.Account{
+				ID:   uuid.New(),
+				Name: "Root Account",
+			},
+		}
+	}
+
+	for _, format := range []string{"table", "plain", "csv"} {
+		t.Run(format+" with parent account", func(t *testing.T) {
+			var buf bytes.Buffer
+			handler := printer.GetResponseHandler(format, false, &buf)
+			require.NoError(t, handler.HandleAuthStatus(subAccountStatus(), printer.AuthConfig{}))
+			assert.Contains(t, buf.String(), parentID.String())
+		})
+
+		t.Run(format+" without parent account", func(t *testing.T) {
+			var buf bytes.Buffer
+			handler := printer.GetResponseHandler(format, false, &buf)
+			require.NoError(t, handler.HandleAuthStatus(rootAccountStatus(), printer.AuthConfig{}))
+			assert.NotContains(t, buf.String(), parentID.String())
+		})
+	}
+
+	t.Run("csv header includes parent_account_id", func(t *testing.T) {
+		var buf bytes.Buffer
+		handler := printer.GetResponseHandler("csv", false, &buf)
+		require.NoError(t, handler.HandleAuthStatus(subAccountStatus(), printer.AuthConfig{}))
+		assert.Contains(t, buf.String(), "parent_account_id")
+	})
 }
 
 // Benchmark tests

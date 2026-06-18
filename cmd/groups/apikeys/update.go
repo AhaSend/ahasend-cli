@@ -5,6 +5,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/spf13/cobra"
 )
@@ -84,7 +85,7 @@ func runAPIKeyUpdate(cmd *cobra.Command, args []string) error {
 	// Validate all scopes if provided
 	if len(scopes) > 0 {
 		for _, scope := range scopes {
-			if err := validateScope(scope); err != nil {
+			if err := validation.ValidateScope(scope); err != nil {
 				return errors.NewValidationError(err.Error(), nil)
 			}
 		}

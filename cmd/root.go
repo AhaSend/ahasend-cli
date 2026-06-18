@@ -13,12 +13,14 @@ import (
 	"github.com/AhaSend/ahasend-cli/cmd/groups/routes"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/smtp"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/stats"
+	"github.com/AhaSend/ahasend-cli/cmd/groups/subaccounts"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/suppressions"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/webhooks"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/version"
+	"github.com/AhaSend/ahasend-go/api"
 	"github.com/spf13/cobra"
 )
 
@@ -115,15 +117,18 @@ func handleError(cmd *cobra.Command, err error) {
 		return
 	}
 
-	// Set exit code based on error type
-	if cliErr, ok := err.(*errors.CLIError); ok {
+	// Get handler from context for error formatting
+	handler := printer.GetResponseHandlerFromCommand(cmd)
+
+	// Set exit code based on error type. Raw API errors in JSON mode are
+	// pass-through API responses and intentionally keep the global exit code at 0.
+	if isJSONRawAPIError(handler, err) {
+		globalExitCode = 0
+	} else if cliErr, ok := err.(*errors.CLIError); ok {
 		globalExitCode = errors.GetExitCode(cliErr)
 	} else {
 		globalExitCode = 1
 	}
-
-	// Get handler from context for error formatting
-	handler := printer.GetResponseHandlerFromCommand(cmd)
 
 	// Handle the error using the ResponseHandler
 	handler.HandleError(err)
@@ -134,6 +139,11 @@ func handleError(cmd *cobra.Command, err error) {
 		fmt.Fprintln(cmd.ErrOrStderr())
 		cmd.Usage()
 	}
+}
+
+func isJSONRawAPIError(handler printer.ResponseHandler, err error) bool {
+	apiErr, ok := err.(*api.APIError)
+	return ok && handler.GetFormat() == "json" && len(apiErr.Raw) > 0
 }
 
 // isUsageError determines if an error should trigger usage display
@@ -217,6 +227,7 @@ Git Commit: %s
 	rootCmd.AddCommand(routes.NewCommand())
 	rootCmd.AddCommand(smtp.NewCommand())
 	rootCmd.AddCommand(stats.NewCommand())
+	rootCmd.AddCommand(subaccounts.NewCommand())
 	rootCmd.AddCommand(suppressions.NewCommand())
 	rootCmd.AddCommand(webhooks.NewCommand())
 
@@ -322,6 +333,7 @@ For more information, visit: https://ahasend.com`,
 	root.AddCommand(domains.NewCommand())
 	root.AddCommand(messages.NewCommand())
 	root.AddCommand(routes.NewCommand())
+	root.AddCommand(subaccounts.NewCommand())
 	root.AddCommand(suppressions.NewCommand())
 	root.AddCommand(webhooks.NewCommand())
 

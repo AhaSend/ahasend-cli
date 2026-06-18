@@ -28,6 +28,15 @@ func TestOutputFormatsIntegration(t *testing.T) {
 		{"apikeys list", []string{"apikeys", "list"}},
 		{"apikeys get", []string{"apikeys", "get", "ak_test"}},
 
+		// Sub-account commands
+		{"subaccounts list", []string{"subaccounts", "list"}},
+		{"subaccounts get", []string{"subaccounts", "get", "sa_test"}},
+		{"subaccounts usage", []string{"subaccounts", "usage"}},
+
+		// Sub-account API key commands
+		{"subaccounts api-keys list", []string{"subaccounts", "api-keys", "list", "sa_test"}},
+		{"subaccounts api-keys get", []string{"subaccounts", "api-keys", "get", "sa_test", "ak_test"}},
+
 		// Routes commands
 		{"routes list", []string{"routes", "list"}},
 		{"routes get", []string{"routes", "get", "rt_test"}},

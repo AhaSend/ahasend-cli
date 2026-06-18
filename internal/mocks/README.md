@@ -53,6 +53,23 @@ func TestMyCommand(t *testing.T) {
 **Webhook Operations:**
 - `CreateWebhookVerifier(secret string) (*ahasend.WebhookVerifier, error)`
 
+**Sub-account Operations:**
+- `ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error)`
+- `CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error)`
+- `GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error)`
+- `GetSubAccount(subAccountID string) (*responses.SubAccount, error)`
+- `UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error)`
+- `DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error)`
+- `SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error)`
+- `UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error)`
+
+**Sub-account API Key Operations:**
+- `ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)`
+- `CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error)`
+- `GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error)`
+- `UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)`
+- `DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error)`
+
 #### Helper Methods
 
 MockClient provides helper methods for creating common test data:
@@ -67,6 +84,30 @@ response := mockClient.NewMockDomainsResponse(domains, false)
 
 // Create a mock message response
 messageResponse := mockClient.NewMockMessageResponse("msg-123")
+
+// Create sub-account fixtures
+subAccount := mockClient.NewMockSubAccount(
+    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
+    "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1",
+    "Acme Subsidiary",
+    "acme.example.com",
+    "active",
+)
+subAccounts := mockClient.NewMockSubAccountsResponse([]responses.SubAccount{*subAccount}, false)
+usage := mockClient.NewMockSubAccountUsageResponse(
+    "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1",
+    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
+    "Acme Subsidiary",
+)
+
+// Create API-key fixtures
+apiKey := mockClient.NewMockAPIKey(
+    "13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd",
+    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
+    "Bootstrap key",
+    []string{"messages:send:all"},
+)
+apiKeys := mockClient.NewMockAPIKeysResponse([]responses.APIKey{*apiKey}, false)
 ```
 
 ### MockConfigManager

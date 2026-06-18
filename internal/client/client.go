@@ -650,6 +650,232 @@ func (c *Client) GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatis
 	return response, err
 }
 
+// Sub-account operations
+
+// ListSubAccounts retrieves a list of sub-accounts
+func (c *Client) ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	response, _, err := c.SubAccountsAPI.ListSubAccounts(c.auth, accountUUID, pagination)
+	return response, err
+}
+
+// CreateSubAccount creates a new sub-account
+func (c *Client) CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.CreateSubAccount(c.auth, accountUUID, req, api.WithIdempotencyKey(idempotencyKey))
+	return response, err
+}
+
+// GetSubAccountsUsage retrieves parent and sub-account usage allocation
+func (c *Client) GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.GetSubAccountsUsage(c.auth, accountUUID)
+	return response, err
+}
+
+// GetSubAccount retrieves a specific sub-account by ID
+func (c *Client) GetSubAccount(subAccountID string) (*responses.SubAccount, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.GetSubAccount(c.auth, accountUUID, subAccountUUID)
+	return response, err
+}
+
+// UpdateSubAccount updates an existing sub-account
+func (c *Client) UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.UpdateSubAccount(c.auth, accountUUID, subAccountUUID, req)
+	return response, err
+}
+
+// DeleteSubAccount deletes a sub-account
+func (c *Client) DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.DeleteSubAccount(c.auth, accountUUID, subAccountUUID)
+	return response, err
+}
+
+// SuspendSubAccount suspends a sub-account
+func (c *Client) SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.SuspendSubAccount(c.auth, accountUUID, subAccountUUID, req)
+	return response, err
+}
+
+// UnsuspendSubAccount unsuspends a sub-account
+func (c *Client) UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.UnsuspendSubAccount(c.auth, accountUUID, subAccountUUID)
+	return response, err
+}
+
+// Sub-account API key operations
+
+// ListSubAccountAPIKeys retrieves a list of API keys for a sub-account
+func (c *Client) ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	var pagination *common.PaginationParams
+	if limit != nil || cursor != nil {
+		pagination = &common.PaginationParams{
+			Limit:  limit,
+			Cursor: cursor,
+		}
+	}
+	response, _, err := c.SubAccountsAPI.ListSubAccountAPIKeys(c.auth, accountUUID, subAccountUUID, pagination)
+	return response, err
+}
+
+// CreateSubAccountAPIKey creates a new API key for a sub-account
+func (c *Client) CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.CreateSubAccountAPIKey(c.auth, accountUUID, subAccountUUID, req, api.WithIdempotencyKey(idempotencyKey))
+	return response, err
+}
+
+// GetSubAccountAPIKey retrieves a specific API key owned by a sub-account
+func (c *Client) GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	keyUUID, err := uuid.Parse(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid API key ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.GetSubAccountAPIKey(c.auth, accountUUID, subAccountUUID, keyUUID)
+	return response, err
+}
+
+// UpdateSubAccountAPIKey updates an API key owned by a sub-account
+func (c *Client) UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	keyUUID, err := uuid.Parse(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid API key ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.UpdateSubAccountAPIKey(c.auth, accountUUID, subAccountUUID, keyUUID, req)
+	return response, err
+}
+
+// DeleteSubAccountAPIKey deletes an API key owned by a sub-account
+func (c *Client) DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error) {
+	accountUUID, err := uuid.Parse(c.accountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid account ID format: %w", err)
+	}
+
+	subAccountUUID, err := uuid.Parse(subAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sub-account ID format: %w", err)
+	}
+
+	keyUUID, err := uuid.Parse(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid API key ID format: %w", err)
+	}
+
+	response, _, err := c.SubAccountsAPI.DeleteSubAccountAPIKey(c.auth, accountUUID, subAccountUUID, keyUUID)
+	return response, err
+}
+
 // API Key operations
 
 // ListAPIKeys retrieves a list of API keys
