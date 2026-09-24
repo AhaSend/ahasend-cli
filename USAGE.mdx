@@ -1104,9 +1104,13 @@ Create a new sub-account.
 ```bash
 ahasend subaccounts create \
   --name "Acme Marketing" \
-  --website "https://acme.example.com" \
+  --website acme.example.com \
   --monthly-credit 100000
 ```
+
+`--website` takes a domain such as `acme.example.com`. A URL with only a scheme
+and host, such as `https://acme.example.com`, is also accepted and sent as its
+domain; URLs with a path, port, query, or credentials are rejected.
 
 Creation accepts an optional `--idempotency-key` so retries are safe; one is
 generated automatically if you do not provide it.

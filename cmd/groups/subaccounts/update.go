@@ -27,14 +27,14 @@ one of --name, --website, or --monthly-credit must be provided. An explicit
   ahasend subaccounts update 123e4567-e89b-12d3-a456-426614174000 --name "New Name"
 
   # Update website and monthly credit
-  ahasend subaccounts update 123e4567-e89b-12d3-a456-426614174000 --website https://acme.example --monthly-credit 1000`,
+  ahasend subaccounts update 123e4567-e89b-12d3-a456-426614174000 --website acme.example.com --monthly-credit 1000`,
 		Args:         cobra.ExactArgs(1),
 		RunE:         runSubAccountsUpdate,
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().String("name", "", "New sub-account name")
-	cmd.Flags().String("website", "", "New sub-account website")
+	cmd.Flags().String("website", "", "New sub-account website domain, e.g. example.com")
 	cmd.Flags().Int64("monthly-credit", 0, "New monthly credit allocation (0-1000000000)")
 
 	return cmd
@@ -66,10 +66,11 @@ func runSubAccountsUpdate(cmd *cobra.Command, args []string) error {
 
 	if cmd.Flags().Changed("website") {
 		v, _ := cmd.Flags().GetString("website")
-		if err := validateWebsite(v); err != nil {
+		website, err := normalizeWebsite(v)
+		if err != nil {
 			return err
 		}
-		req.Website = &v
+		req.Website = &website
 	}
 
 	if cmd.Flags().Changed("monthly-credit") {

@@ -95,7 +95,7 @@ func fixedSubAccount() *responses.SubAccount {
 		ParentAccountID: uuid.MustParse(intParentID),
 		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		Name:            "Acme Inc",
-		Website:         "https://acme.example",
+		Website:         "acme.example.com",
 		Status:          "active",
 		MonthlyCredit:   5000,
 		DomainCount:     2,
@@ -202,7 +202,7 @@ func (suite *SubAccountsIntegrationTestSuite) TestProvisioningWorkflow() {
 
 	// 1. Create the sub-account.
 	out, _, err := suite.execRoot("plain", "subaccounts", "create",
-		"--name", "Acme Inc", "--website", "https://acme.example")
+		"--name", "Acme Inc", "--website", "acme.example.com")
 	suite.NoError(err)
 	suite.Contains(out, "Acme Inc")
 
@@ -349,7 +349,7 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_CreateSubAccount
 	suite.installResolver(suite.mockClient)
 
 	out, _, err := suite.execRoot("json", "subaccounts", "create",
-		"--name", "Acme Inc", "--website", "https://acme.example")
+		"--name", "Acme Inc", "--website", "acme.example.com")
 	suite.NoError(err)
 
 	var got responses.SubAccount
