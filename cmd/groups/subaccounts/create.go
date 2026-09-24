@@ -9,6 +9,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -29,24 +30,26 @@ func NewCreateCommand() *cobra.Command {
 		Short: "Create a new sub-account",
 		Long: `Create a new sub-account under your AhaSend parent account.
 
-A sub-account requires a name and a website. You can optionally set a monthly
+A sub-account requires a name and a website domain, such as example.com. A URL
+with only a scheme and host, such as https://example.com, is also accepted and
+sent as its domain. You can optionally set a monthly
 credit allocation. Creation is idempotent: provide your own --idempotency-key to
 make retries safe, or one is generated for you.`,
 		Example: `  # Create a sub-account
-  ahasend subaccounts create --name "Acme Inc" --website https://acme.example
+  ahasend subaccounts create --name "Acme Inc" --website acme.example.com
 
   # Create with a monthly credit allocation
-  ahasend subaccounts create --name "Acme Inc" --website https://acme.example --monthly-credit 5000
+  ahasend subaccounts create --name "Acme Inc" --website acme.example.com --monthly-credit 5000
 
   # Create with a custom idempotency key for safe retries
-  ahasend subaccounts create --name "Acme Inc" --website https://acme.example --idempotency-key my-unique-key`,
+  ahasend subaccounts create --name "Acme Inc" --website acme.example.com --idempotency-key my-unique-key`,
 		Args:         cobra.NoArgs,
 		RunE:         runSubAccountsCreate,
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().String("name", "", "Sub-account name (required)")
-	cmd.Flags().String("website", "", "Sub-account website (required)")
+	cmd.Flags().String("website", "", "Sub-account website domain, e.g. example.com (required)")
 	cmd.Flags().Int64("monthly-credit", 0, "Monthly credit allocation (0-1000000000)")
 	cmd.Flags().String("idempotency-key", "", "Idempotency key for safe retries (auto-generated if not provided)")
 
@@ -68,8 +71,8 @@ func runSubAccountsCreate(cmd *cobra.Command, args []string) error {
 		return errors.NewValidationError("--name is required", nil)
 	}
 
-	// Validate the website host but send the original website string verbatim.
-	if err := validateWebsite(website); err != nil {
+	website, err := normalizeWebsite(website)
+	if err != nil {
 		return err
 	}
 
@@ -130,19 +133,55 @@ func runSubAccountsCreate(cmd *cobra.Command, args []string) error {
 	return handler.HandleSingleSubAccount(response, config)
 }
 
-// validateWebsite parses the website and requires a host, leaving the original
-// string untouched so it is sent to the API verbatim.
-func validateWebsite(website string) error {
-	if strings.TrimSpace(website) == "" {
-		return errors.NewValidationError("--website is required", nil)
+// normalizeWebsite returns the bare domain the API expects for a sub-account
+// website. It accepts a domain such as "example.com", or an http(s) URL made of
+// only a scheme and host, such as "https://example.com/", which is reduced to
+// its host. URLs with credentials, a port, a path, a query, or a fragment are
+// rejected rather than silently trimmed.
+func normalizeWebsite(website string) (string, error) {
+	website = strings.TrimSpace(website)
+	if website == "" {
+		return "", errors.NewValidationError("--website is required", nil)
 	}
 
-	parsed, err := url.Parse(website)
-	if err != nil || parsed.Host == "" {
-		return errors.NewValidationError("invalid website: "+website+" (must include a host, e.g. https://example.com)", nil)
+	invalid := func(reason string) error {
+		return errors.NewValidationError(fmt.Sprintf("invalid website: %s (%s; use a domain such as example.com)", website, reason), nil)
 	}
 
-	return nil
+	host := website
+	if strings.Contains(website, "://") {
+		parsed, err := url.Parse(website)
+		if err != nil {
+			return "", invalid("not a valid URL")
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return "", invalid("only http and https URLs are accepted")
+		}
+		if parsed.User != nil {
+			return "", invalid("must not include credentials")
+		}
+		if parsed.Port() != "" {
+			return "", invalid("must not include a port")
+		}
+		if (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
+			return "", invalid("must not include a path, query, or fragment")
+		}
+		host = parsed.Hostname()
+	}
+
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if validation.ValidateDomainName(host) != nil {
+		return "", invalid("not a valid domain")
+	}
+	labels := strings.Split(host, ".")
+	if len(labels) < 2 {
+		return "", invalid("must be a fully qualified domain")
+	}
+	if tld := labels[len(labels)-1]; tld[0] < 'a' || tld[0] > 'z' {
+		return "", invalid("must end in a valid top-level domain")
+	}
+
+	return host, nil
 }
 
 // validateMonthlyCredit enforces the 0..1000000000 range locally, before auth.

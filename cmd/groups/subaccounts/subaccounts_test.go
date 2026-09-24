@@ -60,7 +60,7 @@ func newTestSubAccount() *responses.SubAccount {
 		ParentAccountID: parentID,
 		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		Name:            "Acme Subsidiary",
-		Website:         "https://acme.example",
+		Website:         "acme.example.com",
 		Status:          "active",
 		MonthlyCredit:   500,
 		DomainCount:     3,
@@ -330,8 +330,8 @@ func TestCreateCommand_RequiresNameAndWebsite(t *testing.T) {
 		args    []string
 		wantErr string
 	}{
-		{"missing name", []string{"--website", "https://acme.example"}, "--name is required"},
-		{"blank name", []string{"--name", "   ", "--website", "https://acme.example"}, "--name is required"},
+		{"missing name", []string{"--website", "acme.example.com"}, "--name is required"},
+		{"blank name", []string{"--name", "   ", "--website", "acme.example.com"}, "--name is required"},
 		{"missing website", []string{"--name", "Acme"}, "--website is required"},
 		{"invalid website host", []string{"--name", "Acme", "--website", "acme"}, "invalid website"},
 	}
@@ -349,6 +349,74 @@ func TestCreateCommand_RequiresNameAndWebsite(t *testing.T) {
 	}
 }
 
+func TestNormalizeWebsite(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr string
+	}{
+		{"bare domain", "acme.example.com", "acme.example.com", ""},
+		{"surrounding whitespace", "  acme.example.com  ", "acme.example.com", ""},
+		{"uppercase", "Acme.Example.COM", "acme.example.com", ""},
+		{"trailing dot", "acme.example.com.", "acme.example.com", ""},
+		{"https URL", "https://acme.example.com", "acme.example.com", ""},
+		{"http URL with root path", "http://acme.example.com/", "acme.example.com", ""},
+		{"empty", "   ", "", "--website is required"},
+		{"single label", "acme", "", "must be a fully qualified domain"},
+		{"numeric TLD", "10.0.0.1", "", "valid top-level domain"},
+		{"leading hyphen", "-acme.example.com", "", "not a valid domain"},
+		{"underscore", "ac_me.example.com", "", "not a valid domain"},
+		{"bare domain with path", "acme.example.com/about", "", "not a valid domain"},
+		{"bare domain with port", "acme.example.com:8080", "", "not a valid domain"},
+		{"URL with path", "https://acme.example.com/about", "", "must not include a path"},
+		{"URL with query", "https://acme.example.com?ref=1", "", "must not include a path"},
+		{"URL with fragment", "https://acme.example.com#top", "", "must not include a path"},
+		{"URL with port", "https://acme.example.com:8443", "", "must not include a port"},
+		{"URL with credentials", "https://user:pass@acme.example.com", "", "must not include credentials"},
+		{"non-http scheme", "ftp://acme.example.com", "", "only http and https"},
+		{"URL without host", "https://", "", "not a valid domain"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := normalizeWebsite(tc.input)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestCreateCommand_SendsWebsiteAsDomain(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateSubAccount",
+		mock.MatchedBy(func(req requests.CreateSubAccountRequest) bool {
+			return req.Website == "acme.example.com"
+		}),
+		mock.AnythingOfType("string")).
+		Return(newTestSubAccount(), nil)
+	trackingResolver(t, mockClient)
+
+	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example.com/")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateCommand_InvalidWebsiteFailsBeforeAuth(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	called := trackingResolver(t, mockClient)
+
+	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example.com/about")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid website")
+	assert.False(t, *called)
+	mockClient.AssertNotCalled(t, "CreateSubAccount", mock.Anything, mock.Anything)
+}
+
 func TestCreateCommand_GeneratesIdempotencyKeyWhenOmitted(t *testing.T) {
 	var capturedKey string
 	mockClient := &mocks.MockClient{}
@@ -361,7 +429,7 @@ func TestCreateCommand_GeneratesIdempotencyKeyWhenOmitted(t *testing.T) {
 		Return(newTestSubAccount(), nil)
 	called := trackingResolver(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example")
+	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
 	assert.True(t, *called)
 
@@ -380,7 +448,7 @@ func TestCreateCommand_PassesUserProvidedIdempotencyKey(t *testing.T) {
 	trackingResolver(t, mockClient)
 
 	_, err := execCommand(NewCreateCommand(),
-		"--name", "Acme", "--website", "https://acme.example", "--idempotency-key", "my-key")
+		"--name", "Acme", "--website", "acme.example.com", "--idempotency-key", "my-key")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -391,7 +459,7 @@ func TestCreateCommand_MonthlyCreditBounds(t *testing.T) {
 		called := trackingResolver(t, mockClient)
 
 		_, err := execCommand(NewCreateCommand(),
-			"--name", "Acme", "--website", "https://acme.example", "--monthly-credit", "-1")
+			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "-1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid monthly credit")
 		assert.False(t, *called)
@@ -403,7 +471,7 @@ func TestCreateCommand_MonthlyCreditBounds(t *testing.T) {
 		called := trackingResolver(t, mockClient)
 
 		_, err := execCommand(NewCreateCommand(),
-			"--name", "Acme", "--website", "https://acme.example", "--monthly-credit", "1000000001")
+			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "1000000001")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid monthly credit")
 		assert.False(t, *called)
@@ -421,7 +489,7 @@ func TestCreateCommand_MonthlyCreditBounds(t *testing.T) {
 		called := trackingResolver(t, mockClient)
 
 		_, err := execCommand(NewCreateCommand(),
-			"--name", "Acme", "--website", "https://acme.example", "--monthly-credit", "0")
+			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "0")
 		require.NoError(t, err)
 		assert.True(t, *called)
 		mockClient.AssertExpectations(t)
@@ -438,7 +506,7 @@ func TestCreateCommand_OmittedMonthlyCreditIsNil(t *testing.T) {
 		Return(newTestSubAccount(), nil)
 	trackingResolver(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example")
+	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -451,7 +519,7 @@ func TestCreateCommand_MockBacked(t *testing.T) {
 		Return(newTestSubAccount(), nil)
 	trackingResolver(t, mockClient)
 
-	out, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example")
+	out, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
@@ -484,7 +552,7 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 			trackingResolver(t, mockClient)
 
 			_, err := execCommandJSON(NewCreateCommand(),
-				"--name", "Acme", "--website", "https://acme.example")
+				"--name", "Acme", "--website", "acme.example.com")
 
 			// The runner returns the SDK error verbatim with its raw body.
 			returnedAPIErr, ok := err.(*api.APIError)
@@ -492,10 +560,10 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 			assert.Equal(t, tc.statusCode, returnedAPIErr.StatusCode)
 			assert.JSONEq(t, tc.raw, string(returnedAPIErr.Raw))
 
-			// The JSON handler prints the raw body and returns nil (exit 0).
+			// The JSON handler prints the raw body and still reports the failure.
 			var buf bytes.Buffer
 			handler := printer.GetResponseHandler("json", false, &buf)
-			assert.NoError(t, handler.HandleError(err))
+			assert.Equal(t, err, handler.HandleError(err))
 			assert.JSONEq(t, tc.raw, buf.String())
 
 			mockClient.AssertExpectations(t)
@@ -598,6 +666,37 @@ func TestUpdateCommand_PartialUpdateOnlySetsChangedFields(t *testing.T) {
 	assert.True(t, *called)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateCommand_SendsWebsiteAsDomain(t *testing.T) {
+	id := "11111111-1111-1111-1111-111111111111"
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UpdateSubAccount", id,
+		mock.MatchedBy(func(req requests.UpdateSubAccountRequest) bool {
+			return req.Website != nil && *req.Website == "acme.example.com" &&
+				req.Name == nil && req.MonthlyCredit == nil
+		})).
+		Return(newTestSubAccount(), nil)
+	trackingResolver(t, mockClient)
+
+	_, err := execCommand(NewUpdateCommand(), id, "--website", "https://acme.example.com")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateCommand_InvalidWebsiteFailsBeforeAuth(t *testing.T) {
+	id := "11111111-1111-1111-1111-111111111111"
+	for _, website := range []string{"", "acme", "https://acme.example.com:8443"} {
+		t.Run(website, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			called := trackingResolver(t, mockClient)
+
+			_, err := execCommand(NewUpdateCommand(), id, "--website", website)
+			require.Error(t, err)
+			assert.False(t, *called)
+			mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
+		})
+	}
 }
 
 // delete ----------------------------------------------------------------------

@@ -778,7 +778,7 @@ func (h *plainHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 	// Show SMTP connection settings
 	fmt.Fprintf(h.writer, "\nSMTP Settings:\n")
 	fmt.Fprintf(h.writer, "  Server: send.ahasend.com\n")
-	fmt.Fprintf(h.writer, "  Port: 587 (STARTTLS) or 465 (SSL/TLS)\n")
+	fmt.Fprintf(h.writer, "  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS\n")
 	fmt.Fprintf(h.writer, "  Username: %s\n", credential.Username)
 	fmt.Fprintf(h.writer, "  Password: [Use the password provided during creation]\n")
 
@@ -811,7 +811,7 @@ func (h *plainHandler) HandleCreateSMTP(credential *responses.SMTPCredential, co
 	// Show SMTP connection settings
 	fmt.Fprintf(h.writer, "\nSMTP Settings:\n")
 	fmt.Fprintf(h.writer, "  Server: send.ahasend.com\n")
-	fmt.Fprintf(h.writer, "  Port: 587 (STARTTLS) or 465 (SSL/TLS)\n")
+	fmt.Fprintf(h.writer, "  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS\n")
 	fmt.Fprintf(h.writer, "  Username: %s\n", credential.Username)
 	fmt.Fprintf(h.writer, "  Password: [Use the password shown above]\n")
 

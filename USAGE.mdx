@@ -1104,9 +1104,13 @@ Create a new sub-account.
 ```bash
 ahasend subaccounts create \
   --name "Acme Marketing" \
-  --website "https://acme.example.com" \
+  --website acme.example.com \
   --monthly-credit 100000
 ```
+
+`--website` takes a domain such as `acme.example.com`. A URL with only a scheme
+and host, such as `https://acme.example.com`, is also accepted and sent as its
+domain; URLs with a path, port, query, or credentials are rejected.
 
 Creation accepts an optional `--idempotency-key` so retries are safe; one is
 generated automatically if you do not provide it.
@@ -1697,6 +1701,9 @@ The AhaSend CLI uses specific exit codes to indicate different types of errors:
 | 6 | Permission | Insufficient permissions for operation |
 | 7 | Network/Timeout | Network connectivity or timeout issues |
 | 8 | Rate Limit | Rate limit exceeded (after retries) |
+
+A failed API request always exits nonzero, in every output format. In JSON mode
+the API's error response is still printed to stdout unchanged.
 
 ### Error Response Format
 

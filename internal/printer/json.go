@@ -38,9 +38,12 @@ func (h *jsonHandler) HandleError(err error) error {
 			// Try to format the raw JSON response
 			var rawData interface{}
 			if json.Unmarshal(apiErr.Raw, &rawData) == nil {
-				// Output the raw API response and return nil (exit code 0)
-				// This is intentional - in JSON mode we faithfully output API responses
-				return h.printJSON(rawData)
+				// In JSON mode we faithfully output the raw API response. The
+				// error is still returned so the command exits nonzero.
+				if printErr := h.printJSON(rawData); printErr != nil {
+					return fmt.Errorf("failed to print error as JSON: %w (original error: %v)", printErr, err)
+				}
+				return err
 			}
 		}
 		// If no raw response, return the APIError fields as JSON
@@ -68,13 +71,6 @@ func (h *jsonHandler) HandleError(err error) error {
 		return fmt.Errorf("failed to print error as JSON: %w (original error: %v)", printErr, err)
 	}
 
-	// For API errors that we've already handled above, we returned nil
-	// For other errors (connection, auth, etc), return the error for non-zero exit code
-	if _, isAPIErr := err.(*api.APIError); isAPIErr {
-		// API errors with structured responses return nil (exit code 0)
-		return nil
-	}
-	// Non-API errors return the error (non-zero exit code)
 	return err
 }
 

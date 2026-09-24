@@ -20,7 +20,6 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/version"
-	"github.com/AhaSend/ahasend-go/api"
 	"github.com/spf13/cobra"
 )
 
@@ -120,11 +119,9 @@ func handleError(cmd *cobra.Command, err error) {
 	// Get handler from context for error formatting
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
-	// Set exit code based on error type. Raw API errors in JSON mode are
-	// pass-through API responses and intentionally keep the global exit code at 0.
-	if isJSONRawAPIError(handler, err) {
-		globalExitCode = 0
-	} else if cliErr, ok := err.(*errors.CLIError); ok {
+	// Set exit code based on error type. Every failure exits nonzero in all
+	// output formats, including raw API errors printed verbatim in JSON mode.
+	if cliErr, ok := err.(*errors.CLIError); ok {
 		globalExitCode = errors.GetExitCode(cliErr)
 	} else {
 		globalExitCode = 1
@@ -139,11 +136,6 @@ func handleError(cmd *cobra.Command, err error) {
 		fmt.Fprintln(cmd.ErrOrStderr())
 		cmd.Usage()
 	}
-}
-
-func isJSONRawAPIError(handler printer.ResponseHandler, err error) bool {
-	apiErr, ok := err.(*api.APIError)
-	return ok && handler.GetFormat() == "json" && len(apiErr.Raw) > 0
 }
 
 // isUsageError determines if an error should trigger usage display
@@ -211,7 +203,7 @@ Git Commit: %s
 	rootCmd.PersistentFlags().String("api-key", "", "AhaSend API key (overrides profile)")
 	rootCmd.PersistentFlags().String("account-id", "", "AhaSend Account ID (required with --api-key)")
 	rootCmd.PersistentFlags().String("profile", "", "Profile to use (overrides default)")
-	rootCmd.PersistentFlags().String("output", "plain", "Output format (table, json, plain)")
+	rootCmd.PersistentFlags().String("output", "plain", "Output format (table, json, plain, csv)")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug mode")
@@ -314,7 +306,7 @@ For more information, visit: https://ahasend.com`,
 	root.PersistentFlags().String("api-key", "", "AhaSend API key (overrides profile)")
 	root.PersistentFlags().String("account-id", "", "AhaSend Account ID (required with --api-key)")
 	root.PersistentFlags().String("profile", "", "Profile to use (overrides default)")
-	root.PersistentFlags().String("output", "plain", "Output format (table, json, plain)")
+	root.PersistentFlags().String("output", "plain", "Output format (table, json, plain, csv)")
 	root.PersistentFlags().Bool("no-color", false, "Disable colored output")
 	root.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	root.PersistentFlags().Bool("debug", false, "Enable debug mode")

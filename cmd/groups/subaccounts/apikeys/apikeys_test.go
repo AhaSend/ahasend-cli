@@ -537,10 +537,10 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 			assert.Equal(t, tc.statusCode, returnedAPIErr.StatusCode)
 			assert.JSONEq(t, tc.raw, string(returnedAPIErr.Raw))
 
-			// The JSON handler prints the raw body and returns nil (exit 0).
+			// The JSON handler prints the raw body and still reports the failure.
 			var buf bytes.Buffer
 			handler := printer.GetResponseHandler("json", false, &buf)
-			assert.NoError(t, handler.HandleError(err))
+			assert.Equal(t, err, handler.HandleError(err))
 			assert.JSONEq(t, tc.raw, buf.String())
 
 			mockClient.AssertExpectations(t)

@@ -1333,8 +1333,8 @@ func (h *tableHandler) HandleSingleSMTP(credential *responses.SMTPCredential, co
 	settingsTable.Header(settingsHeaders...)
 
 	addTableRow(settingsTable, []string{"Server", "send.ahasend.com"})
-	addTableRow(settingsTable, []string{"Port (STARTTLS)", "587"})
-	addTableRow(settingsTable, []string{"Port (SSL/TLS)", "465"})
+	addTableRow(settingsTable, []string{"Port (STARTTLS)", "587 (recommended)"})
+	addTableRow(settingsTable, []string{"Alternative ports (STARTTLS)", "25, 2525"})
 	addTableRow(settingsTable, []string{"Username", credential.Username})
 	addTableRow(settingsTable, []string{"Password", "[Use the password provided during creation]"})
 	addTableRow(settingsTable, []string{"Authentication", "Plain or Login"})
@@ -1394,8 +1394,8 @@ func (h *tableHandler) HandleCreateSMTP(credential *responses.SMTPCredential, co
 	settingsTable.Header(settingsHeaders...)
 
 	addTableRow(settingsTable, []string{"Server", "send.ahasend.com"})
-	addTableRow(settingsTable, []string{"Port (STARTTLS)", "587"})
-	addTableRow(settingsTable, []string{"Port (SSL/TLS)", "465"})
+	addTableRow(settingsTable, []string{"Port (STARTTLS)", "587 (recommended)"})
+	addTableRow(settingsTable, []string{"Alternative ports (STARTTLS)", "25, 2525"})
 	addTableRow(settingsTable, []string{"Username", credential.Username})
 	if credential.Password != "" {
 		addTableRow(settingsTable, []string{"Password", "[Use the password shown above]"})

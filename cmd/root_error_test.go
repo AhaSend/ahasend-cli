@@ -31,7 +31,7 @@ func newHandleErrorTestCommand(t *testing.T, format string) (*cobra.Command, *by
 	return cmd, &stdout, &stderr
 }
 
-func TestHandleErrorJSONRawAPIErrorLeavesExitCodeZero(t *testing.T) {
+func TestHandleErrorJSONRawAPIErrorPrintsRawBodyAndExitsNonzero(t *testing.T) {
 	tests := []struct {
 		name       string
 		statusCode int
@@ -61,7 +61,7 @@ func TestHandleErrorJSONRawAPIErrorLeavesExitCodeZero(t *testing.T) {
 				Raw:        []byte(tt.raw),
 			})
 
-			assert.Equal(t, 0, globalExitCode)
+			assert.Equal(t, 1, globalExitCode)
 			assert.JSONEq(t, tt.raw, stdout.String())
 			assert.Empty(t, stderr.String())
 		})
