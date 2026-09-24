@@ -431,10 +431,10 @@ func (suite *SubAccountsIntegrationTestSuite) rawCreateAPIError(format string, a
 // TestRawAPIError_PassThroughBehavior verifies, end-to-end through real Cobra
 // execution, that nested-create raw 409/422 SDK API errors take the expected
 // branch of the root error path:
-//   - JSON mode prints the raw body verbatim, adds no human-readable "Error:"
-//     wrapper, and leaves globalExitCode == 0 (the pass-through contract).
-//   - table/plain modes render a human "Error:" message and leave a nonzero
-//     globalExitCode instead.
+//   - JSON mode prints the raw body verbatim and adds no human-readable
+//     "Error:" wrapper.
+//   - table/plain modes render a human "Error:" message.
+//   - Every mode leaves a nonzero globalExitCode.
 func (suite *SubAccountsIntegrationTestSuite) TestRawAPIError_PassThroughBehavior() {
 	cases := []struct {
 		name       string
@@ -456,14 +456,14 @@ func (suite *SubAccountsIntegrationTestSuite) TestRawAPIError_PassThroughBehavio
 				}
 			}
 
-			// JSON mode: raw body printed verbatim, no human error wrapper, and
-			// the exit code left at 0 — exactly the pass-through branch.
+			// JSON mode: raw body printed verbatim, no human error wrapper, and a
+			// nonzero exit code.
 			out, jsonExit, jsonMock := suite.rawCreateAPIError("json", newErr())
 			suite.JSONEq(tc.raw, out)
 			suite.NotContains(out, "Error:",
 				"JSON raw API error must pass the body through, not wrap it")
-			suite.Equal(0, jsonExit,
-				"JSON raw API error must leave globalExitCode == 0 (pass-through)")
+			suite.NotZero(jsonExit,
+				"JSON raw API error must leave a nonzero globalExitCode")
 			jsonMock.AssertExpectations(suite.T())
 
 			// table/plain modes: human error rendered and a nonzero exit code.

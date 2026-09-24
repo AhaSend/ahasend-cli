@@ -20,7 +20,6 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/version"
-	"github.com/AhaSend/ahasend-go/api"
 	"github.com/spf13/cobra"
 )
 
@@ -120,11 +119,9 @@ func handleError(cmd *cobra.Command, err error) {
 	// Get handler from context for error formatting
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
-	// Set exit code based on error type. Raw API errors in JSON mode are
-	// pass-through API responses and intentionally keep the global exit code at 0.
-	if isJSONRawAPIError(handler, err) {
-		globalExitCode = 0
-	} else if cliErr, ok := err.(*errors.CLIError); ok {
+	// Set exit code based on error type. Every failure exits nonzero in all
+	// output formats, including raw API errors printed verbatim in JSON mode.
+	if cliErr, ok := err.(*errors.CLIError); ok {
 		globalExitCode = errors.GetExitCode(cliErr)
 	} else {
 		globalExitCode = 1
@@ -139,11 +136,6 @@ func handleError(cmd *cobra.Command, err error) {
 		fmt.Fprintln(cmd.ErrOrStderr())
 		cmd.Usage()
 	}
-}
-
-func isJSONRawAPIError(handler printer.ResponseHandler, err error) bool {
-	apiErr, ok := err.(*api.APIError)
-	return ok && handler.GetFormat() == "json" && len(apiErr.Raw) > 0
 }
 
 // isUsageError determines if an error should trigger usage display
