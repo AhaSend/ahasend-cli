@@ -49,6 +49,102 @@ Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
   Total Bounces: 1
   Bounce Classifications:
     invalid: 1 (100.00%)
+=== campaign
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666
+Editor: html
+HTML:
+  <p>News</p>
+Text:
+  News
+Text Is Custom: No
+=== campaign recipients
+
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+List: Newsletter
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Showing 1 recipient (more available)
+--after next-recipient
+--before previous-recipient
+=== campaign stats
+
+Campaign ID: 44444444-4444-4444-8444-444444444444
+Recipients: 100
+Delivered: 80
+Opens: 50
+Clicks: 10
+Unsubscribes: 2
+Complaints: 1
+Open Rate: 42.50%
+Bounce Rate: 1.25%
+Recount Failed: No
+Report Computed At: 2026-10-02 12:00:00 UTC+2
+Report Recipients: 80
+Report Openers: 34
+Report Clickers: 8
+Report Bounces: 1
+Report Deferrals: 0
+Report By Status: {"Bounced":1,"Delivered":79}
+Report By Bounce Classification: {"Unknown":1}
+=== campaign template
+
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: advanced
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+MJML:
+  <mjml></mjml>
+HTML:
+  <p>News</p>
+Text:
+  News
+Text Is Custom: No
+=== campaign templates list
+
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: advanced
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+
+Showing 1 campaign template (more available)
+--after next-campaign-template
+--before previous-campaign-template
+=== campaigns list
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+
+Showing 1 campaign (more available)
+--after next-campaign
+--before previous-campaign
 === contact
 
 Email: normalized@example.com
@@ -334,6 +430,10 @@ there
 None found
 === no response for SMTP credentials
 None found
+=== no response for campaign templates
+None found
+=== no response for campaigns
+None found
 === no response for contacts
 None found
 === no response for domains
@@ -345,6 +445,8 @@ None found
 === no response for memberships
 None found
 === no response for messages
+None found
+=== no response for recipients
 None found
 === no response for routes
 None found
@@ -363,6 +465,14 @@ None found
 --after next-page
 --before previous-page
 === page of 0 SMTP credentials
+None found
+--after next-page
+--before previous-page
+=== page of 0 campaign templates
+None found
+--after next-page
+--before previous-page
+=== page of 0 campaigns
 None found
 --after next-page
 --before previous-page
@@ -387,6 +497,10 @@ None found
 --after next-page
 --before previous-page
 === page of 0 messages
+None found
+--after next-page
+--before previous-page
+=== page of 0 recipients
 None found
 --after next-page
 --before previous-page
@@ -438,6 +552,33 @@ Created: 2026-09-10 10:30:00 UTC+2
 Updated: 2026-09-10 10:30:00 UTC+2
 
 Showing 1 SMTP credential (more available)
+--after next-page
+--before previous-page
+=== page of 1 campaign templates
+Retrieved
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: advanced
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+
+Showing 1 campaign template (more available)
+--after next-page
+--before previous-page
+=== page of 1 campaigns
+Retrieved
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+
+Showing 1 campaign (more available)
 --after next-page
 --before previous-page
 === page of 1 contacts
@@ -512,6 +653,22 @@ Opens: 0
 Clicks: 0
 
 Showing 1 message (more available)
+--after next-page
+--before previous-page
+=== page of 1 recipients
+Retrieved
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+List: Newsletter
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Showing 1 recipient (more available)
 --after next-page
 --before previous-page
 === page of 1 routes
@@ -650,6 +807,50 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Showing 2 SMTP credentials (more available)
 --after next-page
 --before previous-page
+=== page of 2 campaign templates
+Retrieved
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: advanced
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: advanced
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+
+Showing 2 campaign templates (more available)
+--after next-page
+--before previous-page
+=== page of 2 campaigns
+Retrieved
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+
+Showing 2 campaigns (more available)
+--after next-page
+--before previous-page
 === page of 2 contacts
 Retrieved
 Email: normalized@example.com
@@ -766,6 +967,33 @@ Opens: 0
 Clicks: 0
 
 Showing 2 messages (more available)
+--after next-page
+--before previous-page
+=== page of 2 recipients
+Retrieved
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+List: Newsletter
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+List: Newsletter
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Showing 2 recipients (more available)
 --after next-page
 --before previous-page
 === page of 2 routes
@@ -1027,6 +1255,21 @@ Profile: default
 
 Account Details:
   Name: Acme
+=== sparse campaign
+
+Name: October
+=== sparse campaign stats
+
+Recipients: 0
+Delivered: 0
+Opens: 0
+Clicks: 0
+Unsubscribes: 0
+Complaints: 0
+Recount Failed: No
+=== sparse campaign template
+
+Name: Newsletter
 === sparse contact
 
 Email: user@example.com

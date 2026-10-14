@@ -277,6 +277,15 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 	templates := templatesPageFixture()
 	templates.Data = repeat(templates.Data[0], count)
 	templates.Pagination = paged
+	campaigns := campaignsPageFixture()
+	campaigns.Data = repeat(campaigns.Data[0], count)
+	campaigns.Pagination = paged
+	recipients := campaignRecipientsPageFixture()
+	recipients.Data = repeat(recipients.Data[0], count)
+	recipients.Pagination = paged
+	campaignTemplates := campaignTemplatesPageFixture()
+	campaignTemplates.Data = repeat(campaignTemplates.Data[0], count)
+	campaignTemplates.Pagination = paged
 
 	return map[string]func(ResponseHandler) error{
 		"domains": func(h ResponseHandler) error {
@@ -311,7 +320,10 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 		"memberships": func(h ResponseHandler) error {
 			return h.HandleContactMembershipList(memberships, ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found", ItemName: "memberships"})
 		},
-		"templates": func(h ResponseHandler) error { return h.HandleTemplateList(templates, config) },
+		"templates":          func(h ResponseHandler) error { return h.HandleTemplateList(templates, config) },
+		"campaigns":          func(h ResponseHandler) error { return h.HandleCampaignList(campaigns, config) },
+		"recipients":         func(h ResponseHandler) error { return h.HandleCampaignRecipientList(recipients, config) },
+		"campaign templates": func(h ResponseHandler) error { return h.HandleCampaignTemplateList(campaignTemplates, config) },
 		"versions": func(h ResponseHandler) error {
 			versions := templateVersionsFixture()
 			versions.Data = repeat(versions.Data[0], count)
@@ -353,20 +365,23 @@ func TestEveryListEndsWithTheShowingLineAndThePageFlags(t *testing.T) {
 // listTableHeads names the first two columns of each list table: the name,
 // or the most identifying field of a resource without one, then the ID.
 var listTableHeads = map[string][]string{
-	"domains":          {"DOMAIN", "ID"},
-	"messages":         {"SUBJECT", "ID"},
-	"webhooks":         {"NAME", "ID"},
-	"routes":           {"NAME", "ID"},
-	"suppressions":     {"EMAIL", "ID"},
-	"SMTP credentials": {"NAME", "ID"},
-	"API keys":         {"LABEL", "ID"},
-	"sub-accounts":     {"NAME", "ID"},
-	"contacts":         {"EMAIL", "ID"},
-	"lists":            {"NAME", "ID"},
-	"members":          {"EMAIL", "CONTACT ID"},
-	"memberships":      {"LIST", "LIST ID"},
-	"templates":        {"NAME", "ID"},
-	"versions":         {"VERSION", "ID"},
+	"domains":            {"DOMAIN", "ID"},
+	"messages":           {"SUBJECT", "ID"},
+	"webhooks":           {"NAME", "ID"},
+	"routes":             {"NAME", "ID"},
+	"suppressions":       {"EMAIL", "ID"},
+	"SMTP credentials":   {"NAME", "ID"},
+	"API keys":           {"LABEL", "ID"},
+	"sub-accounts":       {"NAME", "ID"},
+	"contacts":           {"EMAIL", "ID"},
+	"lists":              {"NAME", "ID"},
+	"members":            {"EMAIL", "CONTACT ID"},
+	"memberships":        {"LIST", "LIST ID"},
+	"templates":          {"NAME", "ID"},
+	"campaigns":          {"NAME", "ID"},
+	"recipients":         {"EMAIL", "CONTACT ID"},
+	"campaign templates": {"NAME", "ID"},
+	"versions":           {"VERSION", "ID"},
 }
 
 // listView is the fields of each item of a list view: every field, which
@@ -393,6 +408,9 @@ var listViews = map[string]listView{
 	"members":              {listMemberFields, listMemberTableColumns, listMemberHeaders},
 	"memberships":          {contactMembershipFields, contactMembershipTableColumns, listMemberHeaders},
 	"templates":            {templateListFields, templateTableColumns, templateHeaders},
+	"campaigns":            {campaignListFields, campaignTableColumns, campaignHeaders},
+	"recipients":           {campaignRecipientFields, campaignRecipientTableColumns, campaignRecipientHeaders},
+	"campaign templates":   {campaignTemplateListFields, campaignTemplateTableColumns, campaignTemplateHeaders},
 	"versions":             {templateVersionFields, templateVersionTableColumns, templateVersionHeaders},
 }
 
@@ -445,20 +463,23 @@ func TestListTablesPutTheNameThenTheID(t *testing.T) {
 // listPlainHeads names the first two fields of each item of a plain list: the
 // same name and ID as the table's first two columns.
 var listPlainHeads = map[string][]string{
-	"domains":          {"Domain", "ID"},
-	"messages":         {"Subject", "ID"},
-	"webhooks":         {"Name", "ID"},
-	"routes":           {"Name", "ID"},
-	"suppressions":     {"Email", "ID"},
-	"SMTP credentials": {"Name", "ID"},
-	"API keys":         {"Label", "ID"},
-	"sub-accounts":     {"Name", "ID"},
-	"contacts":         {"Email", "ID"},
-	"lists":            {"Name", "ID"},
-	"members":          {"Email", "Contact ID"},
-	"memberships":      {"List", "List ID"},
-	"templates":        {"Name", "ID"},
-	"versions":         {"Version", "ID"},
+	"domains":            {"Domain", "ID"},
+	"messages":           {"Subject", "ID"},
+	"webhooks":           {"Name", "ID"},
+	"routes":             {"Name", "ID"},
+	"suppressions":       {"Email", "ID"},
+	"SMTP credentials":   {"Name", "ID"},
+	"API keys":           {"Label", "ID"},
+	"sub-accounts":       {"Name", "ID"},
+	"contacts":           {"Email", "ID"},
+	"lists":              {"Name", "ID"},
+	"members":            {"Email", "Contact ID"},
+	"memberships":        {"List", "List ID"},
+	"templates":          {"Name", "ID"},
+	"campaigns":          {"Name", "ID"},
+	"recipients":         {"Email", "Contact ID"},
+	"campaign templates": {"Name", "ID"},
+	"versions":           {"Version", "ID"},
 }
 
 // plainItems returns the label of each field line of each item of a plain
@@ -496,20 +517,23 @@ func TestPlainListsWriteEachItemAsFlatLinesWithTheNameThenTheID(t *testing.T) {
 
 // listCSVHeads names the first two columns of each list's csv.
 var listCSVHeads = map[string][]string{
-	"domains":          {"domain", "id"},
-	"messages":         {"subject", "id"},
-	"webhooks":         {"name", "id"},
-	"routes":           {"name", "id"},
-	"suppressions":     {"email", "id"},
-	"SMTP credentials": {"name", "id"},
-	"API keys":         {"label", "id"},
-	"sub-accounts":     {"name", "id"},
-	"contacts":         {"email", "id"},
-	"lists":            {"name", "id"},
-	"members":          {"email", "contact_id"},
-	"memberships":      {"list_name", "list_id"},
-	"templates":        {"name", "id"},
-	"versions":         {"version", "id"},
+	"domains":            {"domain", "id"},
+	"messages":           {"subject", "id"},
+	"webhooks":           {"name", "id"},
+	"routes":             {"name", "id"},
+	"suppressions":       {"email", "id"},
+	"SMTP credentials":   {"name", "id"},
+	"API keys":           {"label", "id"},
+	"sub-accounts":       {"name", "id"},
+	"contacts":           {"email", "id"},
+	"lists":              {"name", "id"},
+	"members":            {"email", "contact_id"},
+	"memberships":        {"list_name", "list_id"},
+	"templates":          {"name", "id"},
+	"campaigns":          {"name", "id"},
+	"recipients":         {"email", "contact_id"},
+	"campaign templates": {"name", "id"},
+	"versions":           {"version", "id"},
 }
 
 func TestCSVListsPutTheNameThenTheIDAndNoObjectColumn(t *testing.T) {

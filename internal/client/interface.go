@@ -128,4 +128,24 @@ type AhaSendClient interface {
 	GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error)
 	GetTemplateVersion(templateID, versionID uuid.UUID) (*responses.TemplateVersionDetail, error)
 	RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error)
+
+	// Campaign operations
+	ListCampaigns(params requests.ListCampaignsParams) (*responses.PaginatedCampaignsResponse, error)
+	GetCampaign(campaignID uuid.UUID) (*responses.Campaign, error)
+	CreateCampaign(req requests.CreateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	UpdateCampaign(campaignID uuid.UUID, req requests.UpdateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	DeleteCampaign(campaignID uuid.UUID) (*common.SuccessResponse, error)
+	DuplicateCampaign(campaignID uuid.UUID, req requests.DuplicateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	SendCampaign(campaignID uuid.UUID, req requests.SendCampaignRequest, opts ...api.RequestOption) (*responses.CampaignSend, error)
+	UnscheduleCampaign(campaignID uuid.UUID, opts ...api.RequestOption) (*responses.Campaign, error)
+	TestCampaign(campaignID uuid.UUID, req requests.TestCampaignRequest, opts ...api.RequestOption) (*responses.CampaignTest, error)
+	GetCampaignStats(campaignID uuid.UUID) (*responses.CampaignStats, error)
+	ListCampaignRecipients(campaignID uuid.UUID, params requests.ListCampaignRecipientsParams) (*responses.PaginatedCampaignRecipientsResponse, error)
+
+	// Campaign template operations
+	ListCampaignTemplates(params requests.ListCampaignTemplatesParams) (*responses.PaginatedCampaignTemplatesResponse, error)
+	GetCampaignTemplate(templateID uuid.UUID) (*responses.CampaignTemplate, error)
+	CreateCampaignTemplate(req requests.CreateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error)
+	UpdateCampaignTemplate(templateID uuid.UUID, req requests.UpdateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error)
+	DeleteCampaignTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
 }

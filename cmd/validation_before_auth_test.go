@@ -89,6 +89,8 @@ var localValidationErrors = []struct {
 		`invalid --expires value "2020-01-01T00:00:00Z": the time is in the past`},
 	{append(sendArgs("--text", "Hi"), "--schedule", "2020-01-01T00:00:00Z"),
 		`invalid --schedule value "2020-01-01T00:00:00Z": the time is in the past`},
+	{[]string{"campaigns", "send", rawTestID, "--schedule", "2020-01-01T00:00:00Z"},
+		`invalid --schedule value "2020-01-01T00:00:00Z": the time is in the past`},
 	{[]string{"routes", "trigger", "abc"}, `invalid route ID value "abc": not a UUID`},
 	{[]string{"smtp", "get", "abc"}, `invalid credential ID value "abc": not a UUID`},
 	{[]string{"messages", "cancel", "abc", "--force"}, `invalid message ID value "abc": not a UUID or <uuid@domain>`},
@@ -120,8 +122,10 @@ var localValidationErrors = []struct {
 	{append(sendArgs("--text", "Hi"), "--header", `"X-Test: a`),
 		`invalid --header value "\"X-Test: a": a value with a comma or a double quote must be in double quotes, ` +
 			`with each double quote in it doubled, such as '"a, ""b"""'`},
-	// Limits the API checks: each scope once, a subdomain label, and send
-	// times
+	// Limits the API checks: 50 lists, each scope once, a subdomain label,
+	// and send times
+	{[]string{"campaigns", "create", "--name", "Fall", "--list-id", listIDs(51)}, "--list-id takes at most 50 lists, got 51"},
+	{[]string{"campaigns", "update", rawTestID, "--list-id", listIDs(51)}, "--list-id takes at most 50 lists, got 51"},
 	{[]string{"apikeys", "create", "--label", "ci", "--scope", "messages:send:all", "--scope", "messages:send:all"},
 		`invalid --scope value "messages:send:all": given more than once`},
 	{[]string{"apikeys", "update", rawTestID, "--scope", "messages:send:{Example.com}", "--scope", "messages:send:{example.com}"},
@@ -140,10 +144,21 @@ var localValidationErrors = []struct {
 		`invalid --tracking-subdomain value "track_me": must be one DNS label of 1-63 letters, digits and hyphens, without a leading or trailing hyphen`},
 	{[]string{"domains", "update", "example.com", "--media-subdomain", "media.cdn"},
 		`invalid --media-subdomain value "media.cdn": must be one DNS label of 1-63 letters, digits and hyphens, without a leading or trailing hyphen`},
+	{[]string{"campaigns", "send", rawTestID, "--schedule", "1m"},
+		`invalid --schedule value "1m": the API takes a time more than a minute ahead`},
 	{append(sendArgs("--text", "Hi"), "--schedule", "8d"), `invalid --schedule value "8d": the API takes a time at most 7 days ahead`},
 	// Without --sandbox, a sandbox result would be ignored and real mail sent.
 	{append(sendArgs("--text", "Hi"), "--sandbox-result", "bounce"), "--sandbox-result needs --sandbox"},
 	{[]string{"smtp", "send", "--server", "127.0.0.1:1", "--sandbox-result", "bounce"}, "--sandbox-result needs --sandbox"},
+}
+
+// listIDs returns count list IDs joined with commas.
+func listIDs(count int) string {
+	ids := make([]string, count)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("00000000-0000-4000-8000-%012d", i)
+	}
+	return strings.Join(ids, ",")
 }
 
 // sendArgs returns the arguments of a messages send with every required flag
@@ -159,6 +174,8 @@ var enumValidationErrors = []struct {
 	message string
 }{
 	{[]string{"domains", "list", "--sending-type", "bulk"}, "--sending-type must be one of: transactional, marketing"},
+	{[]string{"campaigns", "recipients", rawTestID, "--status", "Opened"}, "--status must be one of: Processing, Queued, Deferred, " +
+		"Delivered, Bounced, Failed, Administratively Bounced, Suppressed, Rejected, Complained, Unsubscribed"},
 	{[]string{"domains", "list", "--status", "active"}, "--status must be one of: verified, pending, failed"},
 	{[]string{"domains", "create", "example.com", "--sending-type", "bulk"}, "--sending-type must be one of: transactional, marketing"},
 	{[]string{"domains", "create", "example.com", "--format", "zonefile"}, "--format must be one of: bind, cloudflare, terraform"},
@@ -168,6 +185,10 @@ var enumValidationErrors = []struct {
 	{[]string{"contacts", "list", "--status", "active"}, "--status must be one of: enabled, disabled, blocked"},
 	{[]string{"contacts", "memberships", "a@example.com", "--subscription-status", "bounced"},
 		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
+	{[]string{"campaigns", "list", "--status", "done"},
+		"--status must be one of: draft, validating, waiting_for_review, scheduled, sending, paused, sent, canceled, failed"},
+	{[]string{"campaigns", "create", "--name", "Fall", "--editor", "visual"}, "--editor must be one of: advanced, simple, html"},
+	{[]string{"campaigns", "templates", "create", "--name", "Fall", "--editor", "visual"}, "--editor must be one of: advanced, simple, html"},
 	{[]string{"templates", "create", "--name", "Fall", "--editor", "visual"}, "--editor must be one of: advanced, simple, html"},
 	{[]string{"lists", "members", "list", rawTestID, "--subscription-status", "bounced"},
 		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
@@ -195,6 +216,11 @@ var enumValidationErrors = []struct {
 		"--sandbox-result must be one of: deliver, bounce, defer, fail, suppress"},
 }
 
+// requiredListFlags are the flags a list command needs besides its arguments.
+var requiredListFlags = map[string][]string{
+	"campaigns recipients": {"--status", "Delivered"},
+}
+
 // TestEveryLimitIsCheckedBeforeAuthenticating runs every command that has
 // --limit with a limit above its range and below it.
 func TestEveryLimitIsCheckedBeforeAuthenticating(t *testing.T) {
@@ -205,7 +231,8 @@ func TestEveryLimitIsCheckedBeforeAuthenticating(t *testing.T) {
 		}
 		checked++
 		path := strings.Fields(strings.TrimPrefix(leaf.CommandPath(), "ahasend "))
-		args := slices.Concat(path, slices.Repeat([]string{rawTestID}, len(cmdutil.UsageArguments(leaf))))
+		args := slices.Concat(path, slices.Repeat([]string{rawTestID}, len(cmdutil.UsageArguments(leaf))),
+			requiredListFlags[strings.Join(path, " ")])
 		for _, limit := range []string{"101", "-1"} {
 			t.Run(strings.Join(path, " ")+" "+limit, func(t *testing.T) {
 				called := testutil.RefuseAuth(t)
@@ -256,6 +283,14 @@ func TestLocalValidationErrorsExitFourBeforeAuthenticating(t *testing.T) {
 // --idempotency-key, which the key's length alone can fail.
 var idempotentCommands = map[string][]string{
 	"apikeys create":              {"--label", "ci", "--scope", "messages:send:all"},
+	"campaigns create":            {"--name", "Launch"},
+	"campaigns duplicate":         {rawTestID},
+	"campaigns send":              {rawTestID, "--force"},
+	"campaigns templates create":  {"--name", "Base", "--editor", "simple"},
+	"campaigns templates update":  {rawTestID, "--name", "Base"},
+	"campaigns test":              {rawTestID, "--to", "user@example.com"},
+	"campaigns unschedule":        {rawTestID},
+	"campaigns update":            {rawTestID, "--name", "Launch"},
 	"contacts batch":              {"--file", "contacts.json"},
 	"contacts create":             {"user@example.com"},
 	"domains create":              {"example.com"},
@@ -370,6 +405,11 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{"lists", "update", rawTestID, "--name", long},
 		{"templates", "create", "--editor", "simple", "--name", long},
 		{"templates", "update", rawTestID, "--name", long},
+		{"campaigns", "create", "--name", long},
+		{"campaigns", "update", rawTestID, "--name", long},
+		{"campaigns", "duplicate", rawTestID, "--name", long},
+		{"campaigns", "templates", "create", "--editor", "simple", "--name", long},
+		{"campaigns", "templates", "update", rawTestID, "--name", long},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
@@ -407,12 +447,22 @@ func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 		{"templates", "update", rawTestID, "--subject", text(998)},
 		{"templates", "create", "--editor", "simple", "--name", "Fall", "--preheader", text(500)},
 		{"templates", "update", rawTestID, "--preheader", text(500)},
+		{"campaigns", "create", "--name", "Fall", "--subject", text(998)},
+		{"campaigns", "update", rawTestID, "--subject", text(998)},
+		{"campaigns", "create", "--name", "Fall", "--preheader", text(500)},
+		{"campaigns", "update", rawTestID, "--preheader", text(500)},
+		{"campaigns", "create", "--name", name},
+		{"campaigns", "update", rawTestID, "--name", name},
+		{"campaigns", "duplicate", rawTestID, "--name", name},
+		{"campaigns", "templates", "create", "--editor", "simple", "--name", name},
+		{"campaigns", "templates", "update", rawTestID, "--name", name},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
 			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount", "CreateList", "UpdateList",
-				"CreateTemplate", "UpdateTemplate"} {
+				"CreateTemplate", "UpdateTemplate", "CreateCampaign", "UpdateCampaign", "DuplicateCampaign",
+				"CreateCampaignTemplate", "UpdateCampaignTemplate"} {
 				expectAnyArgs(mockClient, method, nil, rawAPIError(400))
 			}
 			called := testutil.InjectClient(t, mockClient)
@@ -437,6 +487,10 @@ func TestEveryTextLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{[]string{"templates", "update", rawTestID, "--subject"}, 998},
 		{[]string{"templates", "create", "--editor", "simple", "--name", "Fall", "--preheader"}, 500},
 		{[]string{"templates", "update", rawTestID, "--preheader"}, 500},
+		{[]string{"campaigns", "create", "--name", "Fall", "--subject"}, 998},
+		{[]string{"campaigns", "update", rawTestID, "--subject"}, 998},
+		{[]string{"campaigns", "create", "--name", "Fall", "--preheader"}, 500},
+		{[]string{"campaigns", "update", rawTestID, "--preheader"}, 500},
 		{[]string{"lists", "create", "--name", "News", "--description"}, 1000},
 		{[]string{"lists", "update", rawTestID, "--description"}, 1000},
 		{[]string{"suppressions", "create", "a@example.com", "--expires", "30d", "--reason"}, 255},
@@ -481,11 +535,16 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 		{[]string{"smtp", "create", "--name", blank}, "--name cannot be empty"},
 		{[]string{"templates", "create", "--editor", "simple", "--name", blank}, "--name cannot be empty"},
 		{[]string{"templates", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
+		{[]string{"campaigns", "create", "--name", blank}, "--name cannot be empty"},
+		{[]string{"campaigns", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
+		{[]string{"campaigns", "duplicate", rawTestID, "--name", blank}, "--name cannot be empty"},
+		{[]string{"campaigns", "templates", "create", "--editor", "simple", "--name", blank}, "--name cannot be empty"},
 		{[]string{"subaccounts", "create", "--website", "acme.example.com", "--name", blank}, "--name cannot be empty"},
 		{[]string{"subaccounts", "create", "--name", "Acme", "--website", blank}, "--website cannot be empty"},
 		{[]string{"subaccounts", "update", rawTestID, "--website", blank}, "--website cannot be empty"},
 		{[]string{"subaccounts", "suspend", rawTestID, "--force", "--reason", blank}, "--reason cannot be empty"},
 		{[]string{"contacts", "create", blank}, "email cannot be empty"},
+		{[]string{"campaigns", "update", rawTestID, "--from", blank}, "--from cannot be empty; use --clear-from to clear it"},
 		{[]string{"smtp", "send", "--server", blank, "--test"}, "--server cannot be empty"},
 		{append(sendArgs("--text", "Hi"), "--subject", blank), "--subject cannot be empty"},
 	}
@@ -513,6 +572,10 @@ func TestEveryEmailAddressIsCheckedBeforeAuthenticating(t *testing.T) {
 		{"templates", "update", rawTestID, "--from", notBare},
 		{"templates", "create", "--editor", "simple", "--name", "Fall", "--from", "a@example.com", "--reply-to", notBare},
 		{"templates", "update", rawTestID, "--reply-to", notBare},
+		{"campaigns", "create", "--name", "Fall", "--from", notBare},
+		{"campaigns", "update", rawTestID, "--from", notBare},
+		{"campaigns", "create", "--name", "Fall", "--reply-to", notBare},
+		{"campaigns", "update", rawTestID, "--reply-to", notBare},
 		{"contacts", "update", "a@example.com", "--email", notBare},
 		{"contacts", "list", "--email", notBare},
 		{"lists", "members", "list", rawTestID, "--email", notBare},

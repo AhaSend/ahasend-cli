@@ -20,20 +20,23 @@ var updateGolden = flag.Bool("update", false, "rewrite the golden files of TestO
 func nilLists() map[string]func(ResponseHandler) error {
 	config := ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found"}
 	return map[string]func(ResponseHandler) error{
-		"domains":          func(h ResponseHandler) error { return h.HandleDomainList(nil, config) },
-		"messages":         func(h ResponseHandler) error { return h.HandleMessageList(nil, config) },
-		"webhooks":         func(h ResponseHandler) error { return h.HandleWebhookList(nil, config) },
-		"routes":           func(h ResponseHandler) error { return h.HandleRouteList(nil, config) },
-		"suppressions":     func(h ResponseHandler) error { return h.HandleSuppressionList(nil, config) },
-		"SMTP credentials": func(h ResponseHandler) error { return h.HandleSMTPList(nil, config) },
-		"API keys":         func(h ResponseHandler) error { return h.HandleAPIKeyList(nil, config) },
-		"sub-accounts":     func(h ResponseHandler) error { return h.HandleSubAccountList(nil, config) },
-		"contacts":         func(h ResponseHandler) error { return h.HandleContactList(nil, config) },
-		"lists":            func(h ResponseHandler) error { return h.HandleListsList(nil, config) },
-		"members":          func(h ResponseHandler) error { return h.HandleListMemberList(nil, config) },
-		"memberships":      func(h ResponseHandler) error { return h.HandleContactMembershipList(nil, config) },
-		"templates":        func(h ResponseHandler) error { return h.HandleTemplateList(nil, config) },
-		"versions":         func(h ResponseHandler) error { return h.HandleTemplateVersionList(nil, config) },
+		"domains":            func(h ResponseHandler) error { return h.HandleDomainList(nil, config) },
+		"messages":           func(h ResponseHandler) error { return h.HandleMessageList(nil, config) },
+		"webhooks":           func(h ResponseHandler) error { return h.HandleWebhookList(nil, config) },
+		"routes":             func(h ResponseHandler) error { return h.HandleRouteList(nil, config) },
+		"suppressions":       func(h ResponseHandler) error { return h.HandleSuppressionList(nil, config) },
+		"SMTP credentials":   func(h ResponseHandler) error { return h.HandleSMTPList(nil, config) },
+		"API keys":           func(h ResponseHandler) error { return h.HandleAPIKeyList(nil, config) },
+		"sub-accounts":       func(h ResponseHandler) error { return h.HandleSubAccountList(nil, config) },
+		"contacts":           func(h ResponseHandler) error { return h.HandleContactList(nil, config) },
+		"lists":              func(h ResponseHandler) error { return h.HandleListsList(nil, config) },
+		"members":            func(h ResponseHandler) error { return h.HandleListMemberList(nil, config) },
+		"memberships":        func(h ResponseHandler) error { return h.HandleContactMembershipList(nil, config) },
+		"templates":          func(h ResponseHandler) error { return h.HandleTemplateList(nil, config) },
+		"campaigns":          func(h ResponseHandler) error { return h.HandleCampaignList(nil, config) },
+		"recipients":         func(h ResponseHandler) error { return h.HandleCampaignRecipientList(nil, config) },
+		"campaign templates": func(h ResponseHandler) error { return h.HandleCampaignTemplateList(nil, config) },
+		"versions":           func(h ResponseHandler) error { return h.HandleTemplateVersionList(nil, config) },
 	}
 }
 

@@ -18,6 +18,7 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 - **👥 Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **👤 Contact and List Management**: Create, update, batch upsert, and safely delete contacts, and manage the lists they belong to
 - **📝 Transactional Templates**: Store, draft, publish, and restore versions of the templates `messages send --template-id` sends
+- **📣 Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists, and manage campaign templates
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
 - **🎨 Multiple Output Formats**: JSON, table, CSV, and plain text
@@ -159,6 +160,7 @@ ahasend routes trigger <route-id>
 | Command | Description |
 |---------|-------------|
 | `auth` | Manage authentication and profiles |
+| `campaigns` | Draft, test, send and report on marketing campaigns, and manage campaign templates |
 | `contacts` | Manage account-global contacts and their list memberships |
 | `domains` | Manage sending domains, their sending type and DKIM selector |
 | `lists` | Manage contact lists and their members |
@@ -203,8 +205,8 @@ completion time depends on the data and account. Measure completion time in
 your environment and pace successive batches from that observed duration
 instead of assuming a fixed request rate. Give each logical batch a stable
 idempotency key, and reuse that key only to retry the identical payload.
-`contacts batch` and `lists members add` print each item's outcome and exit
-with code 1 when any item failed.
+`contacts batch`, `lists members add` and `campaigns test` print each item's
+outcome and exit with code 1 when any item failed.
 
 Deleting a contact cancels active workflows (while retaining cancelled-workflow
 audit rows) and erases unsubscribe, membership, campaign, open, and click
@@ -241,8 +243,27 @@ ahasend templates versions list <template-id>
 ahasend messages send --template-id <template-id> --recipients users.csv
 ```
 
-The template commands need the `templates:read`, `templates:write` and
-`templates:delete` scopes. Sending a template needs only the usual send scope.
+The template commands, and the campaign template commands, need the
+`templates:read`, `templates:write` and `templates:delete` scopes. Sending a
+template needs only the usual send scope.
+
+### Campaigns
+
+Campaigns send a design to contact lists. Test a draft, then send it now or
+schedule it; a draft with issues is refused, and each issue is listed:
+
+```bash
+ahasend campaigns create --name "October news" --subject "What's new" \
+  --from news@example.com --list-id <list-id> --html-file october.html
+ahasend campaigns test <campaign-id> --to me@example.com
+ahasend campaigns send <campaign-id> --schedule 2026-11-01T09:00:00Z
+ahasend campaigns stats <campaign-id>
+```
+
+The campaign commands need `campaigns:read` to read campaigns, their stats
+and recipients, `campaigns:write` to create, update and duplicate them,
+`campaigns:delete` to delete them, and `campaigns:send` to send, unschedule
+and test them.
 
 ### Global Flags
 
@@ -276,8 +297,8 @@ The template commands need the `templates:read`, `templates:write` and
   could not write, such as to a pipe closed early, exits 1, and
   `messages send`, or `messages cancel` of several messages, stopped by
   Ctrl+C or SIGTERM exits 130 after it reports what it did.
-- Commands that delete, overwrite, cancel or suspend, and
-  `auth logout --all`, ask for confirmation on stderr (the list is in
+- Commands that delete, overwrite, cancel or suspend, `campaigns send` and
+  `auth logout --all` ask for confirmation on stderr (the list is in
   [USAGE.mdx](USAGE.mdx#confirmation-prompts)); declining, or a stdin that
   ends or cannot be read, exits 4. Pass `--force` (`-f`) in scripts.
   `messages send` and `smtp send` send without asking for confirmation.

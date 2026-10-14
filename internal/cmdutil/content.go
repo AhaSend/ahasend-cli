@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// editors are the editors of a template's design, the values of --editor, as
-// the API defines them.
+// editors are the editors of a template's or a campaign's design, the values
+// of --editor, as the API defines them.
 var editors = []string{"advanced", "simple", "html"}
 
 // AddCreateContentFlags adds the content flags of a create command:

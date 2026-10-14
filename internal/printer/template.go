@@ -43,7 +43,7 @@ var templateHeaders = map[string]string{
 }
 
 // templateContentColumns are the CSV columns of the content of a template, a
-// draft or a version.
+// campaign template, a campaign, a draft or a version.
 var templateContentColumns = []string{"mjml", "html", "text", "text_is_custom"}
 
 func (h *jsonHandler) HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error {

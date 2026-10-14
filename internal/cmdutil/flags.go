@@ -1,7 +1,7 @@
 // Package cmdutil holds the flag helpers that commands share: cursor
 // pagination, partial-update readers, repeatable flags, required flags that
 // can be asked for, idempotency keys, and the content and sender flags of
-// templates.
+// templates and campaigns.
 //
 // Readers return errors from the errors package, so a bad flag fails as a
 // validation error before the command authenticates.
@@ -313,7 +313,7 @@ func CheckMaxCleanedLength(name string, value *string, max int, clean func(strin
 }
 
 // The most characters the API accepts in the subject and the preheader
-// (preview text) of a template, once cleaned.
+// (preview text) of a template or a campaign, once cleaned.
 const (
 	maxSubjectLength   = 998
 	maxPreheaderLength = 500

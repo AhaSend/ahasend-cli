@@ -178,6 +178,11 @@ func TestCSVPutsEveryValueOnOneLine(t *testing.T) {
 		"template version": func(h ResponseHandler) error {
 			return h.HandleSingleTemplateVersion(&responses.TemplateVersionDetail{Subject: broken}, SingleConfig{})
 		},
+		"campaign test": func(h ResponseHandler) error {
+			return h.HandleCampaignTest(&responses.CampaignTest{
+				Failed: []responses.CampaignTestFailure{{Email: "user@example.com", Message: broken}},
+			}, SingleConfig{})
+		},
 		"contacts batch": func(h ResponseHandler) error {
 			return h.HandleBatchContacts(&responses.BatchUpsertContactsResponse{
 				Data: []responses.BatchContactResult{{Email: "user@example.com", Outcome: "failed", Reason: broken}},

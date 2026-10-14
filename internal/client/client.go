@@ -312,9 +312,10 @@ func (c *Client) Ping() (*common.SuccessResponse, error) {
 
 // noRetries turns off the SDK's own retries for a request that must be sent
 // once: a send, which messages send retries itself up to --max-retries
-// times, and every DELETE request, such as a delete, a cancel or a wipe,
-// whose repeat after a lost answer would fail with 404 although the first
-// one succeeded.
+// times; a campaign test, whose daily limit the API answers with 429, which
+// a retry cannot pass; and every DELETE request, such as a delete, a cancel
+// or a wipe, whose repeat after a lost answer would fail with 404 although
+// the first one succeeded.
 var noRetries = api.WithRetry(api.RetryConfig{Enabled: false})
 
 // SendMessageWithIdempotencyKey sends a message with idempotency key support,
@@ -765,6 +766,86 @@ func (c *Client) GetTemplateVersion(templateID, versionID uuid.UUID) (*responses
 // RestoreTemplateVersion restores a published version into a template's draft
 func (c *Client) RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error) {
 	return recordBody(c.TemplatesAPI.RestoreTemplateVersion(c.auth, c.accountUUID, templateID, versionID, req, opts...))
+}
+
+// ListCampaigns lists the account's campaigns
+func (c *Client) ListCampaigns(params requests.ListCampaignsParams) (*responses.PaginatedCampaignsResponse, error) {
+	return recordBody(c.CampaignsAPI.ListCampaigns(c.auth, c.accountUUID, params))
+}
+
+// GetCampaign retrieves a campaign
+func (c *Client) GetCampaign(campaignID uuid.UUID) (*responses.Campaign, error) {
+	return recordBody(c.CampaignsAPI.GetCampaign(c.auth, c.accountUUID, campaignID))
+}
+
+// CreateCampaign creates a draft campaign
+func (c *Client) CreateCampaign(req requests.CreateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return recordBody(c.CampaignsAPI.CreateCampaign(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateCampaign partially updates a draft campaign
+func (c *Client) UpdateCampaign(campaignID uuid.UUID, req requests.UpdateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return recordBody(c.CampaignsAPI.UpdateCampaign(c.auth, c.accountUUID, campaignID, req, opts...))
+}
+
+// DeleteCampaign deletes a draft campaign
+func (c *Client) DeleteCampaign(campaignID uuid.UUID) (*common.SuccessResponse, error) {
+	return recordDone(c.CampaignsAPI.DeleteCampaign(c.auth, c.accountUUID, campaignID, noRetries))
+}
+
+// DuplicateCampaign makes a new draft from a campaign
+func (c *Client) DuplicateCampaign(campaignID uuid.UUID, req requests.DuplicateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return recordBody(c.CampaignsAPI.DuplicateCampaign(c.auth, c.accountUUID, campaignID, req, opts...))
+}
+
+// SendCampaign sends a draft campaign now or at a later time
+func (c *Client) SendCampaign(campaignID uuid.UUID, req requests.SendCampaignRequest, opts ...api.RequestOption) (*responses.CampaignSend, error) {
+	return recordBody(c.CampaignsAPI.SendCampaign(c.auth, c.accountUUID, campaignID, req, opts...))
+}
+
+// UnscheduleCampaign returns a validating or scheduled campaign to draft
+func (c *Client) UnscheduleCampaign(campaignID uuid.UUID, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return recordBody(c.CampaignsAPI.UnscheduleCampaign(c.auth, c.accountUUID, campaignID, opts...))
+}
+
+// TestCampaign sends a test of a draft campaign
+func (c *Client) TestCampaign(campaignID uuid.UUID, req requests.TestCampaignRequest, opts ...api.RequestOption) (*responses.CampaignTest, error) {
+	return recordBody(c.CampaignsAPI.TestCampaign(c.auth, c.accountUUID, campaignID, req, append(opts, noRetries)...))
+}
+
+// GetCampaignStats retrieves a campaign's counters, report and rates
+func (c *Client) GetCampaignStats(campaignID uuid.UUID) (*responses.CampaignStats, error) {
+	return recordBody(c.CampaignsAPI.GetCampaignStats(c.auth, c.accountUUID, campaignID))
+}
+
+// ListCampaignRecipients lists a campaign's recipients in one status or bounce classification
+func (c *Client) ListCampaignRecipients(campaignID uuid.UUID, params requests.ListCampaignRecipientsParams) (*responses.PaginatedCampaignRecipientsResponse, error) {
+	return recordBody(c.CampaignsAPI.ListCampaignRecipients(c.auth, c.accountUUID, campaignID, params))
+}
+
+// ListCampaignTemplates lists the account's campaign templates
+func (c *Client) ListCampaignTemplates(params requests.ListCampaignTemplatesParams) (*responses.PaginatedCampaignTemplatesResponse, error) {
+	return recordBody(c.CampaignTemplatesAPI.ListCampaignTemplates(c.auth, c.accountUUID, params))
+}
+
+// GetCampaignTemplate retrieves a campaign template
+func (c *Client) GetCampaignTemplate(templateID uuid.UUID) (*responses.CampaignTemplate, error) {
+	return recordBody(c.CampaignTemplatesAPI.GetCampaignTemplate(c.auth, c.accountUUID, templateID))
+}
+
+// CreateCampaignTemplate creates a campaign template
+func (c *Client) CreateCampaignTemplate(req requests.CreateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error) {
+	return recordBody(c.CampaignTemplatesAPI.CreateCampaignTemplate(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateCampaignTemplate partially updates a campaign template
+func (c *Client) UpdateCampaignTemplate(templateID uuid.UUID, req requests.UpdateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error) {
+	return recordBody(c.CampaignTemplatesAPI.UpdateCampaignTemplate(c.auth, c.accountUUID, templateID, req, opts...))
+}
+
+// DeleteCampaignTemplate deletes a campaign template
+func (c *Client) DeleteCampaignTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
+	return recordDone(c.CampaignTemplatesAPI.DeleteCampaignTemplate(c.auth, c.accountUUID, templateID, noRetries))
 }
 
 // TriggerWebhook triggers webhook events for development testing

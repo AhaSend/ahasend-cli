@@ -30,7 +30,7 @@ var timelessViews = map[string]bool{
 
 // timelessTables are the list views whose table has no time column.
 var timelessTables = map[string]bool{
-	"contact list": true, "domain list": true, "two domains": true,
+	"campaign recipients": true, "contact list": true, "domain list": true, "two domains": true,
 	"route list": true, "webhook list": true,
 }
 

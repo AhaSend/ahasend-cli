@@ -411,3 +411,71 @@ func (m *MockClient) GetTemplateVersion(templateID, versionID uuid.UUID) (*respo
 func (m *MockClient) RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error) {
 	return result[responses.Template](m.Called(withOptions([]interface{}{templateID, versionID, req}, opts)...))
 }
+
+// Campaign operations methods
+
+func (m *MockClient) ListCampaigns(params requests.ListCampaignsParams) (*responses.PaginatedCampaignsResponse, error) {
+	return result[responses.PaginatedCampaignsResponse](m.Called(params))
+}
+
+func (m *MockClient) GetCampaign(campaignID uuid.UUID) (*responses.Campaign, error) {
+	return result[responses.Campaign](m.Called(campaignID))
+}
+
+func (m *MockClient) CreateCampaign(req requests.CreateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return result[responses.Campaign](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateCampaign(campaignID uuid.UUID, req requests.UpdateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return result[responses.Campaign](m.Called(withOptions([]interface{}{campaignID, req}, opts)...))
+}
+
+func (m *MockClient) DeleteCampaign(campaignID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(campaignID))
+}
+
+func (m *MockClient) DuplicateCampaign(campaignID uuid.UUID, req requests.DuplicateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return result[responses.Campaign](m.Called(withOptions([]interface{}{campaignID, req}, opts)...))
+}
+
+func (m *MockClient) SendCampaign(campaignID uuid.UUID, req requests.SendCampaignRequest, opts ...api.RequestOption) (*responses.CampaignSend, error) {
+	return result[responses.CampaignSend](m.Called(withOptions([]interface{}{campaignID, req}, opts)...))
+}
+
+func (m *MockClient) UnscheduleCampaign(campaignID uuid.UUID, opts ...api.RequestOption) (*responses.Campaign, error) {
+	return result[responses.Campaign](m.Called(withOptions([]interface{}{campaignID}, opts)...))
+}
+
+func (m *MockClient) TestCampaign(campaignID uuid.UUID, req requests.TestCampaignRequest, opts ...api.RequestOption) (*responses.CampaignTest, error) {
+	return result[responses.CampaignTest](m.Called(withOptions([]interface{}{campaignID, req}, opts)...))
+}
+
+func (m *MockClient) GetCampaignStats(campaignID uuid.UUID) (*responses.CampaignStats, error) {
+	return result[responses.CampaignStats](m.Called(campaignID))
+}
+
+func (m *MockClient) ListCampaignRecipients(campaignID uuid.UUID, params requests.ListCampaignRecipientsParams) (*responses.PaginatedCampaignRecipientsResponse, error) {
+	return result[responses.PaginatedCampaignRecipientsResponse](m.Called(campaignID, params))
+}
+
+// Campaign template operations methods
+
+func (m *MockClient) ListCampaignTemplates(params requests.ListCampaignTemplatesParams) (*responses.PaginatedCampaignTemplatesResponse, error) {
+	return result[responses.PaginatedCampaignTemplatesResponse](m.Called(params))
+}
+
+func (m *MockClient) GetCampaignTemplate(templateID uuid.UUID) (*responses.CampaignTemplate, error) {
+	return result[responses.CampaignTemplate](m.Called(templateID))
+}
+
+func (m *MockClient) CreateCampaignTemplate(req requests.CreateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error) {
+	return result[responses.CampaignTemplate](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateCampaignTemplate(templateID uuid.UUID, req requests.UpdateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error) {
+	return result[responses.CampaignTemplate](m.Called(withOptions([]interface{}{templateID, req}, opts)...))
+}
+
+func (m *MockClient) DeleteCampaignTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(templateID))
+}

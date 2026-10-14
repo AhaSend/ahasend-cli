@@ -731,6 +731,24 @@ func TestSendRequestsAreSentOnce(t *testing.T) {
 	}
 }
 
+// TestCampaignTestIsSentOnce checks that a campaign test the API refuses with
+// 429, as it does once the daily test sends are used, is one request: no
+// retry can pass the limit.
+func TestCampaignTestIsSentOnce(t *testing.T) {
+	t.Cleanup(ShortenRetryDelaysForTesting())
+	var sent atomic.Int32
+	client, cleanup := newClientTestServer(t, uuid.New().String(), func(w http.ResponseWriter, _ *http.Request) {
+		sent.Add(1)
+		writeClientTestJSON(t, w, http.StatusTooManyRequests, map[string]string{"message": "daily test send limit reached"})
+	})
+	defer cleanup()
+
+	_, err := client.TestCampaign(uuid.New(), requests.TestCampaignRequest{To: []string{"me@example.com"}})
+
+	require.Error(t, err)
+	assert.Equal(t, int32(1), sent.Load())
+}
+
 // TestALongRetryAfterIsNotWaitedFor checks that a request the API asks to
 // retry after more than the 30-second retry cap fails at once with the API's
 // error, instead of being retried before the API would accept it.
@@ -762,21 +780,23 @@ func TestDeleteRequestsAreSentOnce(t *testing.T) {
 	id := uuid.New()
 	domain := "example.com"
 	deletes := map[string]func(*Client) error{
-		"cancel message":         func(c *Client) error { _, err := c.CancelMessage(id.String()); return err },
-		"delete domain":          func(c *Client) error { _, err := c.DeleteDomain(domain); return err },
-		"delete webhook":         func(c *Client) error { _, err := c.DeleteWebhook(id); return err },
-		"delete route":           func(c *Client) error { _, err := c.DeleteRoute(id); return err },
-		"delete suppression":     func(c *Client) error { _, err := c.DeleteSuppression("a@example.com", &domain); return err },
-		"wipe suppressions":      func(c *Client) error { _, err := c.WipeSuppressions(nil); return err },
-		"delete smtp credential": func(c *Client) error { _, err := c.DeleteSMTPCredential(id); return err },
-		"delete sub-account":     func(c *Client) error { _, err := c.DeleteSubAccount(id); return err },
-		"delete sub-account key": func(c *Client) error { _, err := c.DeleteSubAccountAPIKey(id, id); return err },
-		"delete api key":         func(c *Client) error { _, err := c.DeleteAPIKey(id); return err },
-		"delete contact":         func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
-		"delete list":            func(c *Client) error { _, err := c.DeleteList(id); return err },
-		"remove list member":     func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
-		"delete template":        func(c *Client) error { _, err := c.DeleteTemplate(id); return err },
-		"discard template draft": func(c *Client) error { _, err := c.DiscardTemplateDraft(id); return err },
+		"cancel message":           func(c *Client) error { _, err := c.CancelMessage(id.String()); return err },
+		"delete domain":            func(c *Client) error { _, err := c.DeleteDomain(domain); return err },
+		"delete webhook":           func(c *Client) error { _, err := c.DeleteWebhook(id); return err },
+		"delete route":             func(c *Client) error { _, err := c.DeleteRoute(id); return err },
+		"delete suppression":       func(c *Client) error { _, err := c.DeleteSuppression("a@example.com", &domain); return err },
+		"wipe suppressions":        func(c *Client) error { _, err := c.WipeSuppressions(nil); return err },
+		"delete smtp credential":   func(c *Client) error { _, err := c.DeleteSMTPCredential(id); return err },
+		"delete sub-account":       func(c *Client) error { _, err := c.DeleteSubAccount(id); return err },
+		"delete sub-account key":   func(c *Client) error { _, err := c.DeleteSubAccountAPIKey(id, id); return err },
+		"delete api key":           func(c *Client) error { _, err := c.DeleteAPIKey(id); return err },
+		"delete contact":           func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
+		"delete list":              func(c *Client) error { _, err := c.DeleteList(id); return err },
+		"remove list member":       func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
+		"delete template":          func(c *Client) error { _, err := c.DeleteTemplate(id); return err },
+		"discard template draft":   func(c *Client) error { _, err := c.DiscardTemplateDraft(id); return err },
+		"delete campaign":          func(c *Client) error { _, err := c.DeleteCampaign(id); return err },
+		"delete campaign template": func(c *Client) error { _, err := c.DeleteCampaignTemplate(id); return err },
 	}
 	for name, call := range deletes {
 		t.Run(name, func(t *testing.T) {

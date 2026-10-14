@@ -77,6 +77,10 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 		{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status"},
 			[]string{"confirmed", "unconfirmed", "unsubscribed"}},
 		{[]string{"stats", "bounces", "--group-by"}, []string{"hour", "day", "week", "month"}},
+		{[]string{"campaigns", "list", "--status"}, []string{"draft", "validating", "waiting_for_review", "scheduled",
+			"sending", "paused", "sent", "canceled", "failed"}},
+		{[]string{"campaigns", "create", "--editor"}, editors},
+		{[]string{"campaigns", "templates", "create", "--editor"}, editors},
 		{[]string{"templates", "create", "--editor"}, editors},
 	}
 	for _, test := range tests {
@@ -87,6 +91,9 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 			assert.Equal(t, noFiles, directive)
 		})
 	}
+
+	completions, _ := complete(t, "campaigns", "recipients", rawTestID, "--status", "")
+	assert.Contains(t, completions, "Administratively Bounced")
 }
 
 // TestScopeCompletesTheScopesOfTheKeysOwner checks that --scope of the API

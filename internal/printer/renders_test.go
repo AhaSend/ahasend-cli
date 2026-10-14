@@ -51,6 +51,8 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 	template := templateFixture()
 	version := templateVersionDetailFixture()
 	draft := templateDraftFixture()
+	campaign := campaignFixture()
+	campaignTemplate := campaignTemplateFixture()
 
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
@@ -122,6 +124,18 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 		},
 		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
 		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
+		"campaigns list":   func(h ResponseHandler) error { return h.HandleCampaignList(campaignsPageFixture(), ListConfig{}) },
+		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
+		"campaign stats":   func(h ResponseHandler) error { return h.HandleCampaignStats(campaignStatsFixture(), SingleConfig{}) },
+		"campaign recipients": func(h ResponseHandler) error {
+			return h.HandleCampaignRecipientList(campaignRecipientsPageFixture(), ListConfig{})
+		},
+		"campaign templates list": func(h ResponseHandler) error {
+			return h.HandleCampaignTemplateList(campaignTemplatesPageFixture(), ListConfig{})
+		},
+		"campaign template": func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
+		},
 	})
 }
 
@@ -223,6 +237,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 	template := responses.Template{Name: "Welcome"}
 	version := responses.TemplateVersionDetail{}
 	draft := responses.TemplateDraft{Subject: "Draft"}
+	campaign := responses.Campaign{CampaignListItem: responses.CampaignListItem{Name: "October"}}
+	campaignTemplate := responses.CampaignTemplate{Name: "Newsletter"}
+	stats := responses.CampaignStats{}
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
 			return h.HandleDomainList(&responses.PaginatedDomainsResponse{Data: []responses.Domain{domain}}, ListConfig{})
@@ -294,6 +311,11 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
 		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
+		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
+		"campaign template": func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
+		},
+		"campaign stats": func(h ResponseHandler) error { return h.HandleCampaignStats(&stats, SingleConfig{}) },
 	})
 }
 

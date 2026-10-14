@@ -18,6 +18,7 @@ const (
 	csvAPIKeyBody     = `{"object":"api_key","id":"` + rawTestID + `","label":"CI","public_key":"pk","secret_key":"sk","account_id":"` + rawTestOtherID + `","scopes":[]}`
 	csvItemBody       = `{"id":"` + rawTestID + `"}`
 	csvListBody       = `{"object":"list","data":[` + csvItemBody + `],"pagination":{"has_more":false}}`
+	csvCampaignTest   = `{"object":"campaign_test","sent_to":["user@example.com"]}`
 	csvSubAccountsUse = `{"object":"sub_account_usage","currency":"USD"}`
 	// csvContactsFile stands in a view's arguments for a contacts file.
 	csvContactsFile = "<contacts file>"
@@ -42,6 +43,24 @@ var csvViews = []csvView{
 		"label,id,public_key,secret_key,account_id,scopes,ip_allow_list,created_at"},
 	{[]string{"apikeys", "update", rawTestID, "--label", "CI"}, returns[responses.APIKey]("UpdateAPIKey", csvAPIKeyBody),
 		"label,id,public_key,account_id,scopes,ip_allow_list,updated_at"},
+
+	// Campaigns
+	{[]string{"campaigns", "list"}, returns[responses.PaginatedCampaignsResponse]("ListCampaigns", csvListBody),
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at"},
+	{[]string{"campaigns", "get", rawTestID}, returns[responses.Campaign]("GetCampaign", csvItemBody),
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom"},
+	{[]string{"campaigns", "send", rawTestID, "--force"}, returns[responses.CampaignSend]("SendCampaign", csvItemBody),
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom,warnings"},
+	{[]string{"campaigns", "test", rawTestID, "--to", "user@example.com"}, returns[responses.CampaignTest]("TestCampaign", csvCampaignTest),
+		"email,outcome,reason"},
+	{[]string{"campaigns", "stats", rawTestID}, returns[responses.CampaignStats]("GetCampaignStats", csvItemBody),
+		"campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification"},
+	{[]string{"campaigns", "recipients", rawTestID, "--status", "Delivered"}, returns[responses.PaginatedCampaignRecipientsResponse]("ListCampaignRecipients", csvListBody),
+		"email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at"},
+	{[]string{"campaigns", "templates", "list"}, returns[responses.PaginatedCampaignTemplatesResponse]("ListCampaignTemplates", csvListBody),
+		"name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom"},
+	{[]string{"campaigns", "templates", "get", rawTestID}, returns[responses.CampaignTemplate]("GetCampaignTemplate", csvItemBody),
+		"name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom"},
 
 	// Contacts
 	{[]string{"contacts", "list"}, returns[responses.PaginatedContactsResponse]("GetContacts", csvListBody),
@@ -175,7 +194,10 @@ func TestCSVColumnsAreTheFieldsOfTheTableView(t *testing.T) {
 // show, with a value they show instead, or "" for a view whose fixture sets
 // nothing it shows; the printer tests check those.
 var viewsWithoutID = map[string]string{
+	"campaigns test":       "user@example.com",
 	"subaccounts usage":    "USD",
+	"campaigns stats":      "",
+	"campaigns recipients": "",
 	"contacts batch":       "",
 	"contacts memberships": "",
 	"lists members":        "",
@@ -240,7 +262,7 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 		}
 		views = append(views, emptyView{view.args, view.call.method, reflect.New(full).Interface(), view.header})
 	}
-	require.Len(t, views, 19)
+	require.Len(t, views, 22)
 	for _, view := range views {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}

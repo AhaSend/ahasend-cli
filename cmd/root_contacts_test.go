@@ -14,12 +14,14 @@ import (
 // marketing command groups.
 func TestRootExposesMarketingCommandGroups(t *testing.T) {
 	groups := map[string][]string{
-		"contacts":           {"list", "get", "create", "update", "delete", "batch", "memberships"},
-		"lists":              {"list", "get", "create", "update", "delete", "members"},
-		"lists members":      {"list", "add", "set", "remove"},
-		"templates":          {"list", "get", "create", "update", "delete", "publish", "draft", "versions"},
-		"templates draft":    {"get", "discard"},
-		"templates versions": {"list", "get", "restore"},
+		"contacts":            {"list", "get", "create", "update", "delete", "batch", "memberships"},
+		"lists":               {"list", "get", "create", "update", "delete", "members"},
+		"lists members":       {"list", "add", "set", "remove"},
+		"templates":           {"list", "get", "create", "update", "delete", "publish", "draft", "versions"},
+		"templates draft":     {"get", "discard"},
+		"templates versions":  {"list", "get", "restore"},
+		"campaigns":           {"list", "get", "create", "update", "delete", "duplicate", "send", "unschedule", "test", "stats", "recipients", "templates"},
+		"campaigns templates": {"list", "get", "create", "update", "delete"},
 	}
 
 	for path, subcommands := range groups {
@@ -66,14 +68,16 @@ func TestSubaccountsUnsuspendLongLinesFit(t *testing.T) {
 
 func TestRequiredFlagsSayTheyAreRequired(t *testing.T) {
 	flags := map[string][]string{
-		"lists create":        {"name"},
-		"templates create":    {"name"},
-		"contacts batch":      {"file"},
-		"webhooks create":     {"name", "url"},
-		"routes create":       {"name", "url", "recipient"},
-		"smtp create":         {"name"},
-		"subaccounts create":  {"name", "website"},
-		"suppressions create": {"expires"},
+		"lists create":               {"name"},
+		"templates create":           {"name"},
+		"campaigns create":           {"name"},
+		"campaigns templates create": {"name"},
+		"contacts batch":             {"file"},
+		"webhooks create":            {"name", "url"},
+		"routes create":              {"name", "url", "recipient"},
+		"smtp create":                {"name"},
+		"subaccounts create":         {"name", "website"},
+		"suppressions create":        {"expires"},
 	}
 	for path, names := range flags {
 		t.Run(path, func(t *testing.T) {
@@ -90,6 +94,7 @@ func TestRequiredFlagsSayTheyAreRequired(t *testing.T) {
 
 func TestRequiredRepeatableFlagsHaveOneCombinedMarker(t *testing.T) {
 	flags := map[string]string{
+		"campaigns test":              "to",
 		"apikeys create":              "scope",
 		"subaccounts api-keys create": "scope",
 	}
@@ -105,6 +110,7 @@ func TestRequiredRepeatableFlagsHaveOneCombinedMarker(t *testing.T) {
 func TestClearFromHelpSaysWhatItRemoves(t *testing.T) {
 	usages := map[string]string{
 		"templates update": "Remove the sender and the reply-to",
+		"campaigns update": "Remove the sender",
 	}
 	for path, usage := range usages {
 		t.Run(path, func(t *testing.T) {
@@ -197,7 +203,7 @@ func assertExamplesHaveCaptions(t *testing.T, command *cobra.Command) {
 
 func TestMarketingCommandsDoNotSayUUIDInLongHelp(t *testing.T) {
 	root := NewRootCmdForTesting()
-	for _, name := range []string{"contacts", "lists", "templates"} {
+	for _, name := range []string{"contacts", "lists", "templates", "campaigns"} {
 		group, _, err := root.Find([]string{name})
 		require.NoError(t, err)
 		walkCommands(group, func(command *cobra.Command) {

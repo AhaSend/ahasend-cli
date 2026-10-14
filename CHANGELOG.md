@@ -7,9 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-This release adds the `contacts`, `lists` and `templates` commands, and makes
-exit codes, input checks and output consistent across commands. Read
-**Breaking changes** before upgrading scripts written for v0.2.0.
+This release adds the `contacts`, `lists`, `templates` and `campaigns`
+commands, and makes exit codes, input checks and output consistent across
+commands. Read **Breaking changes** before upgrading scripts written for v0.2.0.
 
 ### Breaking changes
 
@@ -62,8 +62,8 @@ exit codes, input checks and output consistent across commands. Read
 - A missing required value is asked for only on a terminal, and otherwise
   fails; the `routes create` and `webhooks create` wizards ask only for
   required values.
-- Destructive commands and `auth logout --all` share one prompt on stderr:
-  `y` or `yes` goes ahead, anything else exits with 4
+- Destructive commands, `auth logout --all` and `campaigns send` share one
+  prompt on stderr: `y` or `yes` goes ahead, anything else exits with 4
   ([Confirmation Prompts](USAGE.mdx#confirmation-prompts)).
 
 #### Flags and defaults
@@ -109,8 +109,9 @@ exit codes, input checks and output consistent across commands. Read
 - [`contacts`](USAGE.mdx#contact-commands) and
   [`lists`](USAGE.mdx#list-commands) commands manage contacts, contact lists
   and list members.
-- [`templates`](USAGE.mdx#template-commands) commands manage transactional
-  templates.
+- [`templates`](USAGE.mdx#template-commands) and
+  [`campaigns`](USAGE.mdx#campaign-commands) commands manage transactional
+  templates, campaigns and campaign templates, with API key scopes for each.
 - `messages send --template-id`, `--from-name` and `--reply-to`.
 - `--ip-allow-list` on API keys restricts the IPs that can use them.
 - `--idempotency-key` on the `create` commands of most groups.

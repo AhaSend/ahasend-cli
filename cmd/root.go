@@ -9,6 +9,7 @@ import (
 
 	"github.com/AhaSend/ahasend-cli/cmd/groups/apikeys"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/auth"
+	"github.com/AhaSend/ahasend-cli/cmd/groups/campaigns"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/contacts"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/domains"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/lists"
@@ -274,6 +275,7 @@ func addCommands(root *cobra.Command) {
 	// Add command groups
 	root.AddCommand(apikeys.NewCommand())
 	root.AddCommand(auth.NewCommand())
+	root.AddCommand(campaigns.NewCommand())
 	root.AddCommand(contacts.NewCommand())
 	root.AddCommand(domains.NewCommand())
 	root.AddCommand(lists.NewCommand())

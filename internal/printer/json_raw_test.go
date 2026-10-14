@@ -134,6 +134,30 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"success response", func(h ResponseHandler) error {
 			return h.HandleSuccessResponse(recorded[common.SuccessResponse](), ResultConfig{})
 		}},
+		{"campaign list", func(h ResponseHandler) error {
+			return h.HandleCampaignList(recorded[responses.PaginatedCampaignsResponse](), ListConfig{})
+		}},
+		{"single campaign", func(h ResponseHandler) error {
+			return h.HandleSingleCampaign(recorded[responses.Campaign](), SingleConfig{})
+		}},
+		{"campaign send", func(h ResponseHandler) error {
+			return h.HandleCampaignSend(recorded[responses.CampaignSend](), SingleConfig{})
+		}},
+		{"campaign test", func(h ResponseHandler) error {
+			return h.HandleCampaignTest(recorded[responses.CampaignTest](), SingleConfig{})
+		}},
+		{"campaign stats", func(h ResponseHandler) error {
+			return h.HandleCampaignStats(recorded[responses.CampaignStats](), SingleConfig{})
+		}},
+		{"campaign recipients", func(h ResponseHandler) error {
+			return h.HandleCampaignRecipientList(recorded[responses.PaginatedCampaignRecipientsResponse](), ListConfig{})
+		}},
+		{"campaign template list", func(h ResponseHandler) error {
+			return h.HandleCampaignTemplateList(recorded[responses.PaginatedCampaignTemplatesResponse](), ListConfig{})
+		}},
+		{"single campaign template", func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(recorded[responses.CampaignTemplate](), SingleConfig{})
+		}},
 		{"contact list", func(h ResponseHandler) error {
 			return h.HandleContactList(recorded[responses.PaginatedContactsResponse](), ListConfig{})
 		}},

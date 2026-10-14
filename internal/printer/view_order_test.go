@@ -85,7 +85,7 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	credential, subAccount := styleSMTP(), styleSubAccount()
 	draft, version := templateDraftFixture(), templateVersionDetailFixture()
 	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
-	template := templateFixture()
+	template, campaign, campaignTemplate := templateFixture(), campaignFixture(), campaignTemplateFixture()
 	views := map[string]func(ResponseHandler) error{
 		"api key":          func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
 		"created api key":  func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
@@ -104,6 +104,10 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		"list":             func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
 		"list member":      func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
 		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
+		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
+		"campaign template": func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
+		},
 	}
 	for name, render := range views {
 		t.Run(name, func(t *testing.T) {

@@ -107,6 +107,18 @@ type ResponseHandler interface {
 	HandleTemplateVersionList(response *responses.TemplateVersionsResponse, config ListConfig) error
 	HandleSingleTemplateVersion(version *responses.TemplateVersionDetail, config SingleConfig) error
 
+	// Campaign responses
+	HandleCampaignList(response *responses.PaginatedCampaignsResponse, config ListConfig) error
+	HandleSingleCampaign(campaign *responses.Campaign, config SingleConfig) error
+	HandleCampaignSend(send *responses.CampaignSend, config SingleConfig) error
+	HandleCampaignTest(test *responses.CampaignTest, config SingleConfig) error
+	HandleCampaignStats(stats *responses.CampaignStats, config SingleConfig) error
+	HandleCampaignRecipientList(response *responses.PaginatedCampaignRecipientsResponse, config ListConfig) error
+
+	// Campaign template responses
+	HandleCampaignTemplateList(response *responses.PaginatedCampaignTemplatesResponse, config ListConfig) error
+	HandleSingleCampaignTemplate(template *responses.CampaignTemplate, config SingleConfig) error
+
 	// Statistics responses
 	HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error
 	HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error

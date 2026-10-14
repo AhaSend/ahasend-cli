@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, transactional templates, contacts and lists, domains, webhooks, suppressions, and analytics through an intuitive command structure.
+The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, transactional templates, marketing campaigns, contacts and lists, domains, webhooks, suppressions, and analytics through an intuitive command structure.
 
 ### Key Features
 
@@ -13,6 +13,7 @@ The AhaSend CLI is a comprehensive command-line interface for the AhaSend email 
 - **Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **Contact and List Management**: Manage account-global contacts, synchronous batch upserts, and the lists contacts belong to
 - **Transactional Templates**: Store, draft, publish, and restore versions of the templates that `messages send --template-id` sends
+- **Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists, and manage campaign templates
 - **Analytics**: Comprehensive email statistics and reporting
 - **Multiple Output Formats**: JSON, table, CSV, and plain text
 - **Batch Processing**: High-performance concurrent operations with progress tracking
@@ -358,8 +359,8 @@ ahasend contacts list --limit 50 --after <cursor>
 
 #### Confirmation Prompts
 
-Commands that delete, overwrite, cancel or suspend ask for confirmation
-first:
+Commands that delete, overwrite, cancel or suspend, and `campaigns send`, ask
+for confirmation first:
 
 - `apikeys delete`, `domains delete`, `routes delete`, `smtp delete` and
   `webhooks delete`
@@ -370,6 +371,7 @@ first:
 - `contacts delete`, `lists delete` and `lists members remove`
 - `templates delete`, `templates draft discard` and
   `templates versions restore`
+- `campaigns delete`, `campaigns send` and `campaigns templates delete`
 - `auth logout --all`, which removes every stored API key from this machine
 
 The prompt goes to stderr and the answer is read from stdin, so stdout stays
@@ -466,8 +468,8 @@ These flags take a time:
 - `--from-time` and `--to-time` on `messages list`, `contacts list`,
   `suppressions list` and the `stats` commands, where a relative time counts
   back from now
-- `--schedule` on `messages send`, and `--expires` on `suppressions create`,
-  where a relative time counts forward from now
+- `--schedule` on `messages send` and `campaigns send`, and `--expires` on
+  `suppressions create`, where a relative time counts forward from now
 
 A time is either RFC 3339, such as `2026-09-01T00:00:00Z`, or relative: a
 whole number of 1 or more followed by one unit, `m` (minutes), `h` (hours),
@@ -486,10 +488,13 @@ earlier time; otherwise the command fails with
 A time to come, `--schedule` or `--expires`, must be after now: another one
 fails before any request is sent with
 `invalid --schedule value "<value>": the time is in the past` (or the flag
-concerned) and exit code 4. `messages send --schedule` takes only a window
-ahead of now, as the API does, and fails the same way outside it: it must be
-at most 7 days ahead, or it fails with
-`... the API takes a time at most 7 days ahead`.
+concerned) and exit code 4. Some commands take only a window ahead of now,
+as the API does, and fail the same way outside it:
+
+- `messages send --schedule` must be at most 7 days ahead:
+  `... the API takes a time at most 7 days ahead`
+- `campaigns send --schedule` must be more than a minute ahead:
+  `... the API takes a time more than a minute ahead`
 
 #### Repeatable Flags
 
@@ -513,6 +518,8 @@ that starts with a space fails (see
 | `apikeys update`, `subaccounts api-keys update` | `--scope`, `--ip-allow-list` |
 | `lists create`, `lists update` | `--tag` |
 | `lists members add` | `--email`, `--contact-id` |
+| `campaigns create`, `campaigns update` | `--list-id` |
+| `campaigns test` | `--to` |
 
 Each value is read as a line of CSV: a value that holds a comma goes in
 double quotes, inside the shell quotes, and a double quote in such a value is
@@ -521,6 +528,10 @@ doubled:
 ```bash
 # One header whose value holds a comma
 ahasend messages send --header '"X-Note: first, second"' ...
+
+# One address whose display name holds a comma: the address quotes the
+# name, and the flag's own quotes double those quotes
+ahasend campaigns test <campaign-id> --to '"""Doe, Jane"" <jane@example.com>"'
 ```
 
 A value that is not such a line, such as one with an unclosed double quote,
@@ -548,25 +559,29 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
 - every flag in the [Repeatable Flags](#repeatable-flags) table, for each of
   its items too, such as the one after the comma in `--tag news,`
 - every required text flag: `--name` on the `create` commands of `webhooks`,
-  `routes`, `smtp`, `lists`, `templates` and `subaccounts`; `--label` on
-  `apikeys create` and `subaccounts api-keys create`; `--url` and
-  `--recipient` on `webhooks create` and `routes create`; `--website` on
-  `subaccounts create`; `--reason` on `subaccounts suspend`; `--from`,
-  `--subject` and the `smtp send --username`; and the address of
-  `contacts create`, which fails with `email cannot be empty`. A missing one
-  fails as [Required Values](#required-values) says
+  `routes`, `smtp`, `lists`, `templates`, `campaigns`, `campaigns templates`
+  and `subaccounts`; `--label` on `apikeys create` and
+  `subaccounts api-keys create`; `--url` and `--recipient` on
+  `webhooks create` and `routes create`; `--website` on `subaccounts create`;
+  `--reason` on `subaccounts suspend`; `--from`, `--subject` and the
+  `smtp send --username`; and the address of `contacts create`, which fails
+  with `email cannot be empty`. A missing one fails as
+  [Required Values](#required-values) says
 - `--label` on `apikeys update` and `subaccounts api-keys update`
 - `--name` and `--website` on `subaccounts update`
 - `--name`, `--url` and `--scope` on `webhooks update`, and `--name`, `--url`
   and `--recipient` on `routes update`, where the error adds
   `: a route's recipient cannot be cleared`
 - `lists members set --subscription-status`
-- `--name` on `lists update` and `templates update`
-- `--editor` on `templates create`
+- `--name` on `lists update`, `templates update`, `campaigns update`,
+  `campaigns duplicate` and `campaigns templates update`
+- `--editor` on `templates create`, `campaigns create` and
+  `campaigns templates create`
 - `--status` on `contacts create`, and `--email` and `--status` on
   `contacts update`
-- `--from` and `--reply-to` on the templates commands, and
+- `--from` and `--reply-to` on the templates and campaigns commands, and
   `messages send --reply-to`
+- `--status` and `--bounce-classification` on `campaigns recipients`
 - `--sending-type` and the subdomain flags, such as `--tracking-subdomain`,
   on `domains create` and `domains update`, where dots around a subdomain
   count as blank too
@@ -583,9 +598,9 @@ Where another flag clears the field, the error names it, such as
 `--from cannot be empty; use --clear-from to clear it`: `--clear-tags` for
 `lists update --tag`, `--clear-ip-allow-list` for `--ip-allow-list` on
 `apikeys update` and `subaccounts api-keys update`, `--clear-events` for
-`--events` on `webhooks update`, `--clear-from` for `--from` on
-`templates update`, and `--clear-reply-to` for `--reply-to` on
-`templates update`.
+`--events` on `webhooks update`, `--clear-from` for `--from` on `templates update` and `campaigns update`, and
+`--clear-reply-to` for `--reply-to` on `templates update` and
+`campaigns update`.
 
 #### Length Limits
 
@@ -596,22 +611,26 @@ fails with `--<flag> must be at most <limit> characters` and exit code 4:
 - 255 characters: `--label` on `apikeys create`, `apikeys update`,
   `subaccounts api-keys create` and `subaccounts api-keys update`; `--name`
   on the `create` and `update` commands of `webhooks`, `routes`, `lists`,
-  `templates` and `subaccounts`, and on `smtp create`; `--recipient` on
+  `templates`, `campaigns`, `campaigns templates` and `subaccounts`, on
+  `smtp create` and on `campaigns duplicate`; `--recipient` on
   `routes create`, `update` and `listen`; and `--reason` on
   `suppressions create`
-- 500 characters: `--preheader` on `templates create` and
-  `templates update`, and `--reason` on `subaccounts suspend`
-- 998 characters: `--subject` on `templates create` and `templates update`
+- 500 characters: `--preheader` on `templates create`, `templates update`,
+  `campaigns create` and `campaigns update`, and `--reason` on
+  `subaccounts suspend`
+- 998 characters: `--subject` on `templates create`, `templates update`,
+  `campaigns create` and `campaigns update`
 - 1000 characters: `--description` on `lists create` and `update`
 
 Where the API cleans a value before it counts it, the CLI counts it the same
 way, and sends the value as you gave it, except on the `subaccounts`
 commands, which send `--name` and `subaccounts suspend --reason` without the
 spaces around them, as the API stores them. The spaces around these values do
-not count: the `--name` of the `lists`, `templates` and `subaccounts`
-commands, the `--reason` of `subaccounts suspend`, the `--description` of the
-`lists` commands, and the `--subject` and `--preheader` of the `templates`
-commands, in which each
+not count: the `--name` of the `lists`, `templates`, `campaigns`,
+`campaigns templates` and `subaccounts` commands and of
+`campaigns duplicate`, the `--reason` of `subaccounts suspend`, the
+`--description` of the `lists` commands, and the `--subject` and
+`--preheader` of the `templates` and `campaigns` commands, in which each
 CRLF line break, control character other than a tab, and line or paragraph
 separator (U+2028, U+2029) also counts as one space. The other flags count
 every character.
@@ -644,8 +663,8 @@ lists:
 | `domains update` | `--sending-type` |
 | `contacts list`, `contacts create`, `contacts update` | `--status` |
 | `contacts memberships`, `lists members list`, `lists members set` | `--subscription-status` |
-| `messages list` | `--status` |
-| `templates create` | `--editor` |
+| `messages list`, `campaigns list`, `campaigns recipients` | `--status` |
+| `templates create`, `campaigns create`, `campaigns templates create` | `--editor` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--group-by` |
 | `webhooks create`, `webhooks update`, `smtp create` | `--scope` |
 | `webhooks create`, `webhooks update`, `webhooks trigger`, `webhooks listen` | `--events` |
@@ -662,8 +681,8 @@ of each event (see [Webhook Commands](#webhook-commands)).
 An empty value fails the same way,
 with two exceptions: the flags in [Empty Values](#empty-values) fail with
 `--<flag> cannot be empty`, and an empty or blank filter of `domains list`,
-`contacts list`, `contacts memberships` or `lists members list`, or an empty
-`domains create --format`, is the same as
+`contacts list`, `contacts memberships`, `lists members list` or
+`campaigns list`, or an empty `domains create --format`, is the same as
 leaving the flag out. So is an empty or blank text filter of a list
 command, such as `messages list --recipient`, `--sender`, `--subject` and
 `--message-id`, `contacts list --email` or `lists list --name`.
@@ -679,7 +698,8 @@ request is sent:
 - `smtp send --from`, `--to`, `--cc` and `--bcc`
 - the address of `suppressions create`, `check` and `delete`, and
   `suppressions list --email`
-- `--from` and `--reply-to` on `templates create` and `templates update`
+- `--from` and `--reply-to` on `templates create`, `templates update`,
+  `campaigns create` and `campaigns update`
 - the address of `contacts create`, `contacts update --email`, and the
   `--email` of `contacts list` and `lists members list`, which the API
   matches exactly
@@ -692,6 +712,10 @@ as in `Jane <jane@example.com>`, fails with an error that names the flag, or
 `invalid --reply-to value "Jane <jane@example.com>": not an email address`,
 and exit code 4. A `--recipients` file names the row or index instead:
 `--recipients row 3: "Jane <jane@example.com>" is not an email address`.
+`campaigns test --to` takes an address with or without a display name, and
+fails with `invalid --to value "<value>": not an email address; ...` when the
+API could not read it, such as a display name with a comma outside double
+quotes (see [Repeatable Flags](#repeatable-flags)).
 `messages list --recipient` takes any part of an address, such as
 `@example.com`, since the API matches every recipient that contains it. An
 argument that is a contact's ID or email address, such as that of
@@ -759,8 +783,8 @@ whichever flag it conflicts with.
 
 Some commands act on several items and report an outcome for each:
 
-- `contacts batch` and `lists members add` send one request, and the API
-  reports each item's outcome.
+- `contacts batch`, `lists members add` and `campaigns test` send one request,
+  and the API reports each item's outcome.
 - `messages send` sends one request per 100 recipients, and the API reports
   each recipient's outcome.
 - `messages cancel` with several IDs sends one request per ID.
@@ -770,8 +794,8 @@ failed:
 
 - In `--output json` mode, stdout is only the API response, or the array of
   API responses.
-- The other formats add one line to stderr, such as `1 of 2 contacts failed`
-  or `101 of 250 recipients failed`.
+- The other formats add one line to stderr, such as `1 of 2 contacts failed`,
+  `2 of 3 addresses failed` or `101 of 250 recipients failed`.
 
 ```bash
 # Stop a script when any contact in the batch failed
@@ -827,8 +851,8 @@ own values.
 - Rates and percentages have two decimals, such as `98.50%`. CSV output gives
   a rate the CLI works out, such as the delivery rate of
   `stats deliverability`, as a bare number with two decimals, such as
-  `98.50`, and a number the API sends, such as a delivery time or an
-  allocated cost, as the API sent it, in the shortest form that
+  `98.50`, and a number the API sends, such as a delivery time, a campaign
+  rate or an allocated cost, as the API sent it, in the shortest form that
   keeps every digit, such as `1.5` or `0.123456`.
 - A single item, such as the output of a `get`, `create` or `update`
   command, shows the same fields in table, plain and CSV output, except a
@@ -839,7 +863,8 @@ own values.
 - A CSV value is on one line: line breaks and tabs in it become spaces.
   Content columns are the exception and keep their text exactly, line breaks
   included, inside the quotes CSV gives them: the `mjml`, `html` and `text`
-  of a template, and the `content` of `messages get`.
+  of a template, a campaign or a campaign template, and the `content` of
+  `messages get`.
 - A CSV result with no rows, such as an empty list or a batch whose response
   lists no items, still writes its header row.
 - CSV output writes each value as the API sent it, so a value that starts
@@ -1963,8 +1988,9 @@ the versions are managed through the nested `templates draft` and
 **Scopes:** `templates:read` for `templates list`, `get`, `draft get`,
 `versions list` and `versions get`, `templates:write` for `create`, `update`,
 `publish`, `draft discard` and `versions restore`, and `templates:delete` for
-`delete`. `messages send --template-id` needs only the send scope of the
-sender's domain.
+`delete`. The same scopes cover the `campaigns templates` commands.
+`messages send --template-id` needs only the send scope of the sender's
+domain.
 
 `templates create` and `templates update` take these content and sender flags:
 
@@ -1981,7 +2007,8 @@ sender's domain.
   sender: `templates create --reply-to` fails with `--reply-to needs --from`
   without `--from`, and `templates update --reply-to` needs a template that has
   a sender. An empty `--reply-to` is an error; `templates update --clear-reply-to`
-  removes the reply-to.
+  removes the reply-to, as `campaigns update --clear-reply-to` does for a
+  campaign.
 
 Single views list the template's variables, each marked required or optional,
 and show the content when the API returned it.
@@ -2190,6 +2217,413 @@ ahasend templates versions restore <template-id> <version-id> --publish --force
 Restoring replaces the template's whole draft, including unpublished changes
 made in the dashboard. Publish or copy those changes first if you need them.
 </Warning>
+
+### Campaign Commands
+
+Campaigns send a design to contact lists. A campaign is a draft until it is
+sent, and only a draft can be changed or deleted. A draft shows whether it is
+ready to send and, when it is not, each issue in the way. Campaign templates,
+the designs a campaign can copy, are managed through the nested
+`campaigns templates` group.
+
+**Scopes:** `campaigns:read` for `campaigns list`, `get`, `stats` and
+`recipients`, `campaigns:write` for `create`, `update` and `duplicate`,
+`campaigns:delete` for `delete`, and `campaigns:send` for `send`,
+`unschedule` and `test`. The `campaigns templates` commands need the
+[template scopes](#template-commands).
+
+`campaigns create` and `campaigns update` take the same content and sender
+flags as `templates create` and `templates update`: `--mjml-file`,
+`--html-file`, `--text-file`, `--editor` (create only), `--regenerate-text`
+(update only), `--from`, `--from-name` and `--clear-from` (update only). A
+campaign's reply-to is a plain address and needs no sender: an empty
+`--reply-to` is an error, and `campaigns update --clear-reply-to` removes the
+reply-to. `--list-id` names a list to send to; it is a
+[repeatable flag](#repeatable-flags) that splits on commas. The
+`campaigns recipients` filters and the number of lists a request holds are
+sent as given, and the API reports any it does not accept.
+
+#### `ahasend campaigns list`
+
+List the account's campaigns, newest first.
+
+```bash
+# List campaigns
+ahasend campaigns list
+
+# List draft campaigns, 20 at a time
+ahasend campaigns list --status draft --limit 20
+```
+
+**Flags:**
+- `--status`: List only the campaigns in one status: `draft`, `validating`,
+  `waiting_for_review`, `scheduled`, `sending`, `paused`, `sent`, `canceled`
+  or `failed`
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each campaign's name, ID, status, subject, send time, and
+when it was updated.
+
+#### `ahasend campaigns get`
+
+Get a campaign with its lists and content. For a draft it shows `Ready` and
+lists each issue as `code: message`.
+
+```bash
+ahasend campaigns get <campaign-id>
+```
+
+#### `ahasend campaigns create`
+
+Create a draft campaign. Every field but the name can be set later with
+`campaigns update`.
+
+```bash
+# Create a campaign ready to send
+ahasend campaigns create --name "October news" --subject "What's new" \
+  --from news@example.com --from-name "Example" \
+  --list-id <list-id> --list-id <other-list-id> --html-file october.html
+
+# Start a campaign from a campaign template
+ahasend campaigns create --name Launch --campaign-template-id <campaign-template-id>
+
+# Create an empty draft
+ahasend campaigns create --name Draft
+```
+
+**Flags:**
+- `--name`: Campaign name, shown in the dashboard only (required)
+- `--subject`: Subject, within its [length limit](#length-limits)
+- `--preheader`: Preview text, within its [length limit](#length-limits)
+- `--from`, `--from-name`: Sender; `--from-name` needs `--from`, and `--from`
+  is a [checked](#email-addresses) address
+- `--reply-to`: Reply-to email address, [checked](#email-addresses); an empty
+  value is an error
+- `--list-id`: ID of a list to send to; a [repeatable flag](#repeatable-flags)
+  that splits on commas. A campaign sends to at most 50 lists, a list given
+  twice counting once, and more fail with
+  `--list-id takes at most 50 lists, got <n>` and exit code 4.
+- `--editor`: `advanced`, `simple` or `html`; on its own it gives the campaign
+  an empty design of that editor
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
+  `templates create`
+- `--campaign-template-id`: Copy a campaign template's design; cannot be
+  combined with `--editor`, `--mjml-file`, `--html-file` or `--text-file`
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns update`
+
+Change a draft campaign. Only the flags you give are sent, and at least one is
+needed. The editor cannot change.
+
+```bash
+# Change the subject
+ahasend campaigns update <campaign-id> --subject "What's new in October"
+
+# Replace the lists the campaign sends to
+ahasend campaigns update <campaign-id> --list-id <list-id>
+
+# Replace the design and make the text version again
+ahasend campaigns update <campaign-id> --html-file october.html --regenerate-text
+
+# Remove the reply-to
+ahasend campaigns update <campaign-id> --clear-reply-to
+```
+
+**Flags:**
+- `--name`: New campaign name
+- `--subject`, `--preheader`: New subject or preview text, within their
+  [length limits](#length-limits); an empty value clears it
+- `--reply-to`: New reply-to, [checked](#email-addresses); an empty value is
+  an error
+- `--clear-reply-to`: Remove the reply-to; cannot be combined with
+  `--reply-to`
+- `--from`, `--from-name`: New sender; `--from` replaces the address and the
+  name together
+- `--clear-from`: Remove the sender and keep the reply-to; cannot be combined
+  with `--from`
+- `--list-id`: New list to send to, replacing the campaign's lists; a
+  [repeatable flag](#repeatable-flags) that splits on commas, with the limit
+  of 50 lists of `campaigns create`
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
+  `templates update`
+- `--regenerate-text`: Make the text version again from the HTML; cannot be
+  combined with `--text-file`
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns delete`
+
+Delete a draft campaign with its design and its list choices. The command asks
+for [confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Delete a draft campaign
+ahasend campaigns delete <campaign-id>
+
+# Delete a draft campaign without the prompt
+ahasend campaigns delete <campaign-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+#### `ahasend campaigns duplicate`
+
+Make a new draft from a campaign in any status. The copy gets the campaign's
+design, subject, preview text, sender, and the lists that still exist.
+
+```bash
+# Duplicate a campaign
+ahasend campaigns duplicate <campaign-id>
+
+# Duplicate a campaign under a new name
+ahasend campaigns duplicate <campaign-id> --name "November news"
+```
+
+**Flags:**
+- `--name`: Name of the copy; without it the copy is named "Copy of" and the
+  campaign's name
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns send`
+
+Send a draft campaign to its lists now, or schedule the send. The campaign then
+goes through list validation and review; follow its status with
+`campaigns get`. The command asks for [confirmation](#confirmation-prompts),
+naming the campaign and the scheduled time in your local zone, such as
+`2026-11-01 10:00:00 CET`, unless `--force` is given.
+
+```bash
+# Send a campaign now
+ahasend campaigns send <campaign-id>
+
+# Schedule a campaign
+ahasend campaigns send <campaign-id> --schedule 2026-11-01T09:00:00Z
+
+# Schedule a campaign for two hours from now
+ahasend campaigns send <campaign-id> --schedule 2h
+
+# Send without the prompt, safe to retry
+ahasend campaigns send <campaign-id> --force --idempotency-key send-october
+```
+
+**Flags:**
+- `--schedule`: Send time, as a [time value](#time-values) such as
+  `2026-11-01T09:00:00Z` or `2h`; the API takes a time more than a minute
+  ahead, and an earlier one fails before the prompt and any request (see
+  [Time Values](#time-values)). The campaign sends now when it is left out.
+- `--force`, `-f`: Skip the confirmation prompt
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+The output shows the campaign and the API's warnings. To change the send time
+of a scheduled campaign, unschedule it and send it again.
+
+When the campaign has issues, the API refuses the send, and table, plain and
+CSV output list each issue:
+
+```text
+Error: failed to send campaign: campaign is not ready to send
+sender_missing: Add a sender
+lists_missing: Choose at least one list
+```
+
+`--output json` prints the API's error body unchanged. The API refuses with
+HTTP 400, so the command exits with code 4 in every format.
+
+#### `ahasend campaigns unschedule`
+
+Return a validating or scheduled campaign to draft, cancelling its list
+validation or its scheduled send. A campaign that has queued mail cannot be
+unscheduled.
+
+```bash
+ahasend campaigns unschedule <campaign-id>
+```
+
+**Flags:**
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns test`
+
+Send a test of a draft campaign to up to 5 addresses, with placeholders for the
+contact's fields.
+
+```bash
+# Send a test to yourself
+ahasend campaigns test <campaign-id> --to me@example.com
+
+# Send a test to two addresses in one value
+ahasend campaigns test <campaign-id> --to me@example.com,team@example.com
+
+# Send a test to an address whose display name holds a comma
+ahasend campaigns test <campaign-id> --to '"""Doe, Jane"" <jane@example.com>"' --to team@example.com
+```
+
+**Flags:**
+- `--to`: Address to send the test to, with or without a display name
+  (required); a [repeatable flag](#repeatable-flags) that splits on commas. A
+  display name with a comma needs double quotes of its own, as in
+  `"Doe, Jane" <jane@example.com>`, which the flag's quoting doubles, as the
+  example shows. An address the API could not read fails before any request
+  with `invalid --to value "<value>": not an email address; ...` and exit
+  code 4.
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+More than 5 addresses fail with `--to takes at most 5 addresses, got <n>`
+before any request is sent. As the API counts them, addresses that differ only in
+case count once, and a display name does not count.
+
+When the mail server answered, table and plain output start with a line that
+says how the test went: `Campaign test sent`,
+`Campaign test sent to N of M addresses`, or
+`Campaign test failed for every address`. The sent and failed counts follow,
+then each address with its outcome and the mail server's reason for a refusal.
+CSV output starts with an `email,outcome,reason` header, followed by one row
+per address with outcome `sent` or `failed`. `--output json` prints the API's
+response. The command exits with code 1 when any address was refused (see
+[Per-Item Results](#per-item-results)).
+
+When the mail server's answer could not be read, table and plain output print
+only a notice that starts with `Result unknown:`, CSV output has the header
+and one row with outcome `unknown`, and the command exits with code 0. The
+test may have gone out, so check the inboxes before sending another. A
+campaign with issues is refused as with `campaigns send`.
+
+The API caps the test emails of an account at 50 a UTC day, one per address
+of each test, and refuses a test that would pass the cap with HTTP 429,
+`daily test send limit reached`. The command exits with code 8 at once: it
+does not send the test again, as no retry can pass the cap.
+
+#### `ahasend campaigns stats`
+
+Show a campaign's live counters, its rates, and its stored report with the
+recipients counted by status and by bounce classification.
+
+```bash
+ahasend campaigns stats <campaign-id>
+```
+
+The open, click, bounce and deferral rates are percentages, such as `42.50%`
+in table and plain output and `42.50` in CSV output. A rate that cannot be
+computed yet is a missing value (see [Output Values](#output-values)). The
+report is recounted from time to time, so check again later for new numbers.
+
+#### `ahasend campaigns recipients`
+
+List a campaign's recipients in one status or with one bounce classification.
+
+```bash
+# List the recipients a campaign delivered to
+ahasend campaigns recipients <campaign-id> --status Delivered
+
+# List administratively bounced recipients, 50 at a time
+ahasend campaigns recipients <campaign-id> --status "Administratively Bounced" --limit 50
+```
+
+**Flags:**
+- `--status`: Recipient status to list, as `campaigns stats` counts by
+  status, in any case: `Processing`, `Queued`, `Deferred`, `Delivered`,
+  `Bounced`, `Failed`, `Administratively Bounced`, `Suppressed`, `Rejected`,
+  `Complained` or `Unsubscribed` (see [Fixed Values](#fixed-values))
+- `--bounce-classification`: Bounce classification to list, as
+  `campaigns stats` counts by bounce classification, other than `Unknown`
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Give exactly one of `--status` and `--bounce-classification`. Table output
+shows each recipient's email, contact ID, list, status, bounce classification,
+and delivery attempts.
+
+#### `ahasend campaigns templates list`
+
+List the account's campaign templates, without their content.
+
+```bash
+# List campaign templates
+ahasend campaigns templates list
+
+# Fetch the next page
+ahasend campaigns templates list --limit 20 --after <cursor>
+```
+
+**Flags:**
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each campaign template's name, ID, editor, and when it was
+updated.
+
+#### `ahasend campaigns templates get`
+
+Get a campaign template with its content.
+
+```bash
+ahasend campaigns templates get <campaign-template-id>
+```
+
+#### `ahasend campaigns templates create`
+
+Create a campaign template. A campaign template has no draft, subject or
+sender, and a campaign can be made from it only once it has HTML.
+
+```bash
+# Create an advanced campaign template
+ahasend campaigns templates create --name Newsletter --mjml-file newsletter.mjml
+
+# Create an html campaign template with its own text version
+ahasend campaigns templates create --name Announcement --html-file announcement.html --text-file announcement.txt
+
+# Create an empty simple campaign template
+ahasend campaigns templates create --name Blank --editor simple
+```
+
+**Flags:**
+- `--name`: Campaign template name (required)
+- `--editor`: `advanced`, `simple` or `html`; needed when there is neither an
+  MJML nor an HTML file
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
+  `templates create`
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns templates update`
+
+Change a campaign template. Only the flags you give are sent, and at least one
+is needed. The change applies at once; campaigns already made from the
+template keep their own copies. The editor cannot change.
+
+```bash
+# Rename a campaign template
+ahasend campaigns templates update <campaign-template-id> --name "Newsletter v2"
+
+# Replace the design
+ahasend campaigns templates update <campaign-template-id> --html-file newsletter.html
+
+# Make the text version again from the HTML
+ahasend campaigns templates update <campaign-template-id> --regenerate-text
+```
+
+**Flags:**
+- `--name`: New campaign template name
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
+  `templates update`
+- `--regenerate-text`: Make the text version again from the HTML; cannot be
+  combined with `--text-file`
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend campaigns templates delete`
+
+Delete a campaign template. Campaigns made from it keep their own copies. The
+command asks for [confirmation](#confirmation-prompts) unless `--force` is
+given.
+
+```bash
+# Delete a campaign template
+ahasend campaigns templates delete <campaign-template-id>
+
+# Delete a campaign template without the prompt
+ahasend campaigns templates delete <campaign-template-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
 
 ### Message Commands
 
@@ -3978,9 +4412,9 @@ API keys require specific scopes to define permissions. Choose scopes based on t
 - `campaigns:delete` - Delete draft campaigns
 - `campaigns:send` - Send, unschedule and test campaigns
 
-The [contact](#contact-commands), [list](#list-commands) and
-[template](#template-commands) sections say which command needs which of
-these scopes, and
+The [contact](#contact-commands), [list](#list-commands),
+[template](#template-commands) and [campaign](#campaign-commands) sections say
+which command needs which of these scopes, and
 [Sub-Account API Keys](#sub-account-api-keys) lists the sub-account scopes.
 
 **Other Scopes:**
@@ -4756,6 +5190,8 @@ These requests are sent once and never retried:
 - the send requests of `messages send`, which it retries itself, as
   `--max-retries` under [`ahasend messages send`](#ahasend-messages-send)
   describes
+- the request of `campaigns test`: the API answers a test past the daily
+  cap with HTTP 429, which no retry can pass
 
 Every other request, such as a list, a get, a create or an update, is
 retried.
