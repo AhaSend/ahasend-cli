@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"bytes"
+	"encoding/json"
 	stderrors "errors"
 	"os"
 	"path/filepath"
@@ -558,7 +559,44 @@ func TestIdempotencyKeyFor_SendsASingleRequestsKeyAsGiven(t *testing.T) {
 	assert.Equal(t, "key-0", IdempotencyKeyFor("key", 0, 2))
 }
 
-// Input files -----------------------------------------------------------------
+// Batch files -----------------------------------------------------------------
+
+type testDataItem struct {
+	Email string `json:"email"`
+	Score any    `json:"score,omitempty"`
+}
+
+func TestReadDataFile_ReturnsItems(t *testing.T) {
+	items, err := readDataFile(testutil.WriteTempFile(t, "content", `{"data":[{"email":"a@example.com"},{"email":"b@example.com"}]}`), "items")
+	require.NoError(t, err)
+	assert.Len(t, items, 2)
+}
+
+func TestReadDataFile_RejectsBadShapes(t *testing.T) {
+	tests := map[string]struct {
+		content string
+		message string
+	}{
+		"array envelope":     {`[]`, `batch file must be a JSON object, {"data": [...]}; CSV is not read`},
+		"null envelope":      {`null`, `batch file must be a JSON object, {"data": [...]}; CSV is not read`},
+		"CSV":                {"email,first_name\nperson@example.com,Ada\n", `batch file must be a JSON object, {"data": [...]}; CSV is not read`},
+		"cut-off object":     {`{"data": [`, "batch file must be a JSON object"},
+		"empty file":         {` `, "batch file is empty"},
+		"missing data":       {`{"items":[]}`, "batch file data must be a JSON array"},
+		"null data":          {`{"data":null}`, "batch file data must be a JSON array"},
+		"object data":        {`{"data":{}}`, "batch file data must be a JSON array"},
+		"extra envelope key": {`{"data":[{}],"extra":true}`, "batch file must contain only a data field"},
+		"two objects":        {`{"data":[{}]} {"data":[{}]}`, "batch file must contain exactly one JSON object"},
+		"no items":           {`{"data":[]}`, "batch file data cannot be empty"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := readDataFile(testutil.WriteTempFile(t, "content", tt.content), "items")
+			assertValidationError(t, err, tt.message)
+			assert.Equal(t, tt.message, err.Error(), "the message names no Go type")
+		})
+	}
+}
 
 // TestReadInputFile_DropsAByteOrderMark checks that a file saved with a UTF-8
 // byte order mark, as Excel saves "CSV UTF-8", reads as its text alone.
@@ -566,6 +604,10 @@ func TestReadInputFile_DropsAByteOrderMark(t *testing.T) {
 	data, err := ReadInputFile("file", testutil.WriteTempFile(t, "content", "\uFEFFemail\n"))
 	require.NoError(t, err)
 	assert.Equal(t, "email\n", string(data))
+
+	items, err := readDataFile(testutil.WriteTempFile(t, "content", "\uFEFF{\"data\":[{}]}"), "items")
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
 }
 
 // endlessReader is a file that grows without end while it is read, and
@@ -638,6 +680,10 @@ func TestReadInputFile_RejectsTextThatIsNotUTF8(t *testing.T) {
 			require.Error(t, err)
 			assert.Equal(t, path+" "+tt.message, err.Error())
 			assert.Equal(t, 4, errors.GetExitCode(err))
+
+			_, err = readDataFile(path, "items")
+			require.Error(t, err)
+			assert.Equal(t, path+" "+tt.message, err.Error())
 		})
 	}
 }
@@ -646,6 +692,60 @@ func TestReadInputFile_KeepsUTF8Text(t *testing.T) {
 	data, err := ReadInputFile("file", testutil.WriteTempFile(t, "content", "café ✓\n"))
 	require.NoError(t, err)
 	assert.Equal(t, "café ✓\n", string(data))
+}
+
+func TestReadDataFile_RejectsMoreThanMaxItems(t *testing.T) {
+	content := `{"data":[` + strings.Repeat(`{},`, MaxDataFileItems) + `{}]}`
+	_, err := readDataFile(testutil.WriteTempFile(t, "content", content), "items")
+	assertValidationError(t, err, "batch file data takes at most 1000 items, got 1001")
+}
+
+func TestReadDataFile_AcceptsMaxItems(t *testing.T) {
+	content := `{"data":[` + strings.Repeat(`{},`, MaxDataFileItems-1) + `{}]}`
+	items, err := readDataFile(testutil.WriteTempFile(t, "content", content), "items")
+	require.NoError(t, err)
+	assert.Len(t, items, MaxDataFileItems)
+}
+
+func TestReadDataFile_MissingFileRejected(t *testing.T) {
+	_, err := readDataFile(filepath.Join(t.TempDir(), "missing.json"), "items")
+	assertValidationError(t, err, "failed to read --file")
+}
+
+func TestReadDataItems_DecodesEachItem(t *testing.T) {
+	items, err := ReadDataItems[testDataItem](testutil.WriteTempFile(t, "content", `{"data":[{"email":"a@example.com","score":7},{"email":"b@example.com"}]}`), "items", "item")
+	require.NoError(t, err)
+	assert.Equal(t, []testDataItem{{Email: "a@example.com", Score: json.Number("7")}, {Email: "b@example.com"}}, items)
+}
+
+func TestReadDataItems_FileErrorNamesItems(t *testing.T) {
+	tooMany := `{"data":[` + strings.Repeat(`{},`, 1000) + `{}]}`
+	_, err := ReadDataItems[testDataItem](testutil.WriteTempFile(t, "content", tooMany), "contacts", "contact")
+	assertValidationError(t, err, "batch file data takes at most 1000 contacts, got 1001")
+}
+
+func TestReadDataItems_ItemErrorNamesItemAndPosition(t *testing.T) {
+	_, err := ReadDataItems[testDataItem](testutil.WriteTempFile(t, "content", `{"data":[{"email":"a@example.com"},{"list_id":"x"}]}`), "contacts", "contact")
+	assertValidationError(t, err, "batch contact at position 1 is invalid")
+}
+
+func TestDecodeDataItem_KeepsNumbers(t *testing.T) {
+	var item testDataItem
+	require.NoError(t, decodeDataItem([]byte(`{"email":"a@example.com","score":7}`), 0, "item", &item))
+	assert.Equal(t, "a@example.com", item.Email)
+	assert.Equal(t, json.Number("7"), item.Score)
+}
+
+func TestDecodeDataItem_RejectsUnknownField(t *testing.T) {
+	var item testDataItem
+	err := decodeDataItem([]byte(`{"email":"a@example.com","list_id":"x"}`), 3, "item", &item)
+	assertValidationError(t, err, "batch item at position 3 is invalid")
+}
+
+func TestDecodeDataItem_RejectsNullField(t *testing.T) {
+	var item testDataItem
+	err := decodeDataItem([]byte(`{"email":"a@example.com","score":null}`), 2, "item", &item)
+	assertValidationError(t, err, "batch item at position 2 sets score to null")
 }
 
 // TestDecodeJSON_NamesAFieldInAnArrayWithoutItsIndex checks that a field of
@@ -659,6 +759,12 @@ func TestDecodeJSON_NamesAFieldInAnArrayWithoutItsIndex(t *testing.T) {
 	}
 	err := DecodeJSON(strings.NewReader(`{"items":[{"name":"a"},{"name":5}]}`), &target, "--input", "JSON object")
 	assertValidationError(t, err, "--input is invalid: items.name must be a string")
+}
+
+func TestDecodeDataItem_KeepsNestedNull(t *testing.T) {
+	var item testDataItem
+	require.NoError(t, decodeDataItem([]byte(`{"email":"a@example.com","score":{"old":null}}`), 0, "item", &item))
+	assert.Equal(t, map[string]any{"old": nil}, item.Score)
 }
 
 // URLs ------------------------------------------------------------------------

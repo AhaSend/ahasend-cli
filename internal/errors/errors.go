@@ -82,7 +82,7 @@ func NewAPIError(message string, cause error) *CLIError {
 type ItemsFailedError struct {
 	Failed int
 	Total  int
-	// Noun names the items, such as "recipients".
+	// Noun names the items, such as "contacts" or "addresses".
 	Noun string
 }
 

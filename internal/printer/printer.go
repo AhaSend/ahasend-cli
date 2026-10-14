@@ -85,6 +85,21 @@ type ResponseHandler interface {
 	HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error
 	HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error
 
+	// Contact responses
+	HandleContactList(response *responses.PaginatedContactsResponse, config ListConfig) error
+	HandleSingleContact(contact *responses.Contact, config SingleConfig) error
+	HandleBatchContacts(response *responses.BatchUpsertContactsResponse, config SingleConfig) error
+
+	// List responses
+	HandleListsList(response *responses.PaginatedContactListsResponse, config ListConfig) error
+	HandleSingleList(list *responses.ContactList, config SingleConfig) error
+
+	// List member responses
+	HandleListMemberList(response *responses.PaginatedListContactsResponse, config ListConfig) error
+	HandleContactMembershipList(response *responses.PaginatedListContactsResponse, config ListConfig) error
+	HandleSingleListMember(member *responses.ListContact, config SingleConfig) error
+	HandleBatchListMembers(response *responses.BatchAddListContactsResponse, config SingleConfig) error
+
 	// Statistics responses
 	HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error
 	HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error
@@ -118,6 +133,10 @@ type ListConfig struct {
 	// Detailed selects the detailed list view, for the items that have one
 	// (messages list --show-details).
 	Detailed bool
+	// ItemName names the items in the "Showing" line of a view that lists
+	// different items for different commands (memberships: "lists" or
+	// "members").
+	ItemName string
 }
 
 // SingleConfig configures how single item responses are displayed

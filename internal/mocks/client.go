@@ -297,3 +297,71 @@ func (m *MockClient) TriggerRoute(routeID uuid.UUID) (*common.SuccessResponse, e
 func (m *MockClient) ConnectWebSocket(wsURL string, forceReconnect bool) (*client.WebSocketClient, error) {
 	return result[client.WebSocketClient](m.Called(wsURL, forceReconnect))
 }
+
+// Contact operations methods
+
+func (m *MockClient) GetContacts(params requests.GetContactsParams) (*responses.PaginatedContactsResponse, error) {
+	return result[responses.PaginatedContactsResponse](m.Called(params))
+}
+
+func (m *MockClient) GetContact(idOrEmail string) (*responses.Contact, error) {
+	return result[responses.Contact](m.Called(idOrEmail))
+}
+
+func (m *MockClient) CreateContact(req requests.CreateContactRequest, opts ...api.RequestOption) (*responses.Contact, error) {
+	return result[responses.Contact](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateContact(idOrEmail string, req requests.UpdateContactRequest) (*responses.Contact, error) {
+	return result[responses.Contact](m.Called(idOrEmail, req))
+}
+
+func (m *MockClient) DeleteContact(idOrEmail string) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(idOrEmail))
+}
+
+func (m *MockClient) BatchUpsertContacts(req requests.BatchUpsertContactsRequest, opts ...api.RequestOption) (*responses.BatchUpsertContactsResponse, error) {
+	return result[responses.BatchUpsertContactsResponse](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+// List operations methods
+
+func (m *MockClient) GetLists(params requests.GetListsParams) (*responses.PaginatedContactListsResponse, error) {
+	return result[responses.PaginatedContactListsResponse](m.Called(params))
+}
+
+func (m *MockClient) GetList(listID uuid.UUID) (*responses.ContactList, error) {
+	return result[responses.ContactList](m.Called(listID))
+}
+
+func (m *MockClient) CreateList(req requests.CreateListRequest, opts ...api.RequestOption) (*responses.ContactList, error) {
+	return result[responses.ContactList](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateList(listID uuid.UUID, req requests.UpdateListRequest) (*responses.ContactList, error) {
+	return result[responses.ContactList](m.Called(listID, req))
+}
+
+func (m *MockClient) DeleteList(listID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(listID))
+}
+
+func (m *MockClient) GetListContacts(listID uuid.UUID, params requests.GetListContactsParams) (*responses.PaginatedListContactsResponse, error) {
+	return result[responses.PaginatedListContactsResponse](m.Called(listID, params))
+}
+
+func (m *MockClient) BatchAddListContacts(listID uuid.UUID, req requests.BatchAddListContactsRequest, opts ...api.RequestOption) (*responses.BatchAddListContactsResponse, error) {
+	return result[responses.BatchAddListContactsResponse](m.Called(withOptions([]interface{}{listID, req}, opts)...))
+}
+
+func (m *MockClient) UpsertListContact(listID uuid.UUID, idOrEmail string, req requests.UpsertListContactRequest) (*responses.ListContact, error) {
+	return result[responses.ListContact](m.Called(listID, idOrEmail, req))
+}
+
+func (m *MockClient) DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(listID, idOrEmail))
+}
+
+func (m *MockClient) GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error) {
+	return result[responses.PaginatedListContactsResponse](m.Called(idOrEmail, params))
+}

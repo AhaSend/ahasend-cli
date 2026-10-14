@@ -134,6 +134,30 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"success response", func(h ResponseHandler) error {
 			return h.HandleSuccessResponse(recorded[common.SuccessResponse](), ResultConfig{})
 		}},
+		{"contact list", func(h ResponseHandler) error {
+			return h.HandleContactList(recorded[responses.PaginatedContactsResponse](), ListConfig{})
+		}},
+		{"single contact", func(h ResponseHandler) error {
+			return h.HandleSingleContact(recorded[responses.Contact](), SingleConfig{})
+		}},
+		{"batch contacts", func(h ResponseHandler) error {
+			return h.HandleBatchContacts(recorded[responses.BatchUpsertContactsResponse](), SingleConfig{})
+		}},
+		{"lists list", func(h ResponseHandler) error {
+			return h.HandleListsList(recorded[responses.PaginatedContactListsResponse](), ListConfig{})
+		}},
+		{"single list", func(h ResponseHandler) error {
+			return h.HandleSingleList(recorded[responses.ContactList](), SingleConfig{})
+		}},
+		{"list member list", func(h ResponseHandler) error {
+			return h.HandleListMemberList(recorded[responses.PaginatedListContactsResponse](), ListConfig{})
+		}},
+		{"single list member", func(h ResponseHandler) error {
+			return h.HandleSingleListMember(recorded[responses.ListContact](), SingleConfig{})
+		}},
+		{"batch list members", func(h ResponseHandler) error {
+			return h.HandleBatchListMembers(recorded[responses.BatchAddListContactsResponse](), SingleConfig{})
+		}},
 	}
 
 	for _, tt := range tests {

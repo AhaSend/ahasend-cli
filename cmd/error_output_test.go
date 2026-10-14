@@ -151,12 +151,12 @@ func TestHandleErrorWrappedAPIErrorExitsByStatus(t *testing.T) {
 func TestRunExitsWithNotFoundCodeWhenAPIReturns404(t *testing.T) {
 	for _, format := range []string{"json", "plain"} {
 		t.Run(format, func(t *testing.T) {
-			webhookID := "123e4567-e89b-12d3-a456-426614174000"
+			listID := "123e4567-e89b-12d3-a456-426614174000"
 			mockClient := &mocks.MockClient{}
-			mockClient.On("GetWebhook", uuid.MustParse(webhookID)).Return(nil, &api.APIError{
+			mockClient.On("GetList", uuid.MustParse(listID)).Return(nil, &api.APIError{
 				StatusCode: 404,
-				Message:    "webhook not found",
-				Raw:        []byte(`{"message":"webhook not found"}`),
+				Message:    "list not found",
+				Raw:        []byte(`{"message":"list not found"}`),
 			})
 			testutil.InjectClient(t, mockClient)
 
@@ -165,7 +165,7 @@ func TestRunExitsWithNotFoundCodeWhenAPIReturns404(t *testing.T) {
 			root.SetOut(&output)
 			root.SetErr(&output)
 
-			assert.Equal(t, 5, run(root, []string{"webhooks", "get", webhookID, "--output", format}))
+			assert.Equal(t, 5, run(root, []string{"lists", "get", listID, "--output", format}))
 			mockClient.AssertExpectations(t)
 		})
 	}
@@ -301,21 +301,21 @@ func TestAStdoutWriteFailureExitsOne(t *testing.T) {
 // ESC, BEL and a bidirectional override is printed with them escaped in
 // table and plain output, and that JSON output prints the API body exactly.
 func TestAPIErrorTextIsEscapedOnStderr(t *testing.T) {
-	const webhookID = "123e4567-e89b-12d3-a456-426614174000"
-	const raw = `{"message":"webhook \u001b]0;pwned\u0007 not \u202efound"}`
-	apiErr := &api.APIError{StatusCode: 404, Message: "webhook \x1b]0;pwned\x07 not \u202efound", Raw: []byte(raw)}
+	const listID = "123e4567-e89b-12d3-a456-426614174000"
+	const raw = `{"message":"list \u001b]0;pwned\u0007 not \u202efound"}`
+	apiErr := &api.APIError{StatusCode: 404, Message: "list \x1b]0;pwned\x07 not \u202efound", Raw: []byte(raw)}
 
 	for _, format := range []string{"table", "plain"} {
 		t.Run(format, func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
-			mockClient.On("GetWebhook", uuid.MustParse(webhookID)).Return(nil, apiErr)
+			mockClient.On("GetList", uuid.MustParse(listID)).Return(nil, apiErr)
 			testutil.InjectClient(t, mockClient)
 
-			stdout, stderr, code := runRoot(t, "webhooks", "get", webhookID, "--output", format)
+			stdout, stderr, code := runRoot(t, "lists", "get", listID, "--output", format)
 
 			assert.Equal(t, 5, code)
 			assert.Empty(t, stdout)
-			assert.Contains(t, stderr, `webhook \u001b]0;pwned\u0007 not \u202efound`)
+			assert.Contains(t, stderr, `list \u001b]0;pwned\u0007 not \u202efound`)
 			assert.NotContains(t, stderr, "\x1b")
 			assert.NotContains(t, stderr, "\x07")
 			assert.NotContains(t, stderr, "\u202e")
@@ -323,10 +323,10 @@ func TestAPIErrorTextIsEscapedOnStderr(t *testing.T) {
 	}
 	t.Run("json", func(t *testing.T) {
 		mockClient := &mocks.MockClient{}
-		mockClient.On("GetWebhook", uuid.MustParse(webhookID)).Return(nil, apiErr)
+		mockClient.On("GetList", uuid.MustParse(listID)).Return(nil, apiErr)
 		testutil.InjectClient(t, mockClient)
 
-		stdout, stderr, code := runRoot(t, "webhooks", "get", webhookID, "--output", "json")
+		stdout, stderr, code := runRoot(t, "lists", "get", listID, "--output", "json")
 
 		assert.Equal(t, 5, code)
 		assert.Equal(t, testutil.IndentedJSON(t, raw), stdout)

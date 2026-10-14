@@ -16,6 +16,12 @@ default,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,,,,Acme,,,2026-09-10T08:30:00Z
 === bounces
 from_timestamp,to_timestamp,classification,count,percentage
 2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,invalid,1,100.00
+=== contact
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+normalized@example.com,11111111-1111-4111-8111-111111111111,Normal,Contact,active,confirmed,false,,"{""additionalproperties"":{""empty"":{},""profile"":{""flags"":[true,null,""vip""],""score"":7}},""segment"":""customers""}",valid,,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+=== contact list
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+normalized@example.com,11111111-1111-4111-8111-111111111111,Normal,Contact,active,confirmed,false,,"{""additionalproperties"":{""empty"":{},""profile"":{""flags"":[true,null,""vip""],""score"":7}},""segment"":""customers""}",valid,,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
 === created api key
 label,id,public_key,secret_key,account_id,scopes,ip_allow_list,created_at
 Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,sk_secret,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z
@@ -50,6 +56,19 @@ example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10
 domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records
 example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,,,,,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,"[{""type"":""TXT"",""host"":""example.com"",""content"":""v=spf1"",""required"":false,""propagated"":false}]"
 === empty
+=== list
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,22222222-2222-4222-8222-222222222222,Monthly news,"news, weekly",42,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+=== lists list
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,22222222-2222-4222-8222-222222222222,Monthly news,"news, weekly",42,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+=== member
+email,contact_id,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+person@example.com,11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222,confirmed,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== members list
+email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+person@example.com,11111111-1111-4111-8111-111111111111,Pat,Lee,22222222-2222-4222-8222-222222222222,confirmed,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+other@example.com,11111111-1111-4111-8111-111111111111,,,22222222-2222-4222-8222-222222222222,confirmed,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 === message
 subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,0,0,0,,false,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,,0,
@@ -62,7 +81,11 @@ Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,
 there"
 === no response for API keys
 === no response for SMTP credentials
+=== no response for contacts
 === no response for domains
+=== no response for lists
+=== no response for members
+=== no response for memberships
 === no response for messages
 === no response for routes
 === no response for sub-accounts
@@ -72,8 +95,16 @@ there"
 label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
 === page of 0 SMTP credentials
 name,id,username,scope,domains,sandbox,created_at,updated_at
+=== page of 0 contacts
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
 === page of 0 domains
 domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+=== page of 0 lists
+name,id,description,tags,contact_count,created_at,updated_at
+=== page of 0 members
+email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+=== page of 0 memberships
+list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
 === page of 0 messages
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 === page of 0 routes
@@ -90,9 +121,21 @@ Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twen
 === page of 1 SMTP credentials
 name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 1 contacts
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+normalized@example.com,11111111-1111-4111-8111-111111111111,Normal,Contact,active,confirmed,false,,"{""additionalproperties"":{""empty"":{},""profile"":{""flags"":[true,null,""vip""],""score"":7}},""segment"":""customers""}",valid,,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
 === page of 1 domains
 domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
 example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 1 lists
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,22222222-2222-4222-8222-222222222222,Monthly news,"news, weekly",42,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+=== page of 1 members
+email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+member@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,,
+=== page of 1 memberships
+list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+Newsletter,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,
 === page of 1 messages
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
@@ -116,10 +159,26 @@ Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twen
 name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 2 contacts
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+normalized@example.com,11111111-1111-4111-8111-111111111111,Normal,Contact,active,confirmed,false,,"{""additionalproperties"":{""empty"":{},""profile"":{""flags"":[true,null,""vip""],""score"":7}},""segment"":""customers""}",valid,,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+normalized@example.com,11111111-1111-4111-8111-111111111111,Normal,Contact,active,confirmed,false,,"{""additionalproperties"":{""empty"":{},""profile"":{""flags"":[true,null,""vip""],""score"":7}},""segment"":""customers""}",valid,,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
 === page of 2 domains
 domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
 example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 2 lists
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,22222222-2222-4222-8222-222222222222,Monthly news,"news, weekly",42,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+Newsletter,22222222-2222-4222-8222-222222222222,Monthly news,"news, weekly",42,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z
+=== page of 2 members
+email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+member@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,,
+member@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,,
+=== page of 2 memberships
+list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+Newsletter,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,
+Newsletter,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,
 === page of 2 messages
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
@@ -174,6 +233,12 @@ Production,,,,,,,
 === sparse auth status
 profile,account_id,valid,error,note,parent_account_id,account_name,website,about,created_at,updated_at,track_opens,track_clicks,reject_bad_recipients,reject_mistyped_recipients,message_metadata_retention,message_data_retention
 default,,,,,,Acme,,,,,,,,,,
+=== sparse contact
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+user@example.com,,,,,,false,,,,,,
+=== sparse contact list
+email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
+user@example.com,,,,,,false,,,,,,
 === sparse created api key
 label,id,public_key,secret_key,account_id,scopes,ip_allow_list,created_at
 Production,,,,,,,
@@ -195,6 +260,18 @@ example.com,,,false,,,,,,,,,,,,,
 === sparse domain list
 domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
 example.com,,false,,,,,,
+=== sparse list
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,,,,0,,
+=== sparse lists list
+name,id,description,tags,contact_count,created_at,updated_at
+Newsletter,,,,0,,
+=== sparse member
+email,contact_id,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+member@example.com,,,,,,,
+=== sparse members list
+email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at
+member@example.com,,,,,,,,,
 === sparse message
 subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
 Hello,,,,,,,,,,,0,0,0,,false,,,,,,,0,

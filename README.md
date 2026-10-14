@@ -16,6 +16,7 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 - **🔔 Webhook Management**: Configure, test, and monitor real-time event notifications
 - **🔐 Authentication**: Secure profile-based authentication with API key management
 - **👥 Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
+- **👤 Contact and List Management**: Create, update, batch upsert, and safely delete contacts, and manage the lists they belong to
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
 - **🎨 Multiple Output Formats**: JSON, table, CSV, and plain text
@@ -157,7 +158,9 @@ ahasend routes trigger <route-id>
 | Command | Description |
 |---------|-------------|
 | `auth` | Manage authentication and profiles |
+| `contacts` | Manage account-global contacts and their list memberships |
 | `domains` | Manage sending domains, their sending type and DKIM selector |
+| `lists` | Manage contact lists and their members |
 | `messages` | Send and manage email messages, inline or from a stored template |
 | `webhooks` | Configure webhook endpoints |
 | `suppressions` | Manage suppression lists |
@@ -168,6 +171,59 @@ ahasend routes trigger <route-id>
 | `routes` | Email routing rules |
 | `ping` | Test API connectivity |
 | `completion` | Print the shell completion script for `bash`, `zsh`, `fish` or `powershell` |
+
+### Contact and List Management
+
+Contact commands operate on account-global contacts and do not create list
+memberships. Attribute keys are defined in the AhaSend dashboard under the
+contact attribute settings; configure a key there before supplying it in
+`--attributes` or a batch file.
+
+```bash
+# Create and retrieve a contact. Pass email addresses raw, including '+'.
+ahasend contacts create 'user+tag@example.com' --first-name Pat \
+  --attributes '{"plan":"pro"}' --idempotency-key create-user-tag
+ahasend contacts get 'user+tag@example.com'
+
+# Stop mail while retaining the contact and its history.
+ahasend contacts update 'user+tag@example.com' --unsubscribed=true
+
+# Synchronously upsert up to 1,000 contacts.
+ahasend contacts batch --file contacts.json --idempotency-key import-2026-09-11
+```
+
+Supply UUIDs or raw email addresses to `get`, `update`, `delete` and `memberships`;
+do not percent-encode an email yourself. The SDK percent-encodes the path
+segment exactly once.
+
+A batch file holds at most 1,000 contacts, duplicates included. Batch
+completion time depends on the data and account. Measure completion time in
+your environment and pace successive batches from that observed duration
+instead of assuming a fixed request rate. Give each logical batch a stable
+idempotency key, and reuse that key only to retry the identical payload.
+`contacts batch` and `lists members add` print each item's outcome and exit
+with code 1 when any item failed.
+
+Deleting a contact cancels active workflows (while retaining cancelled-workflow
+audit rows) and erases unsubscribe, membership, campaign, open, and click
+history. Prefer `contacts update <id-or-email> --unsubscribed=true` when the goal
+is only to stop mail.
+
+Lists group contacts for campaigns. Contacts must exist before they are added
+to a list:
+
+```bash
+ahasend lists create --name Newsletter --tag news
+ahasend lists members add <list-id> --email a@example.com --email b@example.com
+ahasend lists members list <list-id> --include-contacts
+ahasend contacts memberships a@example.com
+```
+
+API keys need the `contacts:read`, `contacts:write` and `contacts:delete`
+scopes for the contact commands, and `lists:read`, `lists:write` and
+`lists:delete` for the list commands; `contacts memberships` needs
+`lists:read`, and `lists members list --include-contacts` also needs
+`contacts:read`.
 
 ### Global Flags
 

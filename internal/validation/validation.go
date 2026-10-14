@@ -104,10 +104,28 @@ func ParseMessageID(fieldName, value string) (string, error) {
 	return value, nil
 }
 
-// ValidatePathSegment validates that the argument fieldName, such as "domain",
-// can address one path segment: not empty or blank, not a dot segment and
-// free of control characters, the values the SDK refuses to put in a path or
-// that address nothing. Its format is left to the API.
+// ParseUUIDs parses each of values, IDs of the field fieldName such as
+// "list ID", like ParseUUIDField. It returns nil for no values.
+func ParseUUIDs(fieldName string, values []string) ([]uuid.UUID, error) {
+	if values == nil {
+		return nil, nil
+	}
+	ids := make([]uuid.UUID, len(values))
+	for i, value := range values {
+		id, err := ParseUUIDField(fieldName, value)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = id
+	}
+	return ids, nil
+}
+
+// ValidatePathSegment validates that the argument fieldName, such as "domain"
+// or "contact ID or email", can address one path segment: not empty or blank,
+// not a dot segment and free of control characters, the values the SDK
+// refuses to put in a path or that address nothing. Its format is left to
+// the API.
 func ValidatePathSegment(fieldName, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return errors.NewValidationError(fieldName+" cannot be empty", nil)

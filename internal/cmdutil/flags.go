@@ -282,3 +282,15 @@ func CheckMaxLength(name string, value *string, max int) error {
 	}
 	return nil
 }
+
+// CheckMaxCleanedLength is CheckMaxLength for a value the API cleans before
+// it counts its characters: it counts value once clean has cleaned it as the
+// API does, such as strings.TrimSpace for a name the API trims. The value is
+// still sent as given, for the API to clean.
+func CheckMaxCleanedLength(name string, value *string, max int, clean func(string) string) error {
+	if value == nil {
+		return nil
+	}
+	cleaned := clean(*value)
+	return CheckMaxLength(name, &cleaned, max)
+}

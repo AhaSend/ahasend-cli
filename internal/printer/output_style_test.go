@@ -113,24 +113,6 @@ func renderWith(t *testing.T, format string, render func(ResponseHandler) error)
 	return output.String()
 }
 
-// tableCells returns the cells of each header and data line of a rendered
-// table, in order, with the borders and padding removed.
-func tableCells(text string) [][]string {
-	var rows [][]string
-	for _, line := range strings.Split(text, "\n") {
-		if !strings.HasPrefix(line, "│") {
-			continue
-		}
-		parts := strings.Split(strings.Trim(line, "│"), "│")
-		cells := make([]string, len(parts))
-		for i, part := range parts {
-			cells[i] = strings.TrimSpace(part)
-		}
-		rows = append(rows, cells)
-	}
-	return rows
-}
-
 func TestPrintersUseNoPlaceholderForMissingValues(t *testing.T) {
 	placeholders := []string{
 		"N/A", "Never", "Not yet", "Not configured", "Not generated", "None", "All domains",
@@ -280,6 +262,19 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 	forward := paged
 	config := ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found"}
 
+	contacts := contactListFixture()
+	contacts.Data = repeat(contacts.Data[0], count)
+	contacts.Pagination = responses.ContactPagination(paged)
+	lists := listsPageFixture()
+	lists.Data = repeat(lists.Data[0], count)
+	lists.Pagination = responses.ContactPagination(paged)
+	members := embeddedMembersFixture()
+	members.Data = repeat(responses.ListContact{Email: "member@example.com", ContactID: styleID}, count)
+	members.Pagination = responses.ContactPagination(paged)
+	memberships := embeddedMembersFixture()
+	memberships.Data = repeat(responses.ListContact{ListID: styleID, List: &responses.EmbeddedContactList{Name: "Newsletter"}}, count)
+	memberships.Pagination = responses.ContactPagination(paged)
+
 	return map[string]func(ResponseHandler) error{
 		"domains": func(h ResponseHandler) error {
 			return h.HandleDomainList(&responses.PaginatedDomainsResponse{Data: repeat(styleDomain(), count), Pagination: forward}, config)
@@ -304,6 +299,14 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 		},
 		"sub-accounts": func(h ResponseHandler) error {
 			return h.HandleSubAccountList(&responses.PaginatedSubAccountsResponse{Data: repeat(styleSubAccount(), count), Pagination: forward}, config)
+		},
+		"contacts": func(h ResponseHandler) error { return h.HandleContactList(contacts, config) },
+		"lists":    func(h ResponseHandler) error { return h.HandleListsList(lists, config) },
+		"members": func(h ResponseHandler) error {
+			return h.HandleListMemberList(members, ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found", ItemName: "members"})
+		},
+		"memberships": func(h ResponseHandler) error {
+			return h.HandleContactMembershipList(memberships, ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found", ItemName: "memberships"})
 		},
 	}
 }
@@ -344,6 +347,10 @@ var listTableHeads = map[string][]string{
 	"SMTP credentials": {"NAME", "ID"},
 	"API keys":         {"LABEL", "ID"},
 	"sub-accounts":     {"NAME", "ID"},
+	"contacts":         {"EMAIL", "ID"},
+	"lists":            {"NAME", "ID"},
+	"members":          {"EMAIL", "CONTACT ID"},
+	"memberships":      {"LIST", "LIST ID"},
 }
 
 // listView is the fields of each item of a list view: every field, which
@@ -365,6 +372,10 @@ var listViews = map[string]listView{
 	"SMTP credentials":     {smtpListFields, smtpTableColumns, smtpHeaders},
 	"API keys":             {apiKeyListFields, apiKeyTableColumns, apiKeyHeaders},
 	"sub-accounts":         {subAccountListFields, subAccountTableColumns, subAccountHeaders},
+	"contacts":             {contactFields, contactTableColumns, contactHeaders},
+	"lists":                {listFields, listTableColumns, listHeaders},
+	"members":              {listMemberFields, listMemberTableColumns, listMemberHeaders},
+	"memberships":          {contactMembershipFields, contactMembershipTableColumns, listMemberHeaders},
 }
 
 // TestListTableColumnsAreFieldsOfThePlainAndCSVList checks that the table of
@@ -424,6 +435,10 @@ var listPlainHeads = map[string][]string{
 	"SMTP credentials": {"Name", "ID"},
 	"API keys":         {"Label", "ID"},
 	"sub-accounts":     {"Name", "ID"},
+	"contacts":         {"Email", "ID"},
+	"lists":            {"Name", "ID"},
+	"members":          {"Email", "Contact ID"},
+	"memberships":      {"List", "List ID"},
 }
 
 // plainItems returns the label of each field line of each item of a plain
@@ -469,6 +484,10 @@ var listCSVHeads = map[string][]string{
 	"SMTP credentials": {"name", "id"},
 	"API keys":         {"label", "id"},
 	"sub-accounts":     {"name", "id"},
+	"contacts":         {"email", "id"},
+	"lists":            {"name", "id"},
+	"members":          {"email", "contact_id"},
+	"memberships":      {"list_name", "list_id"},
 }
 
 func TestCSVListsPutTheNameThenTheIDAndNoObjectColumn(t *testing.T) {

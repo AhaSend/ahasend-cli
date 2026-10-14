@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -29,6 +30,8 @@ var localValidationErrors = []struct {
 	{[]string{"domains", "get", ".."}, `invalid domain value "..": not a domain`},
 	// A blank argument would address the collection, or nothing
 	{[]string{"domains", "get", "   "}, "domain cannot be empty"},
+	{[]string{"contacts", "delete", " ", "--force"}, "contact ID or email cannot be empty"},
+	{[]string{"lists", "members", "remove", rawTestID, " "}, "contact ID or email cannot be empty"},
 	{[]string{"subaccounts", "create", "--name", "Acme", "--website", "acme"},
 		`invalid --website value "acme": must be a fully qualified domain; use a domain such as example.com`},
 	{[]string{"apikeys", "create", "--label", "ci", "--scope", "messages:send:{not a domain}"},
@@ -95,6 +98,8 @@ var localValidationErrors = []struct {
 		`invalid --from-time value "soon": use RFC 3339 or a relative time such as 24h or 7d`},
 	{[]string{"stats", "deliverability", "--to-time", "30d"}, "--from-time must be before --to-time"},
 	{[]string{"messages", "list", "--from-time", "1d", "--to-time", "7d"}, "--from-time must be before --to-time"},
+	{[]string{"contacts", "list", "--from-time", "2026-02-01T00:00:00Z", "--to-time", "2026-01-01T00:00:00Z"},
+		"--from-time must be before --to-time"},
 	// A flag set to false still conflicts with the flag it cannot go with.
 	{[]string{"apikeys", "update", rawTestID, "--clear-ip-allow-list=false", "--ip-allow-list", "192.0.2.1"},
 		"--clear-ip-allow-list and --ip-allow-list cannot be used together"},
@@ -155,6 +160,15 @@ var enumValidationErrors = []struct {
 	{[]string{"domains", "create", "example.com", "--sending-type", "bulk"}, "--sending-type must be one of: transactional, marketing"},
 	{[]string{"domains", "create", "example.com", "--format", "zonefile"}, "--format must be one of: bind, cloudflare, terraform"},
 	{[]string{"domains", "update", "example.com", "--sending-type", "bulk"}, "--sending-type must be one of: transactional, marketing"},
+	{[]string{"contacts", "create", "a@example.com", "--status", "active"}, "--status must be one of: enabled, disabled, blocked"},
+	{[]string{"contacts", "update", "a@example.com", "--status", "active"}, "--status must be one of: enabled, disabled, blocked"},
+	{[]string{"contacts", "list", "--status", "active"}, "--status must be one of: enabled, disabled, blocked"},
+	{[]string{"contacts", "memberships", "a@example.com", "--subscription-status", "bounced"},
+		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
+	{[]string{"lists", "members", "list", rawTestID, "--subscription-status", "bounced"},
+		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
+	{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status", "complained"},
+		"--subscription-status must be one of: confirmed, unconfirmed, unsubscribed"},
 	{[]string{"messages", "list", "--status", "lost"},
 		"--status must be one of: received, delivered, opened, clicked, deferred, bounced, failed, suppressed, " +
 			"sandbox delivered, sandbox deferred, sandbox failed, sandbox bounced, sandbox suppressed"},
@@ -201,7 +215,7 @@ func TestEveryLimitIsCheckedBeforeAuthenticating(t *testing.T) {
 			})
 		}
 	}
-	assert.Greater(t, checked, 8, "the list commands have --limit")
+	assert.Greater(t, checked, 10, "the list commands have --limit")
 }
 
 func TestEnumValidationErrorsExitFourBeforeAuthenticating(t *testing.T) {
@@ -238,7 +252,11 @@ func TestLocalValidationErrorsExitFourBeforeAuthenticating(t *testing.T) {
 // --idempotency-key, which the key's length alone can fail.
 var idempotentCommands = map[string][]string{
 	"apikeys create":              {"--label", "ci", "--scope", "messages:send:all"},
+	"contacts batch":              {"--file", "contacts.json"},
+	"contacts create":             {"user@example.com"},
 	"domains create":              {"example.com"},
+	"lists create":                {"--name", "Newsletter"},
+	"lists members add":           {rawTestID, "--email", "user@example.com"},
 	"messages send":               {"--from", "a@example.com", "--to", "b@example.com", "--subject", "Hi", "--text", "Hi"},
 	"routes create":               {"--name", "Inbound", "--url", "https://example.com/hook", "--recipient", "*@example.com"},
 	"smtp create":                 {"--name", "App"},
@@ -262,6 +280,8 @@ var badIdempotencyKeys = map[string]string{
 // TestEveryIdempotencyKeyIsCheckedBeforeAuthenticating runs every command
 // that has --idempotency-key with each of badIdempotencyKeys.
 func TestEveryIdempotencyKeyIsCheckedBeforeAuthenticating(t *testing.T) {
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.WriteFile("contacts.json", []byte(`{"data":[{"email":"user@example.com"}]}`), 0o600))
 	for _, leaf := range leafCommands() {
 		if leaf.Flags().Lookup("idempotency-key") == nil {
 			continue
@@ -338,6 +358,8 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{"routes", "create", "--url", "https://example.com/hook", "--recipient", "*@example.com", "--name", long},
 		{"routes", "update", rawTestID, "--name", long},
 		{"smtp", "create", "--name", long},
+		{"lists", "create", "--name", long},
+		{"lists", "update", rawTestID, "--name", long},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
@@ -354,19 +376,24 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 }
 
 // TestLengthsAreCountedAsTheAPICountsThem runs every command that sends a
-// name the API cleans before it counts it, with a value at the limit once
-// cleaned and longer as given: the spaces around a name do not count. The
-// command sends the value.
+// name or a description the API cleans before it counts it, with a value at
+// the limit once cleaned and longer as given: the spaces around a name or a
+// description do not count. The command sends the value.
 func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 	name := "  " + strings.Repeat("é", 255) + "\t\n"
+	description := " " + strings.Repeat("é", 1000) + " "
 	tests := [][]string{
 		{"subaccounts", "create", "--website", "acme.example.com", "--name", name},
 		{"subaccounts", "update", rawTestID, "--name", name},
+		{"lists", "create", "--name", name},
+		{"lists", "update", rawTestID, "--name", name},
+		{"lists", "create", "--name", "News", "--description", description},
+		{"lists", "update", rawTestID, "--description", description},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
-			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount"} {
+			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount", "CreateList", "UpdateList"} {
 				expectAnyArgs(mockClient, method, nil, rawAPIError(400))
 			}
 			called := testutil.InjectClient(t, mockClient)
@@ -387,6 +414,8 @@ func TestEveryTextLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		args []string
 		max  int
 	}{
+		{[]string{"lists", "create", "--name", "News", "--description"}, 1000},
+		{[]string{"lists", "update", rawTestID, "--description"}, 1000},
 		{[]string{"suppressions", "create", "a@example.com", "--expires", "30d", "--reason"}, 255},
 		{[]string{"subaccounts", "suspend", rawTestID, "--force", "--reason"}, 500},
 	}
@@ -418,6 +447,8 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 		{[]string{"apikeys", "create", "--scope", "messages:send:all", "--label", blank}, "--label cannot be empty"},
 		{[]string{"apikeys", "update", rawTestID, "--label", blank}, "--label cannot be empty"},
 		{[]string{"subaccounts", "api-keys", "create", rawTestID, "--scope", "messages:send:all", "--label", blank}, "--label cannot be empty"},
+		{[]string{"lists", "create", "--name", blank}, "--name cannot be empty"},
+		{[]string{"lists", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
 		{[]string{"webhooks", "create", "--url", "https://example.com/hook", "--name", blank}, "--name cannot be empty"},
 		{[]string{"webhooks", "create", "--name", "Hook", "--url", blank}, "--url cannot be empty"},
 		{[]string{"webhooks", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
@@ -429,6 +460,7 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 		{[]string{"subaccounts", "create", "--name", "Acme", "--website", blank}, "--website cannot be empty"},
 		{[]string{"subaccounts", "update", rawTestID, "--website", blank}, "--website cannot be empty"},
 		{[]string{"subaccounts", "suspend", rawTestID, "--force", "--reason", blank}, "--reason cannot be empty"},
+		{[]string{"contacts", "create", blank}, "email cannot be empty"},
 		{[]string{"smtp", "send", "--server", blank, "--test"}, "--server cannot be empty"},
 		{append(sendArgs("--text", "Hi"), "--subject", blank), "--subject cannot be empty"},
 	}
@@ -441,6 +473,30 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 			assert.Equal(t, 4, code, "stderr: %s", stderr)
 			assert.Empty(t, stdout)
 			assert.Equal(t, "Error: "+test.message+"\n", stderr)
+			assert.False(t, *called, "the command must not authenticate")
+		})
+	}
+}
+
+// TestEveryEmailAddressIsCheckedBeforeAuthenticating runs every command that
+// sends an email address the API checks, or filters by one the API matches
+// exactly, with a value that is not a bare address.
+func TestEveryEmailAddressIsCheckedBeforeAuthenticating(t *testing.T) {
+	const notBare = "Jane <jane@example.com>"
+	tests := [][]string{
+		{"contacts", "update", "a@example.com", "--email", notBare},
+		{"contacts", "list", "--email", notBare},
+		{"lists", "members", "list", rawTestID, "--email", notBare},
+	}
+	for _, args := range tests {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			called := testutil.RefuseAuth(t)
+
+			stdout, stderr, code := runRoot(t, args...)
+
+			assert.Equal(t, 4, code, "stderr: %s", stderr)
+			assert.Empty(t, stdout)
+			assert.Equal(t, fmt.Sprintf("Error: invalid %s value %q: not an email address\n", args[len(args)-2], notBare), stderr)
 			assert.False(t, *called, "the command must not authenticate")
 		})
 	}

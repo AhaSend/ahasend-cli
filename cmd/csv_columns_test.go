@@ -19,6 +19,8 @@ const (
 	csvItemBody       = `{"id":"` + rawTestID + `"}`
 	csvListBody       = `{"object":"list","data":[` + csvItemBody + `],"pagination":{"has_more":false}}`
 	csvSubAccountsUse = `{"object":"sub_account_usage","currency":"USD"}`
+	// csvContactsFile stands in a view's arguments for a contacts file.
+	csvContactsFile = "<contacts file>"
 )
 
 // csvView is one list or single view: a command that prints it, the API call
@@ -41,11 +43,36 @@ var csvViews = []csvView{
 	{[]string{"apikeys", "update", rawTestID, "--label", "CI"}, returns[responses.APIKey]("UpdateAPIKey", csvAPIKeyBody),
 		"label,id,public_key,account_id,scopes,ip_allow_list,updated_at"},
 
+	// Contacts
+	{[]string{"contacts", "list"}, returns[responses.PaginatedContactsResponse]("GetContacts", csvListBody),
+		"email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at"},
+	{[]string{"contacts", "get", "user@example.com"}, returns[responses.Contact]("GetContact", csvItemBody),
+		"email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at"},
+	{[]string{"contacts", "memberships", "user@example.com"},
+		returns[responses.PaginatedListContactsResponse]("GetContactLists", csvListBody),
+		"list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at"},
+	{[]string{"contacts", "batch", "--file", csvContactsFile}, returns[responses.BatchUpsertContactsResponse]("BatchUpsertContacts", csvListBody),
+		"position,email,contact_id,outcome,reason"},
+
 	// Domains
 	{[]string{"domains", "list"}, returns[responses.PaginatedDomainsResponse]("ListDomains", csvListBody),
 		"domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at"},
 	{[]string{"domains", "get", "example.com"}, returns[responses.Domain]("GetDomain", csvItemBody),
 		"domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records"},
+
+	// Lists
+	{[]string{"lists", "list"}, returns[responses.PaginatedContactListsResponse]("GetLists", csvListBody),
+		"name,id,description,tags,contact_count,created_at,updated_at"},
+	{[]string{"lists", "get", rawTestID}, returns[responses.ContactList]("GetList", csvItemBody),
+		"name,id,description,tags,contact_count,created_at,updated_at"},
+	{[]string{"lists", "members", "list", rawTestID}, returns[responses.PaginatedListContactsResponse]("GetListContacts", csvListBody),
+		"email,contact_id,first_name,last_name,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at"},
+	{[]string{"lists", "members", "set", rawTestID, "user@example.com", "--subscription-status", "confirmed"},
+		returns[responses.ListContact]("UpsertListContact", csvItemBody),
+		"email,contact_id,list_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at"},
+	{[]string{"lists", "members", "add", rawTestID, "--email", "user@example.com"},
+		returns[responses.BatchAddListContactsResponse]("BatchAddListContacts", csvListBody),
+		"position,email,contact_id,outcome,reason"},
 
 	// Messages
 	{[]string{"messages", "list", "--sender", "sender@example.com"}, returns[responses.PaginatedMessagesResponse]("GetMessages", csvListBody),
@@ -111,14 +138,19 @@ var csvViews = []csvView{
 // list and single view. Each holds the fields the view's table shows, no
 // fewer, in the same order.
 func TestCSVColumnsAreTheFieldsOfTheTableView(t *testing.T) {
+	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
 	for _, view := range csvViews {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
+			args := slices.Clone(view.args)
+			if i := slices.Index(args, csvContactsFile); i >= 0 {
+				args[i] = contactsFile
+			}
 			mockClient := &mocks.MockClient{}
 			mockClient.On("GetAccountID").Return(rawTestID).Maybe()
 			expectAnyArgs(mockClient, view.call.method, view.call.result(t), nil)
 			testutil.InjectClient(t, mockClient)
 
-			stdout, stderr, code := runRoot(t, append(slices.Clone(view.args), "--output", "csv")...)
+			stdout, stderr, code := runRoot(t, append(args, "--output", "csv")...)
 
 			require.Equal(t, 0, code, stderr)
 			assert.Equal(t, view.header, strings.SplitN(stdout, "\n", 2)[0])
@@ -130,13 +162,17 @@ func TestCSVColumnsAreTheFieldsOfTheTableView(t *testing.T) {
 // show, with a value they show instead, or "" for a view whose fixture sets
 // nothing it shows; the printer tests check those.
 var viewsWithoutID = map[string]string{
-	"subaccounts usage": "USD",
-	"messages send":     "",
+	"subaccounts usage":    "USD",
+	"contacts batch":       "",
+	"contacts memberships": "",
+	"lists members":        "",
+	"messages send":        "",
 }
 
 // TestTableAndPlainOutputOfEveryView runs every view of csvViews through the
 // root in table and plain output and checks that it prints the item's ID.
 func TestTableAndPlainOutputOfEveryView(t *testing.T) {
+	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
 	for _, view := range csvViews {
 		shows, withoutID := viewsWithoutID[strings.Join(view.args[:2], " ")]
 		if !withoutID {
@@ -147,12 +183,16 @@ func TestTableAndPlainOutputOfEveryView(t *testing.T) {
 		}
 		for _, format := range []string{"table", "plain"} {
 			t.Run(format+" "+strings.Join(view.args, " "), func(t *testing.T) {
+				args := slices.Clone(view.args)
+				if i := slices.Index(args, csvContactsFile); i >= 0 {
+					args[i] = contactsFile
+				}
 				mockClient := &mocks.MockClient{}
 				mockClient.On("GetAccountID").Return(rawTestID).Maybe()
 				expectAnyArgs(mockClient, view.call.method, view.call.result(t), nil)
 				testutil.InjectClient(t, mockClient)
 
-				stdout, stderr, code := runRoot(t, append(slices.Clone(view.args), "--output", format)...)
+				stdout, stderr, code := runRoot(t, append(args, "--output", format)...)
 
 				require.Equal(t, 0, code, stderr)
 				assert.Contains(t, stdout, shows)
@@ -186,7 +226,7 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 		}
 		views = append(views, emptyView{view.args, view.call.method, reflect.New(full).Interface(), view.header})
 	}
-	require.Len(t, views, 13)
+	require.Len(t, views, 17)
 	for _, view := range views {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}

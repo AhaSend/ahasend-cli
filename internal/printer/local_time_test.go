@@ -1,12 +1,15 @@
 package printer
 
 import (
+	"bytes"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // useLocalTimeZone sets time.Local to a fixed UTC+2 zone for the test, so
@@ -27,7 +30,7 @@ var timelessViews = map[string]bool{
 
 // timelessTables are the list views whose table has no time column.
 var timelessTables = map[string]bool{
-	"domain list": true, "two domains": true,
+	"contact list": true, "domain list": true, "two domains": true,
 	"route list": true, "webhook list": true,
 }
 
@@ -62,11 +65,30 @@ func TestCSVWritesRFC3339Times(t *testing.T) {
 	}
 }
 
+func TestCSVTimesKeepTheAPIOffset(t *testing.T) {
+	useLocalTimeZone(t)
+	contact := contactFixture()
+	var output bytes.Buffer
+	require.NoError(t, testHandler(t, "csv", &output, os.Stderr).HandleSingleContact(&contact, SingleConfig{}))
+
+	_, rows := readCSV(t, output.String())
+	row := rows[0]
+	assert.Equal(t, "2026-09-10T08:30:00Z", row["created_at"])
+	assert.Empty(t, row["unsubscribed_at"], "a nil time prints as empty")
+}
+
 func TestDisplayTimeShowsLocalTimeAndZone(t *testing.T) {
 	useLocalTimeZone(t)
 	assert.Equal(t, "2026-09-10 10:30:00 UTC+2", formatTime(time.Date(2026, 9, 10, 8, 30, 0, 0, time.UTC)))
 	assert.Empty(t, formatTime(time.Time{}), "a zero time is missing")
 	assert.Empty(t, formatCSVTime(time.Time{}), "a zero time is missing")
+}
+
+func TestPlainLeavesANilTimeOut(t *testing.T) {
+	member := listMemberFixture()
+	var output bytes.Buffer
+	require.NoError(t, testHandler(t, "plain", &output, os.Stderr).HandleSingleListMember(&member, SingleConfig{}))
+	assert.NotContains(t, output.String(), "Unsubscribed At")
 }
 
 func TestTableAndPlainUseOneLabelForEachTimeAndNoObjectField(t *testing.T) {

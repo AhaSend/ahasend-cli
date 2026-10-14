@@ -626,6 +626,90 @@ func (c *Client) DeleteAPIKey(keyID uuid.UUID) (*common.SuccessResponse, error) 
 	return recordDone(c.APIKeysAPI.DeleteAPIKey(c.auth, c.accountUUID, keyID, noRetries))
 }
 
+// Contact operations
+
+// GetContacts retrieves a page of contacts
+func (c *Client) GetContacts(params requests.GetContactsParams) (*responses.PaginatedContactsResponse, error) {
+	return recordBody(c.ContactsAPI.GetContacts(c.auth, c.accountUUID, params))
+}
+
+// GetContact retrieves a contact by ID or email
+func (c *Client) GetContact(idOrEmail string) (*responses.Contact, error) {
+	return recordBody(c.ContactsAPI.GetContact(c.auth, c.accountUUID, idOrEmail))
+}
+
+// CreateContact creates a contact
+func (c *Client) CreateContact(req requests.CreateContactRequest, opts ...api.RequestOption) (*responses.Contact, error) {
+	return recordBody(c.ContactsAPI.CreateContact(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateContact partially updates a contact by ID or email
+func (c *Client) UpdateContact(idOrEmail string, req requests.UpdateContactRequest) (*responses.Contact, error) {
+	return recordBody(c.ContactsAPI.UpdateContact(c.auth, c.accountUUID, idOrEmail, req))
+}
+
+// DeleteContact permanently deletes a contact by ID or email
+func (c *Client) DeleteContact(idOrEmail string) (*common.SuccessResponse, error) {
+	return recordDone(c.ContactsAPI.DeleteContact(c.auth, c.accountUUID, idOrEmail, noRetries))
+}
+
+// BatchUpsertContacts creates or updates up to 1,000 contacts
+func (c *Client) BatchUpsertContacts(req requests.BatchUpsertContactsRequest, opts ...api.RequestOption) (*responses.BatchUpsertContactsResponse, error) {
+	return recordBody(c.ContactsAPI.BatchUpsertContacts(c.auth, c.accountUUID, req, opts...))
+}
+
+// List operations
+
+// GetLists retrieves a page of contact lists
+func (c *Client) GetLists(params requests.GetListsParams) (*responses.PaginatedContactListsResponse, error) {
+	return recordBody(c.ListsAPI.GetLists(c.auth, c.accountUUID, params))
+}
+
+// GetList retrieves a contact list by ID
+func (c *Client) GetList(listID uuid.UUID) (*responses.ContactList, error) {
+	return recordBody(c.ListsAPI.GetList(c.auth, c.accountUUID, listID))
+}
+
+// CreateList creates a contact list
+func (c *Client) CreateList(req requests.CreateListRequest, opts ...api.RequestOption) (*responses.ContactList, error) {
+	return recordBody(c.ListsAPI.CreateList(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateList partially updates a contact list
+func (c *Client) UpdateList(listID uuid.UUID, req requests.UpdateListRequest) (*responses.ContactList, error) {
+	return recordBody(c.ListsAPI.UpdateList(c.auth, c.accountUUID, listID, req))
+}
+
+// DeleteList deletes a contact list
+func (c *Client) DeleteList(listID uuid.UUID) (*common.SuccessResponse, error) {
+	return recordDone(c.ListsAPI.DeleteList(c.auth, c.accountUUID, listID, noRetries))
+}
+
+// GetListContacts retrieves a page of a list's members
+func (c *Client) GetListContacts(listID uuid.UUID, params requests.GetListContactsParams) (*responses.PaginatedListContactsResponse, error) {
+	return recordBody(c.ListsAPI.GetListContacts(c.auth, c.accountUUID, listID, params))
+}
+
+// BatchAddListContacts adds up to 1,000 existing contacts to a list
+func (c *Client) BatchAddListContacts(listID uuid.UUID, req requests.BatchAddListContactsRequest, opts ...api.RequestOption) (*responses.BatchAddListContactsResponse, error) {
+	return recordBody(c.ListsAPI.BatchAddListContacts(c.auth, c.accountUUID, listID, req, opts...))
+}
+
+// UpsertListContact adds a contact to a list or updates its membership
+func (c *Client) UpsertListContact(listID uuid.UUID, idOrEmail string, req requests.UpsertListContactRequest) (*responses.ListContact, error) {
+	return recordBody(c.ListsAPI.UpsertListContact(c.auth, c.accountUUID, listID, idOrEmail, req))
+}
+
+// DeleteListContact removes a contact from a list
+func (c *Client) DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error) {
+	return recordDone(c.ListsAPI.DeleteListContact(c.auth, c.accountUUID, listID, idOrEmail, noRetries))
+}
+
+// GetContactLists retrieves a page of a contact's list memberships
+func (c *Client) GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error) {
+	return recordBody(c.ListsAPI.GetContactLists(c.auth, c.accountUUID, idOrEmail, params))
+}
+
 // TriggerWebhook triggers webhook events for development testing
 func (c *Client) TriggerWebhook(webhookID uuid.UUID, events []string) (*common.SuccessResponse, error) {
 	endpoint := fmt.Sprintf("/v2/accounts/%s/webhooks/%s/trigger", c.accountUUID, webhookID)

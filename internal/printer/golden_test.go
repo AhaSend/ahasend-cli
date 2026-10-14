@@ -28,6 +28,10 @@ func nilLists() map[string]func(ResponseHandler) error {
 		"SMTP credentials": func(h ResponseHandler) error { return h.HandleSMTPList(nil, config) },
 		"API keys":         func(h ResponseHandler) error { return h.HandleAPIKeyList(nil, config) },
 		"sub-accounts":     func(h ResponseHandler) error { return h.HandleSubAccountList(nil, config) },
+		"contacts":         func(h ResponseHandler) error { return h.HandleContactList(nil, config) },
+		"lists":            func(h ResponseHandler) error { return h.HandleListsList(nil, config) },
+		"members":          func(h ResponseHandler) error { return h.HandleListMemberList(nil, config) },
+		"memberships":      func(h ResponseHandler) error { return h.HandleContactMembershipList(nil, config) },
 	}
 }
 

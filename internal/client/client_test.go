@@ -772,6 +772,9 @@ func TestDeleteRequestsAreSentOnce(t *testing.T) {
 		"delete sub-account":     func(c *Client) error { _, err := c.DeleteSubAccount(id); return err },
 		"delete sub-account key": func(c *Client) error { _, err := c.DeleteSubAccountAPIKey(id, id); return err },
 		"delete api key":         func(c *Client) error { _, err := c.DeleteAPIKey(id); return err },
+		"delete contact":         func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
+		"delete list":            func(c *Client) error { _, err := c.DeleteList(id); return err },
+		"remove list member":     func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
 	}
 	for name, call := range deletes {
 		t.Run(name, func(t *testing.T) {

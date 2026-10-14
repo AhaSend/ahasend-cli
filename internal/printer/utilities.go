@@ -282,6 +282,29 @@ func formatDomains(domains []string) string {
 	return strings.Join(domains, ", ")
 }
 
+// batchResultHeaders name the columns of a batch row in table output.
+var batchResultHeaders = []any{"Position", "Email", "Contact ID", "Outcome", "Reason"}
+
+// batchResultCSVHeaders name the columns of a batch row in csv output.
+var batchResultCSVHeaders = []string{"position", "email", "contact_id", "outcome", "reason"}
+
+// writeBatchResult writes the result number, counted from 1 like every
+// "Result" of plain output, of a batch in plain output from its batch row:
+// position, the API's index of the input counted from 0, email, contact ID,
+// outcome and reason.
+func writeBatchResult(w io.Writer, number int, row []string) error {
+	if _, err := fmt.Fprintf(w, "\nResult %d:\n", number); err != nil {
+		return err
+	}
+	return writeLabelLines(w, "  ", [][]string{
+		{"Position", row[0]},
+		{"Email", row[1]},
+		{"Contact ID", row[2]},
+		{"Outcome", row[3]},
+		{"Reason", row[4]},
+	})
+}
+
 // writeLabelLines writes each row as a "label: value" line after indent.
 // Rows with an empty value are left out, as plain output skips unset fields.
 // Each further line of a value of several lines is indented to start under
@@ -300,8 +323,8 @@ func writeLabelLines(w io.Writer, indent string, rows [][]string) error {
 	return nil
 }
 
-// stableJSON encodes free-form values, such as a domain's DNS records, as
-// compact JSON with sorted keys. A nil value prints as empty rather than "null".
+// stableJSON encodes free-form values, such as contact attributes, as compact
+// JSON with sorted keys. A nil value prints as empty rather than "null".
 func stableJSON(value any) (string, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {

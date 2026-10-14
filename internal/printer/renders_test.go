@@ -45,6 +45,9 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 	suppression, credential, key, subAccount := styleSuppression(), styleSMTP(), styleAPIKey(), styleSubAccount()
 	usage := mocks.NewSubAccountUsage(0)
 	usage.BillingPeriod = responses.SubAccountUsageBillingPeriod{Start: styleTime, End: styleTime}
+	contact := contactFixture()
+	list := listFixture()
+	member := listMemberFixture()
 
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
@@ -103,6 +106,12 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 			}}, StatsConfig{})
 		},
 		"delivery times": func(h ResponseHandler) error { return h.HandleDeliveryTimeStats(styleDeliveryTimes(), StatsConfig{}) },
+		"contact list":   func(h ResponseHandler) error { return h.HandleContactList(contactListFixture(), ListConfig{}) },
+		"contact":        func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
+		"lists list":     func(h ResponseHandler) error { return h.HandleListsList(listsPageFixture(), ListConfig{}) },
+		"list":           func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
+		"members list":   func(h ResponseHandler) error { return h.HandleListMemberList(embeddedMembersFixture(), ListConfig{}) },
+		"member":         func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
 	})
 }
 
@@ -198,6 +207,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 	credential := responses.SMTPCredential{Name: "Relay"}
 	key := responses.APIKey{Label: "Production"}
 	subAccount := responses.SubAccount{Name: "Acme"}
+	contact := responses.Contact{Email: "user@example.com"}
+	list := responses.ContactList{Name: "Newsletter"}
+	member := responses.ListContact{Email: "member@example.com"}
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
 			return h.HandleDomainList(&responses.PaginatedDomainsResponse{Data: []responses.Domain{domain}}, ListConfig{})
@@ -253,6 +265,18 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 		},
 		"auth status": func(h ResponseHandler) error {
 			return h.HandleAuthStatus(&AuthStatus{Profile: "default", Account: &responses.Account{Name: "Acme"}})
+		},
+		"contact": func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
+		"contact list": func(h ResponseHandler) error {
+			return h.HandleContactList(&responses.PaginatedContactsResponse{Data: []responses.Contact{contact}}, ListConfig{})
+		},
+		"list": func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
+		"lists list": func(h ResponseHandler) error {
+			return h.HandleListsList(&responses.PaginatedContactListsResponse{Data: []responses.ContactList{list}}, ListConfig{})
+		},
+		"member": func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"members list": func(h ResponseHandler) error {
+			return h.HandleListMemberList(&responses.PaginatedListContactsResponse{Data: []responses.ListContact{member}}, ListConfig{})
 		},
 	})
 }

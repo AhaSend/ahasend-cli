@@ -167,10 +167,42 @@ func TestCSVTimesKeepTheOffsetTheAPISent(t *testing.T) {
 	assert.Equal(t, "2026-09-10T10:30:00+02:00", rows[0]["created_at"])
 }
 
+// TestCSVPutsEveryValueOnOneLine checks that a line break in a value the API
+// sent does not start a new CSV row.
+func TestCSVPutsEveryValueOnOneLine(t *testing.T) {
+	const broken = "first\nsecond"
+	renders := map[string]func(ResponseHandler) error{
+		"contacts batch": func(h ResponseHandler) error {
+			return h.HandleBatchContacts(&responses.BatchUpsertContactsResponse{
+				Data: []responses.BatchContactResult{{Email: "user@example.com", Outcome: "failed", Reason: broken}},
+			}, SingleConfig{})
+		},
+		"list members batch": func(h ResponseHandler) error {
+			return h.HandleBatchListMembers(&responses.BatchAddListContactsResponse{
+				Data: []responses.BatchListContactResult{{Email: "user@example.com", Outcome: "failed", Reason: broken}},
+			}, SingleConfig{})
+		},
+	}
+	for name, render := range renders {
+		t.Run(name, func(t *testing.T) {
+			output := renderWith(t, "csv", render)
+
+			assert.Equal(t, 2, strings.Count(output, "\n"), output)
+			assert.Contains(t, output, "first second")
+		})
+	}
+}
+
 // TestCSVOfAnEmptyResultIsTheHeader checks that a result with no rows still
 // prints its header, so a reader of the CSV sees its columns.
 func TestCSVOfAnEmptyResultIsTheHeader(t *testing.T) {
 	tests := map[string]func(ResponseHandler) error{
+		"contacts batch": func(h ResponseHandler) error {
+			return h.HandleBatchContacts(&responses.BatchUpsertContactsResponse{}, SingleConfig{})
+		},
+		"lists members add": func(h ResponseHandler) error {
+			return h.HandleBatchListMembers(&responses.BatchAddListContactsResponse{}, SingleConfig{})
+		},
 		"messages send": func(h ResponseHandler) error {
 			return h.HandleCreateMessage(&responses.CreateMessageResponse{}, ResultConfig{})
 		},

@@ -10,6 +10,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRootExposesMarketingCommandGroups checks the subcommands of the
+// marketing command groups.
+func TestRootExposesMarketingCommandGroups(t *testing.T) {
+	groups := map[string][]string{
+		"contacts":      {"list", "get", "create", "update", "delete", "batch", "memberships"},
+		"lists":         {"list", "get", "create", "update", "delete", "members"},
+		"lists members": {"list", "add", "set", "remove"},
+	}
+
+	for path, subcommands := range groups {
+		t.Run(path, func(t *testing.T) {
+			group, _, err := NewRootCmdForTesting().Find(strings.Fields(path))
+			require.NoError(t, err)
+			require.Equal(t, path, strings.TrimPrefix(group.CommandPath(), "ahasend "))
+
+			names := make([]string, 0, len(group.Commands()))
+			for _, command := range group.Commands() {
+				names = append(names, command.Name())
+			}
+			assert.ElementsMatch(t, subcommands, names)
+		})
+	}
+}
+
 func TestEachRootGetsItsOwnPingCommand(t *testing.T) {
 	first := NewRootCmdForTesting()
 	second := NewRootCmdForTesting()
@@ -39,6 +63,8 @@ func TestSubaccountsUnsuspendLongLinesFit(t *testing.T) {
 
 func TestRequiredFlagsSayTheyAreRequired(t *testing.T) {
 	flags := map[string][]string{
+		"lists create":        {"name"},
+		"contacts batch":      {"file"},
 		"webhooks create":     {"name", "url"},
 		"routes create":       {"name", "url", "recipient"},
 		"smtp create":         {"name"},
@@ -149,5 +175,16 @@ func assertExamplesHaveCaptions(t *testing.T, command *cobra.Command) {
 		}
 		assert.True(t, strings.HasPrefix(previous, "# "),
 			"%s: example %q has no caption", command.CommandPath(), line)
+	}
+}
+
+func TestMarketingCommandsDoNotSayUUIDInLongHelp(t *testing.T) {
+	root := NewRootCmdForTesting()
+	for _, name := range []string{"contacts", "lists"} {
+		group, _, err := root.Find([]string{name})
+		require.NoError(t, err)
+		walkCommands(group, func(command *cobra.Command) {
+			assert.NotContains(t, command.Long, "UUID", command.CommandPath())
+		})
 	}
 }

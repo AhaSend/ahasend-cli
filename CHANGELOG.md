@@ -7,9 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-This release makes exit codes, input checks and output consistent across
-commands. Read **Breaking changes** before upgrading scripts written for
-v0.2.0.
+This release adds the `contacts` and `lists` commands, and makes exit codes,
+input checks and output consistent across commands. Read **Breaking changes**
+before upgrading scripts written for v0.2.0.
 
 ### Breaking changes
 
@@ -106,6 +106,9 @@ v0.2.0.
 
 ### Added
 
+- [`contacts`](USAGE.mdx#contact-commands) and
+  [`lists`](USAGE.mdx#list-commands) commands manage contacts, contact lists
+  and list members.
 - `messages send --template-id`, `--from-name` and `--reply-to`.
 - `--ip-allow-list` on API keys restricts the IPs that can use them.
 - `--idempotency-key` on the `create` commands of most groups.

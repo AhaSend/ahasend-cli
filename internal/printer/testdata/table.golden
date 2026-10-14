@@ -81,6 +81,37 @@ Bounce Classifications - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2:
 ├────────────────┼───────┼────────────┤
 │ invalid        │ 1     │ 100.00%    │
 └────────────────┴───────┴────────────┘
+=== contact
+
+
+┌───────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│       FIELD       │                                                    VALUE                                                    │
+├───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Email             │ normalized@example.com                                                                                      │
+│ ID                │ 11111111-1111-4111-8111-111111111111                                                                        │
+│ First Name        │ Normal                                                                                                      │
+│ Last Name         │ Contact                                                                                                     │
+│ Status            │ active                                                                                                      │
+│ Status Reason     │ confirmed                                                                                                   │
+│ Unsubscribed      │ No                                                                                                          │
+│ Unsubscribed At   │ -                                                                                                           │
+│ Attributes        │ {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"} │
+│ Validation Status │ valid                                                                                                       │
+│ Last Validated At │ -                                                                                                           │
+│ Created           │ 2026-09-10 10:30:00 UTC+2                                                                                   │
+│ Updated           │ 2026-09-10 11:30:00 UTC+2                                                                                   │
+└───────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+=== contact list
+
+
+┌────────────────────────┬──────────────────────────────────────┬────────┬──────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│         EMAIL          │                  ID                  │ STATUS │ UNSUBSCRIBED │                                                 ATTRIBUTES                                                  │
+├────────────────────────┼──────────────────────────────────────┼────────┼──────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ normalized@example.com │ 11111111-1111-4111-8111-111111111111 │ active │ No           │ {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"} │
+└────────────────────────┴──────────────────────────────────────┴────────┴──────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Showing 1 contact (more available)
+--after next-contact
 === created api key
 
 
@@ -283,6 +314,59 @@ DNS Records:
 └─────────────┴─────────────────┘
 === empty
 Nothing found
+=== list
+
+
+┌─────────────┬──────────────────────────────────────┐
+│    FIELD    │                VALUE                 │
+├─────────────┼──────────────────────────────────────┤
+│ Name        │ Newsletter                           │
+│ ID          │ 22222222-2222-4222-8222-222222222222 │
+│ Description │ Monthly news                         │
+│ Tags        │ news, weekly                         │
+│ Contacts    │ 42                                   │
+│ Created     │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated     │ 2026-09-10 11:30:00 UTC+2            │
+└─────────────┴──────────────────────────────────────┘
+=== lists list
+
+
+┌────────────┬──────────────────────────────────────┬──────────────┬──────────┬───────────────────────────┐
+│    NAME    │                  ID                  │     TAGS     │ CONTACTS │          UPDATED          │
+├────────────┼──────────────────────────────────────┼──────────────┼──────────┼───────────────────────────┤
+│ Newsletter │ 22222222-2222-4222-8222-222222222222 │ news, weekly │ 42       │ 2026-09-10 11:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴──────────────┴──────────┴───────────────────────────┘
+
+Showing 1 list (more available)
+--after next-list
+--before previous-list
+=== member
+
+
+┌─────────────────────┬──────────────────────────────────────┐
+│        FIELD        │                VALUE                 │
+├─────────────────────┼──────────────────────────────────────┤
+│ Email               │ person@example.com                   │
+│ Contact ID          │ 11111111-1111-4111-8111-111111111111 │
+│ List ID             │ 22222222-2222-4222-8222-222222222222 │
+│ Subscription Status │ confirmed                            │
+│ Subscribed At       │ 2026-09-10 10:30:00 UTC+2            │
+│ Unsubscribed At     │ -                                    │
+│ Created             │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2            │
+└─────────────────────┴──────────────────────────────────────┘
+=== members list
+
+
+┌────────────────────┬──────────────────────────────────────┬────────────┬───────────┬─────────────────────┬───────────────────────────┐
+│       EMAIL        │              CONTACT ID              │ FIRST NAME │ LAST NAME │ SUBSCRIPTION STATUS │       SUBSCRIBED AT       │
+├────────────────────┼──────────────────────────────────────┼────────────┼───────────┼─────────────────────┼───────────────────────────┤
+│ person@example.com │ 11111111-1111-4111-8111-111111111111 │ Pat        │ Lee       │ confirmed           │ 2026-09-10 10:30:00 UTC+2 │
+│ other@example.com  │ 11111111-1111-4111-8111-111111111111 │ -          │ -         │ confirmed           │ 2026-09-10 10:30:00 UTC+2 │
+└────────────────────┴──────────────────────────────────────┴────────────┴───────────┴─────────────────────┴───────────────────────────┘
+
+Showing 2  (more available)
+--after next-member
 === message
 
 
@@ -355,7 +439,15 @@ Showing 1 message
 None found
 === no response for SMTP credentials
 None found
+=== no response for contacts
+None found
 === no response for domains
+None found
+=== no response for lists
+None found
+=== no response for members
+None found
+=== no response for memberships
 None found
 === no response for messages
 None found
@@ -375,7 +467,23 @@ None found
 None found
 --after next-page
 --before previous-page
+=== page of 0 contacts
+None found
+--after next-page
+--before previous-page
 === page of 0 domains
+None found
+--after next-page
+--before previous-page
+=== page of 0 lists
+None found
+--after next-page
+--before previous-page
+=== page of 0 members
+None found
+--after next-page
+--before previous-page
+=== page of 0 memberships
 None found
 --after next-page
 --before previous-page
@@ -423,6 +531,18 @@ Retrieved
 Showing 1 SMTP credential (more available)
 --after next-page
 --before previous-page
+=== page of 1 contacts
+Retrieved
+
+┌────────────────────────┬──────────────────────────────────────┬────────┬──────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│         EMAIL          │                  ID                  │ STATUS │ UNSUBSCRIBED │                                                 ATTRIBUTES                                                  │
+├────────────────────────┼──────────────────────────────────────┼────────┼──────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ normalized@example.com │ 11111111-1111-4111-8111-111111111111 │ active │ No           │ {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"} │
+└────────────────────────┴──────────────────────────────────────┴────────┴──────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Showing 1 contact (more available)
+--after next-page
+--before previous-page
 === page of 1 domains
 Retrieved
 
@@ -433,6 +553,42 @@ Retrieved
 └─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
 
 Showing 1 domain (more available)
+--after next-page
+--before previous-page
+=== page of 1 lists
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬──────────────┬──────────┬───────────────────────────┐
+│    NAME    │                  ID                  │     TAGS     │ CONTACTS │          UPDATED          │
+├────────────┼──────────────────────────────────────┼──────────────┼──────────┼───────────────────────────┤
+│ Newsletter │ 22222222-2222-4222-8222-222222222222 │ news, weekly │ 42       │ 2026-09-10 11:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴──────────────┴──────────┴───────────────────────────┘
+
+Showing 1 list (more available)
+--after next-page
+--before previous-page
+=== page of 1 members
+Retrieved
+
+┌────────────────────┬──────────────────────────────────────┬────────────┬───────────┬─────────────────────┬───────────────┐
+│       EMAIL        │              CONTACT ID              │ FIRST NAME │ LAST NAME │ SUBSCRIPTION STATUS │ SUBSCRIBED AT │
+├────────────────────┼──────────────────────────────────────┼────────────┼───────────┼─────────────────────┼───────────────┤
+│ member@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -          │ -         │ -                   │ -             │
+└────────────────────┴──────────────────────────────────────┴────────────┴───────────┴─────────────────────┴───────────────┘
+
+Showing 1 member (more available)
+--after next-page
+--before previous-page
+=== page of 1 memberships
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬─────────────────────┬───────────────┬─────────────────┐
+│    LIST    │               LIST ID                │ SUBSCRIPTION STATUS │ SUBSCRIBED AT │ UNSUBSCRIBED AT │
+├────────────┼──────────────────────────────────────┼─────────────────────┼───────────────┼─────────────────┤
+│ Newsletter │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -                   │ -             │ -               │
+└────────────┴──────────────────────────────────────┴─────────────────────┴───────────────┴─────────────────┘
+
+Showing 1 membership (more available)
 --after next-page
 --before previous-page
 === page of 1 messages
@@ -521,6 +677,19 @@ Retrieved
 Showing 2 SMTP credentials (more available)
 --after next-page
 --before previous-page
+=== page of 2 contacts
+Retrieved
+
+┌────────────────────────┬──────────────────────────────────────┬────────┬──────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│         EMAIL          │                  ID                  │ STATUS │ UNSUBSCRIBED │                                                 ATTRIBUTES                                                  │
+├────────────────────────┼──────────────────────────────────────┼────────┼──────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ normalized@example.com │ 11111111-1111-4111-8111-111111111111 │ active │ No           │ {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"} │
+│ normalized@example.com │ 11111111-1111-4111-8111-111111111111 │ active │ No           │ {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"} │
+└────────────────────────┴──────────────────────────────────────┴────────┴──────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Showing 2 contacts (more available)
+--after next-page
+--before previous-page
 === page of 2 domains
 Retrieved
 
@@ -532,6 +701,45 @@ Retrieved
 └─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
 
 Showing 2 domains (more available)
+--after next-page
+--before previous-page
+=== page of 2 lists
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬──────────────┬──────────┬───────────────────────────┐
+│    NAME    │                  ID                  │     TAGS     │ CONTACTS │          UPDATED          │
+├────────────┼──────────────────────────────────────┼──────────────┼──────────┼───────────────────────────┤
+│ Newsletter │ 22222222-2222-4222-8222-222222222222 │ news, weekly │ 42       │ 2026-09-10 11:30:00 UTC+2 │
+│ Newsletter │ 22222222-2222-4222-8222-222222222222 │ news, weekly │ 42       │ 2026-09-10 11:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴──────────────┴──────────┴───────────────────────────┘
+
+Showing 2 lists (more available)
+--after next-page
+--before previous-page
+=== page of 2 members
+Retrieved
+
+┌────────────────────┬──────────────────────────────────────┬────────────┬───────────┬─────────────────────┬───────────────┐
+│       EMAIL        │              CONTACT ID              │ FIRST NAME │ LAST NAME │ SUBSCRIPTION STATUS │ SUBSCRIBED AT │
+├────────────────────┼──────────────────────────────────────┼────────────┼───────────┼─────────────────────┼───────────────┤
+│ member@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -          │ -         │ -                   │ -             │
+│ member@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -          │ -         │ -                   │ -             │
+└────────────────────┴──────────────────────────────────────┴────────────┴───────────┴─────────────────────┴───────────────┘
+
+Showing 2 members (more available)
+--after next-page
+--before previous-page
+=== page of 2 memberships
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬─────────────────────┬───────────────┬─────────────────┐
+│    LIST    │               LIST ID                │ SUBSCRIPTION STATUS │ SUBSCRIBED AT │ UNSUBSCRIBED AT │
+├────────────┼──────────────────────────────────────┼─────────────────────┼───────────────┼─────────────────┤
+│ Newsletter │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -                   │ -             │ -               │
+│ Newsletter │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ -                   │ -             │ -               │
+└────────────┴──────────────────────────────────────┴─────────────────────┴───────────────┴─────────────────┘
+
+Showing 2 memberships (more available)
 --after next-page
 --before previous-page
 === page of 2 messages
@@ -757,6 +965,36 @@ Account Details:
 │ Created │ -     │
 │ Updated │ -     │
 └─────────┴───────┘
+=== sparse contact
+
+
+┌───────────────────┬──────────────────┐
+│       FIELD       │      VALUE       │
+├───────────────────┼──────────────────┤
+│ Email             │ user@example.com │
+│ ID                │ -                │
+│ First Name        │ -                │
+│ Last Name         │ -                │
+│ Status            │ -                │
+│ Status Reason     │ -                │
+│ Unsubscribed      │ No               │
+│ Unsubscribed At   │ -                │
+│ Attributes        │ -                │
+│ Validation Status │ -                │
+│ Last Validated At │ -                │
+│ Created           │ -                │
+│ Updated           │ -                │
+└───────────────────┴──────────────────┘
+=== sparse contact list
+
+
+┌──────────────────┬────┬────────┬──────────────┬────────────┐
+│      EMAIL       │ ID │ STATUS │ UNSUBSCRIBED │ ATTRIBUTES │
+├──────────────────┼────┼────────┼──────────────┼────────────┤
+│ user@example.com │ -  │ -      │ No           │ -          │
+└──────────────────┴────┴────────┴──────────────┴────────────┘
+
+Showing 1 contact
 === sparse created api key
 
 
@@ -867,6 +1105,55 @@ Per-Domain Delivery Times -  to :
 └─────────────┴────┴────────────┴──────────────┴───────────┴──────────────┘
 
 Showing 1 domain
+=== sparse list
+
+
+┌─────────────┬────────────┐
+│    FIELD    │   VALUE    │
+├─────────────┼────────────┤
+│ Name        │ Newsletter │
+│ ID          │ -          │
+│ Description │ -          │
+│ Tags        │ -          │
+│ Contacts    │ 0          │
+│ Created     │ -          │
+│ Updated     │ -          │
+└─────────────┴────────────┘
+=== sparse lists list
+
+
+┌────────────┬────┬──────┬──────────┬─────────┐
+│    NAME    │ ID │ TAGS │ CONTACTS │ UPDATED │
+├────────────┼────┼──────┼──────────┼─────────┤
+│ Newsletter │ -  │ -    │ 0        │ -       │
+└────────────┴────┴──────┴──────────┴─────────┘
+
+Showing 1 list
+=== sparse member
+
+
+┌─────────────────────┬────────────────────┐
+│        FIELD        │       VALUE        │
+├─────────────────────┼────────────────────┤
+│ Email               │ member@example.com │
+│ Contact ID          │ -                  │
+│ List ID             │ -                  │
+│ Subscription Status │ -                  │
+│ Subscribed At       │ -                  │
+│ Unsubscribed At     │ -                  │
+│ Created             │ -                  │
+│ Updated             │ -                  │
+└─────────────────────┴────────────────────┘
+=== sparse members list
+
+
+┌────────────────────┬────────────┬────────────┬───────────┬─────────────────────┬───────────────┐
+│       EMAIL        │ CONTACT ID │ FIRST NAME │ LAST NAME │ SUBSCRIPTION STATUS │ SUBSCRIBED AT │
+├────────────────────┼────────────┼────────────┼───────────┼─────────────────────┼───────────────┤
+│ member@example.com │ -          │ -          │ -         │ -                   │ -             │
+└────────────────────┴────────────┴────────────┴───────────┴─────────────────────┴───────────────┘
+
+Showing 1 
 === sparse message
 
 

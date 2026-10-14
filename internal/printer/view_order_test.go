@@ -83,6 +83,7 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	message.SentAt = &sent
 	message.DeliveryAttempts = []responses.DeliveryEvent{{Time: styleTime, Status: "delivered", Log: "250 OK"}}
 	credential, subAccount := styleSMTP(), styleSubAccount()
+	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
 	views := map[string]func(ResponseHandler) error{
 		"api key":         func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
 		"created api key": func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
@@ -95,6 +96,9 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		"created webhook": func(h ResponseHandler) error { return h.HandleCreateWebhook(&webhook, ResultConfig{}) },
 		"smtp credential": func(h ResponseHandler) error { return h.HandleSingleSMTP(&credential, SingleConfig{}) },
 		"sub-account":     func(h ResponseHandler) error { return h.HandleSingleSubAccount(&subAccount, SingleConfig{}) },
+		"contact":         func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
+		"list":            func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
+		"list member":     func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
 	}
 	for name, render := range views {
 		t.Run(name, func(t *testing.T) {

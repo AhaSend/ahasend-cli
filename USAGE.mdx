@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, domains, webhooks, suppressions, and analytics through an intuitive command structure.
+The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, contacts and lists, domains, webhooks, suppressions, and analytics through an intuitive command structure.
 
 ### Key Features
 
@@ -11,6 +11,7 @@ The AhaSend CLI is a comprehensive command-line interface for the AhaSend email 
 - **Webhook Management**: Configure real-time event notifications
 - **Authentication**: Secure profile-based authentication with API key management
 - **Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
+- **Contact and List Management**: Manage account-global contacts, synchronous batch upserts, and the lists contacts belong to
 - **Analytics**: Comprehensive email statistics and reporting
 - **Multiple Output Formats**: JSON, table, CSV, and plain text
 - **Batch Processing**: High-performance concurrent operations with progress tracking
@@ -337,18 +338,18 @@ notice on stderr.
 value outside that range fails before any request is sent, with
 `--limit must be between 0 and 100` and exit code 4.
 
-Table and plain output end with a line such as `Showing 20 domains` (or
-`Showing 1 domain`), followed by `(more available)` when there is another
+Table and plain output end with a line such as `Showing 20 contacts` (or
+`Showing 1 contact`), followed by `(more available)` when there is another
 page, and then the flags that fetch the next and the previous page,
 `--after <cursor>` and `--before <cursor>`. An empty
-page prints only a line such as `No domains found`, followed by the cursor
+page prints only a line such as `No contacts found`, followed by the cursor
 line when the page points to another one. CSV output has no cursor line; use
 `--output json` and read `pagination.next_cursor` to page in scripts.
 
 ```bash
 # Fetch the first page, then the page after it
-ahasend domains list --limit 50
-ahasend domains list --limit 50 --after <cursor>
+ahasend contacts list --limit 50
+ahasend contacts list --limit 50 --after <cursor>
 ```
 
 #### Confirmation Prompts
@@ -362,6 +363,7 @@ first:
 - `messages cancel`
 - `subaccounts delete`, `subaccounts suspend` and
   `subaccounts api-keys delete`
+- `contacts delete`, `lists delete` and `lists members remove`
 - `auth logout --all`, which removes every stored API key from this machine
 
 The prompt goes to stderr and the answer is read from stdin, so stdout stays
@@ -455,8 +457,9 @@ send fails with
 
 These flags take a time:
 
-- `--from-time` and `--to-time` on `messages list`, `suppressions list` and
-  the `stats` commands, where a relative time counts back from now
+- `--from-time` and `--to-time` on `messages list`, `contacts list`,
+  `suppressions list` and the `stats` commands, where a relative time counts
+  back from now
 - `--schedule` on `messages send`, and `--expires` on `suppressions create`,
   where a relative time counts forward from now
 
@@ -502,6 +505,8 @@ that starts with a space fails (see
 | `webhooks trigger`, `webhooks listen` | `--events` |
 | `apikeys create`, `subaccounts api-keys create` | `--scope`, `--ip-allow-list` |
 | `apikeys update`, `subaccounts api-keys update` | `--scope`, `--ip-allow-list` |
+| `lists create`, `lists update` | `--tag` |
+| `lists members add` | `--email`, `--contact-id` |
 
 Each value is read as a line of CSV: a value that holds a comma goes in
 double quotes, inside the shell quotes, and a double quote in such a value is
@@ -537,17 +542,22 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
 - every flag in the [Repeatable Flags](#repeatable-flags) table, for each of
   its items too, such as the one after the comma in `--tag news,`
 - every required text flag: `--name` on the `create` commands of `webhooks`,
-  `routes`, `smtp` and `subaccounts`; `--label` on `apikeys create` and
-  `subaccounts api-keys create`; `--url` and `--recipient` on
+  `routes`, `smtp`, `lists` and `subaccounts`; `--label` on `apikeys create`
+  and `subaccounts api-keys create`; `--url` and `--recipient` on
   `webhooks create` and `routes create`; `--website` on `subaccounts create`;
-  `--reason` on `subaccounts suspend`; and `--from`, `--subject` and the
-  `smtp send --username`. A missing one fails as
+  `--reason` on `subaccounts suspend`; `--from`, `--subject` and the
+  `smtp send --username`; and the address of `contacts create`, which fails
+  with `email cannot be empty`. A missing one fails as
   [Required Values](#required-values) says
 - `--label` on `apikeys update` and `subaccounts api-keys update`
 - `--name` and `--website` on `subaccounts update`
 - `--name`, `--url` and `--scope` on `webhooks update`, and `--name`, `--url`
   and `--recipient` on `routes update`, where the error adds
   `: a route's recipient cannot be cleared`
+- `lists members set --subscription-status`
+- `--name` on `lists update`
+- `--status` on `contacts create`, and `--email` and `--status` on
+  `contacts update`
 - `messages send --reply-to`
 - `--sending-type` and the subdomain flags, such as `--tracking-subdomain`,
   on `domains create` and `domains update`, where dots around a subdomain
@@ -563,9 +573,9 @@ only an empty one fails.
 
 Where another flag clears the field, the error names it, such as
 `--ip-allow-list cannot be empty; use --clear-ip-allow-list to clear it`:
-`--clear-ip-allow-list` for `--ip-allow-list` on `apikeys update` and
-`subaccounts api-keys update`, and `--clear-events` for `--events` on
-`webhooks update`.
+`--clear-tags` for `lists update --tag`, `--clear-ip-allow-list` for
+`--ip-allow-list` on `apikeys update` and `subaccounts api-keys update`, and
+`--clear-events` for `--events` on `webhooks update`.
 
 #### Length Limits
 
@@ -575,15 +585,20 @@ fails with `--<flag> must be at most <limit> characters` and exit code 4:
 
 - 255 characters: `--label` on `apikeys create`, `apikeys update`,
   `subaccounts api-keys create` and `subaccounts api-keys update`; `--name`
-  on the `create` and `update` commands of `webhooks`, `routes` and
+  on the `create` and `update` commands of `webhooks`, `routes`, `lists` and
   `subaccounts`, and on `smtp create`; `--recipient` on
   `routes create`, `update` and `listen`; and `--reason` on
   `suppressions create`
 - 500 characters: `--reason` on `subaccounts suspend`
+- 1000 characters: `--description` on `lists create` and `update`
 
-The `subaccounts` commands count `--name` and `subaccounts suspend --reason`
-without the spaces around them, as the API does, and send them without those
-spaces, as the API stores them. The other flags count every character.
+Where the API cleans a value before it counts it, the CLI counts it the same
+way, and sends the value as you gave it, except on the `subaccounts`
+commands, which send `--name` and `subaccounts suspend --reason` without the
+spaces around them, as the API stores them. The spaces around these values do
+not count: the `--name` of the `lists` and `subaccounts` commands, the
+`--reason` of `subaccounts suspend` and the `--description` of the `lists`
+commands. The other flags count every character.
 
 #### Domain Names
 
@@ -611,6 +626,8 @@ lists:
 | `domains list` | `--status`, `--sending-type` |
 | `domains create` | `--sending-type`, `--format` |
 | `domains update` | `--sending-type` |
+| `contacts list`, `contacts create`, `contacts update` | `--status` |
+| `contacts memberships`, `lists members list`, `lists members set` | `--subscription-status` |
 | `messages list` | `--status` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--group-by` |
 | `webhooks create`, `webhooks update`, `smtp create` | `--scope` |
@@ -628,10 +645,11 @@ of each event (see [Webhook Commands](#webhook-commands)).
 An empty value fails the same way,
 with two exceptions: the flags in [Empty Values](#empty-values) fail with
 `--<flag> cannot be empty`, and an empty or blank filter of `domains list`,
-or an empty `domains create --format`, is the same as
+`contacts list`, `contacts memberships` or `lists members list`, or an empty
+`domains create --format`, is the same as
 leaving the flag out. So is an empty or blank text filter of a list
 command, such as `messages list --recipient`, `--sender`, `--subject` and
-`--message-id`.
+`--message-id`, `contacts list --email` or `lists list --name`.
 
 #### Email Addresses
 
@@ -644,6 +662,9 @@ request is sent:
 - `smtp send --from`, `--to`, `--cc` and `--bcc`
 - the address of `suppressions create`, `check` and `delete`, and
   `suppressions list --email`
+- the address of `contacts create`, `contacts update --email`, and the
+  `--email` of `contacts list` and `lists members list`, which the API
+  matches exactly
 
 The value must be a bare address that reads back unchanged as one, such as
 `user@example.com`, `o'brien@example.com`, `user@localhost` or an address with
@@ -654,29 +675,41 @@ as in `Jane <jane@example.com>`, fails with an error that names the flag, or
 and exit code 4. A `--recipients` file names the row or index instead:
 `--recipients row 3: "Jane <jane@example.com>" is not an email address`.
 `messages list --recipient` takes any part of an address, such as
-`@example.com`, since the API matches every recipient that contains it.
+`@example.com`, since the API matches every recipient that contains it. An
+argument that is a contact's ID or email address, such as that of
+`contacts get`, and the addresses of `lists members add` and of a batch file,
+are sent as given, and the API reports any it does not accept.
 
 #### JSON Input
 
-The `--recipients` (JSON) and `--global-substitutions` files of
-`messages send` each hold one JSON value, which is checked before any request
-is sent. A mistake fails with exit code 4 and an error that names the input:
+`--attributes` on `contacts create` and `contacts update`, the `--file` of
+`contacts batch` and `lists members add`, and the `--recipients` (JSON) and
+`--global-substitutions` files of `messages send` each hold one JSON value,
+which is checked before any request is sent. A mistake fails with exit code 4
+and an error that names the input:
 
-- `--recipients is empty` for empty input
-- `--recipients must be a JSON array` (`--global-substitutions must be a
-  JSON object`) for input that is not JSON, or is JSON of another kind, such
-  as `null`
-- `--recipients must contain exactly one JSON array` when more follows the
+- `--attributes is empty` for empty input
+- `--attributes must be a JSON object` (`--recipients must be a JSON array`)
+  for input that is not JSON, or is JSON of another kind, such as `null`
+- `--attributes must contain exactly one JSON object` when more follows the
   value
 - `--recipients index 0 is invalid: email must be a string` for a field of
   the wrong type, named by its recipient's index and its key, and
-  `--recipients index 0 is invalid: unknown field "substitution"` for a
-  recipient with a field the CLI does not know; a recipient that is not an
-  object, `null` included, fails with
+  `--recipients index 0 is invalid: unknown field "substitution"` or
+  `batch contact at position 0 is invalid: unknown field "list_id"` for a
+  recipient or an item of a batch file with a field the CLI does not know;
+  a recipient that is not an object, `null` included, fails with
   `--recipients index 0 must be a JSON object`
+- `batch file must be a JSON object, {"data": [...]}; CSV is not read` for
+  a batch file that does not hold a JSON object, such as a CSV file
+- `batch file data must be a JSON array` for a batch file whose `data` is
+  missing or is not an array, `batch file data cannot be empty` for one
+  whose array is empty, and
+  `batch file data takes at most 1000 contacts, got <n>` (or `members`) for
+  one with more items
 
-A file the CLI reads, such as a `--recipients` or `--global-substitutions`
-file, or a content file such as `--html-file`, must be UTF-8 text,
+A file the CLI reads, such as a `--recipients`, `--global-substitutions` or
+batch `--file`, or a content file such as `--html-file`, must be UTF-8 text,
 which the API takes. It may start with the UTF-8 byte order mark that
 programs such as Excel write ("CSV UTF-8"); the mark is ignored. A file in
 another encoding fails before any request is sent, with exit code 4:
@@ -708,6 +741,8 @@ whichever flag it conflicts with.
 
 Some commands act on several items and report an outcome for each:
 
+- `contacts batch` and `lists members add` send one request, and the API
+  reports each item's outcome.
 - `messages send` sends one request per 100 recipients, and the API reports
   each recipient's outcome.
 - `messages cancel` with several IDs sends one request per ID.
@@ -717,8 +752,15 @@ failed:
 
 - In `--output json` mode, stdout is only the API response, or the array of
   API responses.
-- The other formats add one line to stderr, such as
-  `101 of 250 recipients failed`.
+- The other formats add one line to stderr, such as `1 of 2 contacts failed`
+  or `101 of 250 recipients failed`.
+
+```bash
+# Stop a script when any contact in the batch failed
+if ! ahasend contacts batch --file contacts.json --output json > result.json; then
+  echo "The batch failed or some contacts failed; see result.json"
+fi
+```
 
 #### Network Limits
 
@@ -1455,6 +1497,440 @@ This action is irreversible. You will need to re-verify the domain if you add it
 
 The DNS records you added for the domain stay with your DNS provider: the
 command cannot change them. Remove them there when you no longer need them.
+
+### Contact Commands
+
+Contacts are account-global records, and these commands do not add a contact to
+a list. Writable attribute keys come from the contact attribute settings in the
+AhaSend dashboard; create the keys there before using them in `--attributes` or
+a batch file.
+
+Commands that take `<id-or-email>` accept a contact ID or a raw email address.
+Pass email addresses raw, including `+`; do not percent-encode them. The SDK
+percent-encodes the value as one path segment exactly once. Email addresses are
+sent as given (see [Email Addresses](#email-addresses)). A value that is empty,
+blank, `.` or `..`, here and on `lists members set` and `remove`, fails before
+any request is sent, with `contact ID or email cannot be empty` or
+`invalid contact ID or email value "<value>": not a contact ID or email` and
+exit code 4.
+
+**Scopes:** `contacts:read` for `contacts list` and `get`, `contacts:write`
+for `create`, `update` and `batch`, and `contacts:delete` for `delete`.
+`contacts memberships` needs `lists:read`.
+
+#### `ahasend contacts list`
+
+List the account's contacts, newest first.
+
+```bash
+# List enabled, subscribed contacts
+ahasend contacts list --status enabled --subscribed=true --limit 50
+
+# Find a contact by its exact email address
+ahasend contacts list --email person@example.com
+
+# List contacts created in the last 7 days, then fetch the next page
+ahasend contacts list --from-time 7d
+ahasend contacts list --from-time 7d --after <cursor>
+```
+
+**Flags:**
+- `--email`: Filter by exact email address
+- `--status`: Filter by status: `enabled`, `disabled` or `blocked`
+- `--subscribed`: Filter by global subscription state; `--subscribed=false`
+  finds unsubscribed contacts
+- `--from-time`, `--to-time`: Filter by creation time, as a
+  [time value](#time-values) such as `2026-09-01T00:00:00Z` or `7d`
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+#### `ahasend contacts get`
+
+Get a contact by ID or email address.
+
+```bash
+# Get a contact by ID
+ahasend contacts get <contact-id>
+
+# Get a contact by email address
+ahasend contacts get 'user+tag@example.com'
+```
+
+#### `ahasend contacts create`
+
+Create a contact. The contact is not added to a list.
+
+```bash
+# Create a contact with a first name
+ahasend contacts create person@example.com --first-name Pat
+
+# Create a contact with attributes and an idempotency key
+ahasend contacts create person@example.com \
+  --first-name Pat \
+  --attributes '{"plan":"pro"}' \
+  --idempotency-key create-person
+```
+
+**Flags:**
+- `--first-name`, `--last-name`: Contact name
+- `--status`: Contact status: `enabled`, `disabled` or `blocked`
+- `--status-reason`: Reason for the status
+- `--unsubscribed`: Create the contact globally unsubscribed
+- `--attributes`: Attributes as a JSON object; a null value is rejected before
+  the request is sent
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend contacts update`
+
+Change a contact. Only the flags you give are sent, and at least one is needed.
+
+```bash
+# Unsubscribe a contact from all mail
+ahasend contacts update person@example.com --unsubscribed=true
+
+# Remove an attribute
+ahasend contacts update person@example.com --attributes '{"old_key":null}'
+
+# Change the email address and clear the last name
+ahasend contacts update person@example.com --email new@example.com --last-name ""
+```
+
+**Flags:**
+- `--email`: New email address
+- `--first-name`, `--last-name`: New name; an empty value clears it
+- `--status`: New status: `enabled`, `disabled` or `blocked`
+- `--status-reason`: New reason for the status; an empty value clears it
+- `--unsubscribed`: Global unsubscribe state; `--unsubscribed=false`
+  resubscribes the contact
+- `--attributes`: Attributes to change as a JSON object; a null value removes
+  that attribute
+
+#### `ahasend contacts delete`
+
+Permanently delete a contact. The command asks for
+[confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Delete a contact
+ahasend contacts delete person@example.com
+
+# Delete a contact without the prompt
+ahasend contacts delete person@example.com --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+<Warning>
+Deleting a contact erases its unsubscribe, list membership, campaign, open and
+click history, and cancels its active workflows (their audit rows are kept).
+This cannot be undone. To stop mail and keep the history, unsubscribe the
+contact instead: `ahasend contacts update person@example.com --unsubscribed=true`.
+</Warning>
+
+#### `ahasend contacts batch`
+
+Create or update up to 1,000 contacts in one request.
+
+```bash
+# Create or update the contacts in a file
+ahasend contacts batch --file contacts.json
+
+# Retry an import safely
+ahasend contacts batch --file contacts.json --idempotency-key import-2026-09-11
+```
+
+**Flags:**
+- `--file`: JSON file holding `{"data":[...]}` (required)
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+The file is a JSON object whose only field is a `data` array; a CSV file is
+not read, and fails with
+`batch file must be a JSON object, {"data": [...]}; CSV is not read`. The
+1,000 limit counts every item, duplicates included:
+
+```json contacts.json
+{
+  "data": [
+    {"email": "new@example.com", "first_name": "New"},
+    {"email": "old@example.com", "attributes": {"obsolete": null}}
+  ]
+}
+```
+
+- Items may hold only contact fields; an unknown field is rejected before the
+  request is sent.
+- A field set to `null` is rejected, because it would change nothing; leave the
+  field out to keep its value. Inside `attributes`, `null` removes that
+  attribute.
+
+The API reports each item's outcome. The command prints the whole result: the
+created, updated and failed counts, then each item's position (its index in
+the file, counted from 0), email, contact ID, outcome and reason; plain output
+numbers the items `Result 1:`, `Result 2:` and so on. It exits with code 1
+when any item failed (see [Per-Item Results](#per-item-results)).
+
+Measure real batch completion time in your environment and pace successive
+requests from that observed duration; do not assume a fixed requests-per-second
+rate. Use a stable idempotency key per logical batch and reuse it only when
+retrying the identical payload.
+
+#### `ahasend contacts memberships`
+
+List the lists a contact belongs to, each with its membership status.
+
+```bash
+# List a contact's lists
+ahasend contacts memberships person@example.com
+
+# List the lists a contact unsubscribed from
+ahasend contacts memberships person@example.com --subscription-status unsubscribed
+```
+
+**Flags:**
+- `--subscription-status`: Filter by membership status: `unconfirmed`,
+  `confirmed`, `unsubscribed` or `complained`
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each membership's list name, list ID, status, and
+subscribe and unsubscribe times; plain and CSV output add the contact's email
+and ID and the membership's created and updated times. A contact on no list
+prints `No lists found`, and a page ends with `Showing N lists`.
+
+### List Commands
+
+Lists are static lists of contacts that campaigns target. A list's contact
+count is the number of members a campaign to the list would reach. List
+members are managed through the nested `lists members` group; a member is one
+contact's membership of one list, with its own subscription status. Contacts
+must exist before they can be added to a list.
+
+**Scopes:** `lists:read` for `lists list`, `get` and `members list`,
+`lists:write` for `create`, `update` and `members add`, `set` and `remove`,
+and `lists:delete` for `delete`; `members list --include-contacts` also needs
+`contacts:read`.
+
+#### `ahasend lists list`
+
+List the account's contact lists, newest first.
+
+```bash
+# List contact lists
+ahasend lists list
+
+# Filter lists by name
+ahasend lists list --name Newsletter --limit 20
+```
+
+**Flags:**
+- `--name`: Filter by list name: the API lists the lists whose name contains
+  the value, ignoring case, so `--name news` finds `Newsletter` and
+  `Weekly News`
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each list's name, ID, tags, contact count, and when it was
+updated.
+
+#### `ahasend lists get`
+
+Get a contact list, including its contact count.
+
+```bash
+ahasend lists get <list-id>
+```
+
+#### `ahasend lists create`
+
+Create a contact list with no members.
+
+```bash
+# Create a list
+ahasend lists create --name Newsletter
+
+# Create a list with a description and two tags
+ahasend lists create --name Newsletter --description "Monthly news" \
+  --tag news --tag monthly --idempotency-key create-newsletter
+
+# The same two tags in one value
+ahasend lists create --name Newsletter --tag news,monthly
+```
+
+**Flags:**
+- `--name`: List name (required)
+- `--description`: List description, within its [length limit](#length-limits)
+- `--tag`: Tag for the list; a [repeatable flag](#repeatable-flags) that splits
+  on commas
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend lists update`
+
+Change a contact list. Only the flags you give are sent, and at least one is
+needed.
+
+```bash
+# Rename a list
+ahasend lists update <list-id> --name "Weekly news"
+
+# Clear the description
+ahasend lists update <list-id> --description ""
+
+# Replace all tags
+ahasend lists update <list-id> --tag news --tag weekly
+
+# Remove every tag
+ahasend lists update <list-id> --clear-tags
+```
+
+**Flags:**
+- `--name`: New list name
+- `--description`: New description, within its [length limit](#length-limits); an empty
+  value clears it
+- `--tag`: New tag, replacing all tags; a [repeatable flag](#repeatable-flags)
+  that splits on commas. An empty value is an error that points to
+  `--clear-tags`.
+- `--clear-tags`: Remove every tag; cannot be combined with `--tag`
+
+#### `ahasend lists delete`
+
+Delete a contact list. The API refuses while a campaign that still needs the
+list refers to it. The command asks for [confirmation](#confirmation-prompts)
+unless `--force` is given.
+
+```bash
+# Delete a list
+ahasend lists delete <list-id>
+
+# Delete a list without the prompt
+ahasend lists delete <list-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+#### `ahasend lists members list`
+
+List a list's members, newest first.
+
+```bash
+# List the members of a list
+ahasend lists members list <list-id>
+
+# Find one confirmed member by email address
+ahasend lists members list <list-id> --subscription-status confirmed --email person@example.com
+
+# List members with their contacts
+ahasend lists members list <list-id> --include-contacts
+```
+
+**Flags:**
+- `--email`: Filter by exact email address
+- `--subscription-status`: Filter by membership status: `unconfirmed`,
+  `confirmed`, `unsubscribed` or `complained`
+- `--include-contacts`: Embed each member's contact; the output then shows
+  the contact's first and last name
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each member's email, contact ID, first and last name
+(`-` without `--include-contacts`), status and subscribe time; plain and CSV
+output add the list ID, the unsubscribe time and the membership's created
+and updated times.
+
+#### `ahasend lists members add`
+
+Add up to 1,000 existing contacts to a list in one request.
+
+```bash
+# Add contacts by email address
+ahasend lists members add <list-id> --email a@example.com --email b@example.com
+
+# The same contacts in one value
+ahasend lists members add <list-id> --email a@example.com,b@example.com
+
+# Add contacts by ID and by email address
+ahasend lists members add <list-id> --contact-id <contact-id> --email c@example.com
+
+# Add the contacts in a file
+ahasend lists members add <list-id> --file members.json --idempotency-key add-2026-09-11
+```
+
+**Flags:**
+- `--email`: Email address of a contact to add; a
+  [repeatable flag](#repeatable-flags) that splits on commas
+- `--contact-id`: ID of a contact to add; a repeatable flag that splits on
+  commas
+- `--file`: JSON file holding `{"data":[...]}`; cannot be combined with
+  `--email` or `--contact-id` (`--file and --email cannot be used together`)
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+`--email` and `--contact-id` can be combined, up to 1,000 values in total;
+more fail before any request with
+`--email and --contact-id take at most 1000 members in total, got <n>` and
+exit code 4. The request lists the emails in order, then the IDs. The file is a JSON object
+whose only field is a `data` array of 1 to 1,000 items, each naming a contact
+by email or by ID; a CSV file is not read, and fails as
+[`contacts batch`](#ahasend-contacts-batch) describes:
+
+```json members.json
+{
+  "data": [
+    {"email": "a@example.com"},
+    {"id": "<contact-id>"}
+  ]
+}
+```
+
+An unknown field, a field set to `null`, or an `id` that is not a UUID is
+rejected before the request is sent.
+
+The API reports each item's outcome: contacts already on the list are skipped,
+and unknown or invalid ones fail with a reason. The command prints the whole
+result: the added, skipped and failed counts, then each item's position,
+email, contact ID, outcome and reason. The contact ID is the one the API
+resolved, also for a member given by email, and the ID given for one it did
+not find. It exits with code 1 when any item failed; skipped contacts are not failures (see
+[Per-Item Results](#per-item-results)).
+
+#### `ahasend lists members set`
+
+Add one existing contact to a list, or change its membership status.
+
+```bash
+# Add a contact to a list
+ahasend lists members set <list-id> person@example.com
+
+# Unsubscribe a contact from a list
+ahasend lists members set <list-id> person@example.com --subscription-status unsubscribed
+```
+
+**Flags:**
+- `--subscription-status`: Membership status to write: `confirmed`,
+  `unconfirmed` or `unsubscribed`
+
+Without `--subscription-status` a new member is confirmed and an existing one
+keeps its status. A complained membership cannot be changed. The output shows
+the membership the API wrote: the email, contact ID, list ID, status, and
+the subscribe, unsubscribe, created and updated times.
+
+#### `ahasend lists members remove`
+
+Remove a contact from a list. This deletes the membership and any unsubscribe
+it records; to stop mail on the list and keep the record, use
+`lists members set --subscription-status unsubscribed` instead. A complained
+membership cannot be removed. The command asks for
+[confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Remove a contact from a list
+ahasend lists members remove <list-id> person@example.com
+
+# Remove a contact without the prompt
+ahasend lists members remove <list-id> person@example.com --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+The output is the API's message. When the API returns none, it is a line
+such as `Contact 'person@example.com' removed from list '<list-id>' successfully`.
 
 ### Message Commands
 
@@ -3243,6 +3719,8 @@ API keys require specific scopes to define permissions. Choose scopes based on t
 - `campaigns:delete` - Delete draft campaigns
 - `campaigns:send` - Send, unschedule and test campaigns
 
+The [contact](#contact-commands) and [list](#list-commands) sections say
+which command needs which of these scopes, and
 [Sub-Account API Keys](#sub-account-api-keys) lists the sub-account scopes.
 
 **Other Scopes:**
@@ -3626,14 +4104,14 @@ Besides commands and flags, the shell completes:
 
 - the values of every flag that takes one of a fixed set, such as
   `--output`, `--status`, `--group-by`, `--scope`, `--events`,
-  `--sandbox-result`, `--sending-type` and `domains create --format`: the
-  values the flag accepts
+  `--sandbox-result`, `--sending-type`, `--subscription-status` and
+  `domains create --format`: the values the flag accepts
 - the profile names in `~/.ahasend/config.yaml` for `--profile` and the
   profile argument of `auth switch` and `auth logout`; completing them reads
   that file only, and completes nothing, silently, when there is none
 - file names for the flags that take a file, such as `--attach`,
-  `--recipients` and `--html-file`, and for nothing else: arguments, such as
-  IDs, and other flags complete no file names
+  `--recipients`, `--html-file` and `contacts batch --file`, and for nothing
+  else: arguments, such as IDs, and other flags complete no file names
 
 The bash script needs the `bash-completion` package: install it with your
 system's package manager, or on macOS with Homebrew
@@ -4010,7 +4488,7 @@ with HTTP 429 exits with code 8.
 These requests are sent once and never retried:
 
 - every DELETE request: the `delete` commands, `messages cancel`,
-  and `suppressions wipe`.
+  `suppressions wipe` and `lists members remove`.
   A delete whose answer was lost would otherwise be sent again and fail with
   HTTP 404 although the first one succeeded.
 - `webhooks trigger`, `routes trigger`, and the request of `webhooks listen`

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/AhaSend/ahasend-cli/internal/apiresponse"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
@@ -18,6 +21,42 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRootJSONPrinterPreservesContactSuccessEnvelope(t *testing.T) {
+	root := NewRootCmdForTesting()
+	root.SetContext(context.Background())
+	var output bytes.Buffer
+	root.SetOut(&output)
+	require.NoError(t, root.ParseFlags([]string{"--output", "json"}))
+	require.NoError(t, initializePrinter(root))
+
+	next := "next"
+	response := &responses.PaginatedContactsResponse{
+		Object: "list",
+		Data: []responses.Contact{{
+			Object:       "contact",
+			Email:        "normalized@example.com",
+			Status:       "active",
+			Unsubscribed: false,
+			Attributes: map[string]any{
+				"profile": map[string]any{"flags": []any{true, nil, 7}},
+			},
+		}},
+		Pagination: responses.ContactPagination{HasMore: true, NextCursor: &next},
+	}
+	handler := printer.GetResponseHandlerFromCommand(root)
+	require.NoError(t, handler.HandleContactList(response, printer.ListConfig{}))
+
+	var actual map[string]any
+	require.NoError(t, json.Unmarshal(output.Bytes(), &actual))
+	assert.Equal(t, "list", actual["object"])
+	assert.Equal(t, "next", actual["pagination"].(map[string]any)["next_cursor"])
+	contact := actual["data"].([]any)[0].(map[string]any)
+	assert.Equal(t, "normalized@example.com", contact["email"])
+	assert.Equal(t, "active", contact["status"])
+	assert.Equal(t, false, contact["unsubscribed"])
+	assert.Equal(t, []any{true, nil, float64(7)}, contact["attributes"].(map[string]any)["profile"].(map[string]any)["flags"])
+}
 
 // API bodies that re-encoding a decoded SDK struct cannot reproduce: keys out
 // of alphabetical order, keys no SDK struct has, keys the SDK struct always
@@ -72,6 +111,8 @@ func captureOSStdout(t *testing.T, fn func()) string {
 // TestJSONOutputIsTheRawAPIResponse runs every command that prints one API
 // response and checks that stdout is that response's body, unchanged.
 func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
+	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
+
 	tests := []struct {
 		name  string
 		args  []string
@@ -89,6 +130,22 @@ func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 			[]apiCall{returns[responses.APIKey]("UpdateAPIKey", rawObjectBody)}, rawObjectBody},
 		{"apikeys delete", []string{"apikeys", "delete", rawTestID, "--force"},
 			[]apiCall{returns[common.SuccessResponse]("DeleteAPIKey", rawMessageBody)}, rawMessageBody},
+
+		// contacts
+		{"contacts create", []string{"contacts", "create", "user@example.com"},
+			[]apiCall{returns[responses.Contact]("CreateContact", rawObjectBody)}, rawObjectBody},
+		{"contacts get", []string{"contacts", "get", "user@example.com"},
+			[]apiCall{returns[responses.Contact]("GetContact", rawObjectBody)}, rawObjectBody},
+		{"contacts list", []string{"contacts", "list"},
+			[]apiCall{returns[responses.PaginatedContactsResponse]("GetContacts", rawListBody)}, rawListBody},
+		{"contacts update", []string{"contacts", "update", "user@example.com", "--first-name", "Ada"},
+			[]apiCall{returns[responses.Contact]("UpdateContact", rawObjectBody)}, rawObjectBody},
+		{"contacts delete", []string{"contacts", "delete", "user@example.com", "--force"},
+			[]apiCall{returns[common.SuccessResponse]("DeleteContact", rawMessageBody)}, rawMessageBody},
+		{"contacts batch", []string{"contacts", "batch", "--file", contactsFile},
+			[]apiCall{returns[responses.BatchUpsertContactsResponse]("BatchUpsertContacts", rawObjectBody)}, rawObjectBody},
+		{"contacts memberships", []string{"contacts", "memberships", "user@example.com"},
+			[]apiCall{returns[responses.PaginatedListContactsResponse]("GetContactLists", rawListBody)}, rawListBody},
 
 		// domains
 		{"domains create", []string{"domains", "create", "example.com"},
@@ -110,6 +167,28 @@ func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 				returns[responses.Domain]("GetDomain", rawObjectBody),
 				returns[common.SuccessResponse]("DeleteDomain", rawMessageBody),
 			}, rawMessageBody},
+
+		// lists
+		{"lists create", []string{"lists", "create", "--name", "Newsletter"},
+			[]apiCall{returns[responses.ContactList]("CreateList", rawObjectBody)}, rawObjectBody},
+		{"lists get", []string{"lists", "get", rawTestID},
+			[]apiCall{returns[responses.ContactList]("GetList", rawObjectBody)}, rawObjectBody},
+		{"lists list", []string{"lists", "list"},
+			[]apiCall{returns[responses.PaginatedContactListsResponse]("GetLists", rawListBody)}, rawListBody},
+		{"lists update", []string{"lists", "update", rawTestID, "--name", "Newsletter"},
+			[]apiCall{returns[responses.ContactList]("UpdateList", rawObjectBody)}, rawObjectBody},
+		{"lists delete", []string{"lists", "delete", rawTestID, "--force"},
+			[]apiCall{returns[common.SuccessResponse]("DeleteList", rawMessageBody)}, rawMessageBody},
+
+		// lists members
+		{"lists members add", []string{"lists", "members", "add", rawTestID, "--email", "user@example.com"},
+			[]apiCall{returns[responses.BatchAddListContactsResponse]("BatchAddListContacts", rawObjectBody)}, rawObjectBody},
+		{"lists members list", []string{"lists", "members", "list", rawTestID},
+			[]apiCall{returns[responses.PaginatedListContactsResponse]("GetListContacts", rawListBody)}, rawListBody},
+		{"lists members set", []string{"lists", "members", "set", rawTestID, "user@example.com", "--subscription-status", "confirmed"},
+			[]apiCall{returns[responses.ListContact]("UpsertListContact", rawObjectBody)}, rawObjectBody},
+		{"lists members remove", []string{"lists", "members", "remove", rawTestID, "user@example.com", "--force"},
+			[]apiCall{returns[common.SuccessResponse]("DeleteListContact", rawMessageBody)}, rawMessageBody},
 
 		// messages
 		{"messages get", []string{"messages", "get", rawTestID},
@@ -315,4 +394,33 @@ func TestJSONOutputOfAnEmptyAPIBodyIsNothing(t *testing.T) {
 
 	assert.Equal(t, 0, code)
 	assert.Empty(t, stdout)
+}
+
+func TestRootPrinterRendersContactInEveryOutputFormat(t *testing.T) {
+	contact := &responses.Contact{
+		Email:        "normalized@example.com",
+		Status:       "active",
+		Unsubscribed: false,
+		Attributes:   map[string]any{"profile": map[string]any{"score": 7}},
+	}
+
+	for _, format := range printer.GetSupportedFormats() {
+		t.Run(format, func(t *testing.T) {
+			root := NewRootCmdForTesting()
+			root.SetContext(context.Background())
+			var output bytes.Buffer
+			root.SetOut(&output)
+			require.NoError(t, root.ParseFlags([]string{"--output", format}))
+			require.NoError(t, initializePrinter(root))
+
+			handler := printer.GetResponseHandlerFromCommand(root)
+			require.Equal(t, format, handler.GetFormat())
+			require.NoError(t, handler.HandleSingleContact(contact, printer.SingleConfig{
+				SuccessMessage: "Contact retrieved",
+			}))
+			assert.Contains(t, output.String(), "normalized@example.com")
+			assert.Contains(t, output.String(), "active")
+			assert.Contains(t, output.String(), "score")
+		})
+	}
 }

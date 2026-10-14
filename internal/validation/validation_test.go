@@ -308,6 +308,19 @@ func TestIsLoopbackHost(t *testing.T) {
 	}
 }
 
+func TestParseUUIDs(t *testing.T) {
+	ids, err := ParseUUIDs("list ID", []string{"11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"})
+	require.NoError(t, err)
+	assert.Len(t, ids, 2)
+
+	ids, err = ParseUUIDs("list ID", nil)
+	require.NoError(t, err)
+	assert.Nil(t, ids)
+
+	_, err = ParseUUIDs("list ID", []string{"11111111-1111-4111-8111-111111111111", "abc"})
+	assert.EqualError(t, err, `invalid list ID value "abc": not a UUID`)
+}
+
 func TestCheckIPAllowListTakesAddressesAndBlocks(t *testing.T) {
 	assert.NoError(t, CheckIPAllowList([]string{"203.0.113.0/24", "198.51.100.7", "2001:db8::1", "2001:db8::/32", "10.0.0.5/8"}))
 }

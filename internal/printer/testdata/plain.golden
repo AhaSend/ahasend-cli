@@ -49,6 +49,35 @@ Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
   Total Bounces: 1
   Bounce Classifications:
     invalid: 1 (100.00%)
+=== contact
+
+Email: normalized@example.com
+ID: 11111111-1111-4111-8111-111111111111
+First Name: Normal
+Last Name: Contact
+Status: active
+Status Reason: confirmed
+Unsubscribed: No
+Attributes: {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"}
+Validation Status: valid
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+=== contact list
+
+Email: normalized@example.com
+ID: 11111111-1111-4111-8111-111111111111
+First Name: Normal
+Last Name: Contact
+Status: active
+Status Reason: confirmed
+Unsubscribed: No
+Attributes: {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"}
+Validation Status: valid
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 1 contact (more available)
+--after next-contact
 === created api key
 
 Label: Production
@@ -193,6 +222,59 @@ DNS Records:
   1. Type: TXT, Host: example.com, Content: v=spf1, Required: No, Propagated: No
 === empty
 Nothing found
+=== list
+
+Name: Newsletter
+ID: 22222222-2222-4222-8222-222222222222
+Description: Monthly news
+Tags: news, weekly
+Contacts: 42
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+=== lists list
+
+Name: Newsletter
+ID: 22222222-2222-4222-8222-222222222222
+Description: Monthly news
+Tags: news, weekly
+Contacts: 42
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 1 list (more available)
+--after next-list
+--before previous-list
+=== member
+
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+List ID: 22222222-2222-4222-8222-222222222222
+Subscription Status: confirmed
+Subscribed At: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+=== members list
+
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+First Name: Pat
+Last Name: Lee
+List ID: 22222222-2222-4222-8222-222222222222
+Subscription Status: confirmed
+Subscribed At: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Email: other@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+List ID: 22222222-2222-4222-8222-222222222222
+Subscription Status: confirmed
+Subscribed At: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 2  (more available)
+--after next-member
 === message
 
 Subject: Hello
@@ -252,7 +334,15 @@ there
 None found
 === no response for SMTP credentials
 None found
+=== no response for contacts
+None found
 === no response for domains
+None found
+=== no response for lists
+None found
+=== no response for members
+None found
+=== no response for memberships
 None found
 === no response for messages
 None found
@@ -272,7 +362,23 @@ None found
 None found
 --after next-page
 --before previous-page
+=== page of 0 contacts
+None found
+--after next-page
+--before previous-page
 === page of 0 domains
+None found
+--after next-page
+--before previous-page
+=== page of 0 lists
+None found
+--after next-page
+--before previous-page
+=== page of 0 members
+None found
+--after next-page
+--before previous-page
+=== page of 0 memberships
 None found
 --after next-page
 --before previous-page
@@ -324,6 +430,23 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Showing 1 SMTP credential (more available)
 --after next-page
 --before previous-page
+=== page of 1 contacts
+Retrieved
+Email: normalized@example.com
+ID: 11111111-1111-4111-8111-111111111111
+First Name: Normal
+Last Name: Contact
+Status: active
+Status Reason: confirmed
+Unsubscribed: No
+Attributes: {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"}
+Validation Status: valid
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 1 contact (more available)
+--after next-page
+--before previous-page
 === page of 1 domains
 Retrieved
 Domain: example.com
@@ -335,6 +458,35 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Last DNS Check: 2026-09-10 10:30:00 UTC+2
 
 Showing 1 domain (more available)
+--after next-page
+--before previous-page
+=== page of 1 lists
+Retrieved
+Name: Newsletter
+ID: 22222222-2222-4222-8222-222222222222
+Description: Monthly news
+Tags: news, weekly
+Contacts: 42
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 1 list (more available)
+--after next-page
+--before previous-page
+=== page of 1 members
+Retrieved
+Email: member@example.com
+Contact ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+Showing 1 member (more available)
+--after next-page
+--before previous-page
+=== page of 1 memberships
+Retrieved
+List: Newsletter
+List ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+Showing 1 membership (more available)
 --after next-page
 --before previous-page
 === page of 1 messages
@@ -465,6 +617,35 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Showing 2 SMTP credentials (more available)
 --after next-page
 --before previous-page
+=== page of 2 contacts
+Retrieved
+Email: normalized@example.com
+ID: 11111111-1111-4111-8111-111111111111
+First Name: Normal
+Last Name: Contact
+Status: active
+Status Reason: confirmed
+Unsubscribed: No
+Attributes: {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"}
+Validation Status: valid
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Email: normalized@example.com
+ID: 11111111-1111-4111-8111-111111111111
+First Name: Normal
+Last Name: Contact
+Status: active
+Status Reason: confirmed
+Unsubscribed: No
+Attributes: {"additionalproperties":{"empty":{},"profile":{"flags":[true,null,"vip"],"score":7}},"segment":"customers"}
+Validation Status: valid
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 2 contacts (more available)
+--after next-page
+--before previous-page
 === page of 2 domains
 Retrieved
 Domain: example.com
@@ -484,6 +665,49 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Last DNS Check: 2026-09-10 10:30:00 UTC+2
 
 Showing 2 domains (more available)
+--after next-page
+--before previous-page
+=== page of 2 lists
+Retrieved
+Name: Newsletter
+ID: 22222222-2222-4222-8222-222222222222
+Description: Monthly news
+Tags: news, weekly
+Contacts: 42
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Name: Newsletter
+ID: 22222222-2222-4222-8222-222222222222
+Description: Monthly news
+Tags: news, weekly
+Contacts: 42
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+
+Showing 2 lists (more available)
+--after next-page
+--before previous-page
+=== page of 2 members
+Retrieved
+Email: member@example.com
+Contact ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+Email: member@example.com
+Contact ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+Showing 2 members (more available)
+--after next-page
+--before previous-page
+=== page of 2 memberships
+Retrieved
+List: Newsletter
+List ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+List: Newsletter
+List ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+
+Showing 2 memberships (more available)
 --after next-page
 --before previous-page
 === page of 2 messages
@@ -732,6 +956,16 @@ Profile: default
 
 Account Details:
   Name: Acme
+=== sparse contact
+
+Email: user@example.com
+Unsubscribed: No
+=== sparse contact list
+
+Email: user@example.com
+Unsubscribed: No
+
+Showing 1 contact
 === sparse created api key
 
 Label: Production
@@ -779,6 +1013,24 @@ Domain: example.com
 DNS Status: Invalid
 
 Showing 1 domain
+=== sparse list
+
+Name: Newsletter
+Contacts: 0
+=== sparse lists list
+
+Name: Newsletter
+Contacts: 0
+
+Showing 1 list
+=== sparse member
+
+Email: member@example.com
+=== sparse members list
+
+Email: member@example.com
+
+Showing 1 
 === sparse message
 
 Subject: Hello

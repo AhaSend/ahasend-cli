@@ -16,6 +16,9 @@ var (
 	Scopes = []string{"global", "scoped"}
 	// SandboxResults are the results a sandbox send simulates.
 	SandboxResults = []string{"deliver", "bounce", "defer", "fail", "suppress"}
+	// SubscriptionStatusFilters are the membership statuses a list of
+	// memberships can be filtered by.
+	SubscriptionStatusFilters = []string{"unconfirmed", "confirmed", "unsubscribed", "complained"}
 )
 
 // oneOfAnnotation holds the values of a flag added by AddOneOfFlag.

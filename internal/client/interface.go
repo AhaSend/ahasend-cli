@@ -95,4 +95,24 @@ type AhaSendClient interface {
 	CreateAPIKey(req requests.CreateAPIKeyRequest, opts ...api.RequestOption) (*responses.APIKey, error)
 	UpdateAPIKey(keyID uuid.UUID, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
 	DeleteAPIKey(keyID uuid.UUID) (*common.SuccessResponse, error)
+
+	// Contact operations
+	GetContacts(params requests.GetContactsParams) (*responses.PaginatedContactsResponse, error)
+	GetContact(idOrEmail string) (*responses.Contact, error)
+	CreateContact(req requests.CreateContactRequest, opts ...api.RequestOption) (*responses.Contact, error)
+	UpdateContact(idOrEmail string, req requests.UpdateContactRequest) (*responses.Contact, error)
+	DeleteContact(idOrEmail string) (*common.SuccessResponse, error)
+	BatchUpsertContacts(req requests.BatchUpsertContactsRequest, opts ...api.RequestOption) (*responses.BatchUpsertContactsResponse, error)
+
+	// List operations
+	GetLists(params requests.GetListsParams) (*responses.PaginatedContactListsResponse, error)
+	GetList(listID uuid.UUID) (*responses.ContactList, error)
+	CreateList(req requests.CreateListRequest, opts ...api.RequestOption) (*responses.ContactList, error)
+	UpdateList(listID uuid.UUID, req requests.UpdateListRequest) (*responses.ContactList, error)
+	DeleteList(listID uuid.UUID) (*common.SuccessResponse, error)
+	GetListContacts(listID uuid.UUID, params requests.GetListContactsParams) (*responses.PaginatedListContactsResponse, error)
+	BatchAddListContacts(listID uuid.UUID, req requests.BatchAddListContactsRequest, opts ...api.RequestOption) (*responses.BatchAddListContactsResponse, error)
+	UpsertListContact(listID uuid.UUID, idOrEmail string, req requests.UpsertListContactRequest) (*responses.ListContact, error)
+	DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error)
+	GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error)
 }

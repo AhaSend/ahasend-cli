@@ -42,6 +42,8 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 	sandboxResults := []string{"deliver", "bounce", "defer", "fail", "suppress"}
 	scopes := []string{"global", "scoped"}
 	sendingTypes := []string{"transactional", "marketing"}
+	contactStatuses := []string{"enabled", "disabled", "blocked"}
+	filters := []string{"unconfirmed", "confirmed", "unsubscribed", "complained"}
 	events := []string{"reception", "delivered", "transient_error", "failed", "bounced", "suppressed", "opened",
 		"clicked", "suppression_created", "dns_error", "message.reception", "message.delivered",
 		"message.transient_error", "message.failed", "message.bounced", "message.suppressed", "message.opened",
@@ -66,6 +68,13 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 		{[]string{"webhooks", "update", rawTestID, "--events"}, events},
 		{[]string{"webhooks", "trigger", rawTestID, "--events"}, events},
 		{[]string{"webhooks", "listen", "--events"}, events},
+		{[]string{"contacts", "create", "a@example.com", "--status"}, contactStatuses},
+		{[]string{"contacts", "update", "a@example.com", "--status"}, contactStatuses},
+		{[]string{"contacts", "list", "--status"}, contactStatuses},
+		{[]string{"contacts", "memberships", "a@example.com", "--subscription-status"}, filters},
+		{[]string{"lists", "members", "list", rawTestID, "--subscription-status"}, filters},
+		{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status"},
+			[]string{"confirmed", "unconfirmed", "unsubscribed"}},
 		{[]string{"stats", "bounces", "--group-by"}, []string{"hour", "day", "week", "month"}},
 	}
 	for _, test := range tests {
@@ -143,6 +152,7 @@ func TestOnlyFileFlagsCompleteFileNames(t *testing.T) {
 		{"messages", "send", "--attach"},
 		{"messages", "send", "--text-template"},
 		{"smtp", "send", "--html-file"},
+		{"contacts", "batch", "--file"},
 		{"domains", "create", "example.com", "--dkim-private-key-file"},
 	} {
 		_, directive := complete(t, append(args, "")...)
