@@ -2,7 +2,9 @@ package apikeys
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -10,7 +12,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <key-id>",
-		Short: "Get detailed information about a specific API key",
+		Short: "Get an API key",
 		Long: `Get detailed information about a specific API key by its ID.
 
 This command shows comprehensive details about an API key including:
@@ -22,12 +24,13 @@ This command shows comprehensive details about an API key including:
 The secret value is never displayed for security reasons. If you need to
 retrieve the secret, you must create a new API key.`,
 		Example: `  # Get API key details
-  ahasend apikeys get ak_1234567890abcdef
+  ahasend apikeys get fcb3f3bc-4ac8-4330-948d-1671fcf9a768
 
   # JSON output for automation
-  ahasend apikeys get ak_1234567890abcdef --output json`,
-		Args: cobra.ExactArgs(1),
-		RunE: runAPIKeyGet,
+  ahasend apikeys get fcb3f3bc-4ac8-4330-948d-1671fcf9a768 --output json`,
+		Args:         cmdutil.ExactArgs(1),
+		RunE:         runAPIKeyGet,
+		SilenceUsage: true,
 	}
 
 	return cmd
@@ -38,6 +41,10 @@ func runAPIKeyGet(cmd *cobra.Command, args []string) error {
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
 	keyID := args[0]
+	keyUUID, err := validation.ParseUUIDField("API key ID", keyID)
+	if err != nil {
+		return err
+	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
@@ -45,15 +52,14 @@ func runAPIKeyGet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get API key details
-	apiKey, err := client.GetAPIKey(keyID)
+	apiKey, err := client.GetAPIKey(keyUUID)
 	if err != nil {
 		return err
 	}
 
 	// Handle successful response
 	return handler.HandleSingleAPIKey(apiKey, printer.SingleConfig{
-		SuccessMessage: "API Key Details",
+		SuccessMessage: "API key retrieved successfully",
 		EmptyMessage:   "API key not found",
-		FieldOrder:     []string{"id", "label", "scopes", "created_at", "updated_at"},
 	})
 }

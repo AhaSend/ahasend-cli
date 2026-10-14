@@ -21,14 +21,7 @@ func GetResponseHandlerFromCommand(cmd *cobra.Command) ResponseHandler {
 		}
 	}
 
-	// Fallback to table handler if context is not available
-	// This shouldn't happen in normal execution since root command sets it up
-	return GetResponseHandler("table", true, cmd.OutOrStdout())
-}
-
-// ValidateOutputFormat validates the --output flag value
-// Commands can use this for early validation if needed
-func ValidateOutputFormat(cmd *cobra.Command) error {
-	outputFormat, _ := cmd.Flags().GetString("output")
-	return ValidateFormat(outputFormat)
+	// Fall back to plain, the CLI's default format, when the root command
+	// did not set the handler up, as for a command run on its own
+	return &plainHandler{handlerBase: handlerBase{writer: displayWriter{w: cmd.OutOrStdout()}, errWriter: displayWriter{w: cmd.ErrOrStderr()}}}
 }

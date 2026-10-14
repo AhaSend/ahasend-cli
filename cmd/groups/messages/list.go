@@ -3,17 +3,14 @@ package messages
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
-	"github.com/AhaSend/ahasend-cli/internal/output"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	ahasend "github.com/AhaSend/ahasend-go"
-	"github.com/AhaSend/ahasend-go/models/common"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -22,14 +19,18 @@ func NewListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List messages",
-		Long: `List messages with filtering and pagination support.
+		Long: `List messages, with cursor pagination. Filter by sender, recipient,
+subject, status, message ID, tag and date range.
 
-List messages with optional filtering by sender, recipient, subject, status, message ID, and date range.
+--sender matches the sender address exactly. --recipient and --subject match
+every message whose recipient or subject contains the value, case-sensitively:
+--recipient user@example.com also matches olduser@example.com.
 
-Status filtering supports single or multiple flags:
-  - Single: --status delivered
-  - Multiple: --status delivered --status bounced --status failed
-  - Valid statuses: received, delivered, deferred, bounced, failed, suppressed, sandbox delivered, sandbox deferred, sandbox failed, sandbox bounced, sandbox suppressed
+--status can be used multiple times: --status delivered --status bounced.
+Valid statuses: received, delivered, opened, clicked, deferred, bounced,
+failed, suppressed, sandbox delivered, sandbox deferred, sandbox failed,
+sandbox bounced, sandbox suppressed. Delivered also matches opened and
+clicked messages, and opened also matches clicked ones.
 
 Date/time values should be in RFC3339 format (e.g., 2024-01-15T10:30:00Z).
 For relative times, you can use:
@@ -62,7 +63,7 @@ For relative times, you can use:
   ahasend messages list --from-time 2024-01-01T00:00:00Z --to-time 2024-01-31T23:59:59Z
 
   # List messages with specific tags
-  ahasend messages list --tags welcome --tags onboarding
+  ahasend messages list --tag welcome --tag onboarding
 
   # List with multiple filters
   ahasend messages list --sender noreply@example.com --recipient user@example.com --subject "Welcome" --status delivered --status deferred
@@ -72,23 +73,25 @@ For relative times, you can use:
 
   # Export to JSON
   ahasend messages list --output json`,
+		Args:         cmdutil.NoArgs,
 		RunE:         runMessagesList,
 		SilenceUsage: true,
 	}
 
 	// Filter parameters
-	cmd.Flags().String("sender", "", "Sender email address (must be from your domain)")
-	cmd.Flags().String("recipient", "", "Filter by recipient email address")
-	cmd.Flags().String("subject", "", "Filter by subject text (partial match)")
+	cmd.Flags().String("sender", "", "Filter by sender email address (must be from your domain)")
+	cmd.Flags().String("recipient", "", "Filter by recipient: addresses that contain the value, such as @example.com")
+	cmd.Flags().String("subject", "", "Filter by subject text (matches subjects that contain it)")
 	cmd.Flags().String("message-id", "", "Filter by message ID header")
-	cmd.Flags().StringSlice("status", []string{}, "Filter by message status (can be used multiple times)")
-	cmd.Flags().StringSlice("tags", []string{}, "Filter by tags (can be used multiple times)")
+	cmdutil.AddRepeatableOneOfFlag(cmd, "status", "Filter by message status: %s (can be used multiple times)", messageStatuses)
+	cmdutil.AddRepeatableFlag(cmd, "tag", "Filter by tag, at most 20, none with a comma (can be used multiple times)")
+	cmdutil.AddFlagAlias(cmd, "tags", "tag")
 	cmd.Flags().String("from-time", "", "Filter messages created after this time (RFC3339 or relative like '24h', '7d')")
 	cmd.Flags().String("to-time", "", "Filter messages created before this time (RFC3339 or relative)")
 
 	// Pagination parameters
-	cmd.Flags().Int("limit", 100, "Maximum number of messages to return (1-100)")
-	cmd.Flags().String("cursor", "", "Pagination cursor for next page")
+	cmdutil.AddPaginationFlags(cmd)
+	cmdutil.AddLegacyCursorAlias(cmd)
 
 	// Display options
 	cmd.Flags().Bool("show-details", false, "Show detailed message information")
@@ -96,9 +99,72 @@ For relative times, you can use:
 	return cmd
 }
 
+// messageStatuses are the values of --status, as users type them. The API
+// spells each with every word capitalized, such as "Sandbox Delivered".
+var messageStatuses = []string{
+	"received", "delivered", "opened", "clicked", "deferred", "bounced", "failed", "suppressed",
+	"sandbox delivered", "sandbox deferred", "sandbox failed", "sandbox bounced", "sandbox suppressed",
+}
+
+// maxTagFilters is the most tags the API filters messages by.
+const maxTagFilters = 20
+
+// readMessageStatuses returns the --status values, in the API's spelling, as
+// the comma-separated filter the API takes, or nil when there are none.
+func readMessageStatuses(cmd *cobra.Command, statuses []string) (*string, error) {
+	apiStatuses := make([]string, len(statuses))
+	for i, status := range statuses {
+		value, err := cmdutil.MatchOneOf(cmd, "status", strings.TrimSpace(status))
+		if err != nil {
+			return nil, err
+		}
+		words := strings.Fields(value)
+		for j, word := range words {
+			words[j] = strings.ToUpper(word[:1]) + word[1:]
+		}
+		apiStatuses[i] = strings.Join(words, " ")
+	}
+	return cmdutil.JoinFilter(apiStatuses), nil
+}
+
 func runMessagesList(cmd *cobra.Command, args []string) error {
 	// Get response handler instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
+
+	statuses, err := cmdutil.ReadRepeatable(cmd, "status", "")
+	if err != nil {
+		return err
+	}
+	tags, err := cmdutil.ReadFilterTags(cmd)
+	if err != nil {
+		return err
+	}
+	if len(tags) > maxTagFilters {
+		return errors.NewValidationError(fmt.Sprintf("--%s takes at most %d tags, got %d", cmdutil.TypedName(cmd, "tag"), maxTagFilters, len(tags)), nil)
+	}
+	// The API matches the sender exactly, and a recipient that contains the
+	// value, so only the sender must be an address.
+	if sender := cmdutil.NonEmptyString(cmd, "sender"); sender != nil {
+		if err := validation.ValidateEmail("--sender", *sender); err != nil {
+			return err
+		}
+	}
+	showDetails, _ := cmd.Flags().GetBool("show-details")
+
+	pagination, err := cmdutil.ReadPaginationParams(cmd)
+	if err != nil {
+		return err
+	}
+
+	normalizedStatus, err := readMessageStatuses(cmd, statuses)
+	if err != nil {
+		return err
+	}
+
+	fromTime, toTime, err := cmdutil.ReadPastTimeRange(cmd)
+	if err != nil {
+		return err
+	}
 
 	// Get authenticated client
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -106,111 +172,26 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Parse the account ID from client
-	accountID, err := uuid.Parse(client.GetAccountID())
-	if err != nil {
-		return errors.NewConfigError("invalid account ID", err)
-	}
-
-	// Get flags
-	sender, _ := cmd.Flags().GetString("sender")
-	recipient, _ := cmd.Flags().GetString("recipient")
-	subject, _ := cmd.Flags().GetString("subject")
-	messageID, _ := cmd.Flags().GetString("message-id")
-	statuses, _ := cmd.Flags().GetStringSlice("status")
-	tags, _ := cmd.Flags().GetStringSlice("tags")
-	fromTimeStr, _ := cmd.Flags().GetString("from-time")
-	toTimeStr, _ := cmd.Flags().GetString("to-time")
-	limit, _ := cmd.Flags().GetInt("limit")
-	cursor, _ := cmd.Flags().GetString("cursor")
-	showDetails, _ := cmd.Flags().GetBool("show-details")
-
-	// Validate limit
-	if limit < 1 || limit > 100 {
-		return errors.NewValidationError("limit must be between 1 and 100", nil)
-	}
-
-	// Validate and normalize status if provided
-	var normalizedStatus string
-	if len(statuses) > 0 {
-		// Map of user-friendly input to API format
-		statusMap := map[string]string{
-			"received":           "Received",
-			"delivered":          "Delivered",
-			"deferred":           "Deferred",
-			"bounced":            "Bounced",
-			"failed":             "Failed",
-			"suppressed":         "Suppressed",
-			"sandbox delivered":  "Sandbox Delivered",
-			"sandbox deferred":   "Sandbox Deferred",
-			"sandbox failed":     "Sandbox Failed",
-			"sandbox bounced":    "Sandbox Bounced",
-			"sandbox suppressed": "Sandbox Suppressed",
-		}
-
-		var normalizedList []string
-		for _, s := range statuses {
-			s = strings.TrimSpace(strings.ToLower(s))
-			if apiStatus, valid := statusMap[s]; valid {
-				normalizedList = append(normalizedList, apiStatus)
-			} else {
-				validInputs := make([]string, 0, len(statusMap))
-				for k := range statusMap {
-					validInputs = append(validInputs, k)
-				}
-				return errors.NewValidationError(fmt.Sprintf("invalid status '%s'. Valid statuses: %s", s, strings.Join(validInputs, ", ")), nil)
-			}
-		}
-		normalizedStatus = strings.Join(normalizedList, ",")
-	}
-
-	// Parse time filters
-	var fromTime, toTime *time.Time
-	if fromTimeStr != "" {
-		t, err := output.ParseTimePast(fromTimeStr)
-		if err != nil {
-			return err
-		}
-		fromTime = &t
-	}
-
-	if toTimeStr != "" {
-		t, err := output.ParseTimePast(toTimeStr)
-		if err != nil {
-			return err
-		}
-		toTime = &t
-	}
-
 	// Log the operation
 	logger.Get().WithFields(map[string]interface{}{
-		"account_id": accountID.String(),
-		"sender":     sender,
-		"recipient":  recipient,
-		"subject":    subject,
-		"message_id": messageID,
+		"account_id": client.GetAccountID(),
 		"statuses":   statuses,
 		"tags":       tags,
 		"from_time":  fromTime,
 		"to_time":    toTime,
-		"limit":      limit,
-		"cursor":     cursor,
 	}).Debug("Listing messages")
 
 	// Build parameters for the client wrapper
 	params := requests.GetMessagesParams{
-		Status:          ahasend.String(normalizedStatus),
-		Tags:            tags,
-		Sender:          ahasend.String(sender),
-		Recipient:       ahasend.String(recipient),
-		Subject:         ahasend.String(subject),
-		MessageIDHeader: ahasend.String(messageID),
-		FromTime:        fromTime,
-		ToTime:          toTime,
-		PaginationParams: common.PaginationParams{
-			Limit:  ahasend.Int32(int32(limit)),
-			Cursor: ahasend.String(cursor),
-		},
+		Status:           normalizedStatus,
+		Tags:             tags,
+		Sender:           cmdutil.NonEmptyString(cmd, "sender"),
+		Recipient:        cmdutil.NonEmptyString(cmd, "recipient"),
+		Subject:          cmdutil.NonEmptyString(cmd, "subject"),
+		MessageIDHeader:  cmdutil.NonEmptyString(cmd, "message-id"),
+		FromTime:         fromTime,
+		ToTime:           toTime,
+		PaginationParams: pagination,
 	}
 
 	// Execute the request through our client wrapper (includes retry logic and logging)
@@ -219,16 +200,9 @@ func runMessagesList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Use the new ResponseHandler to display message list
-	fieldOrder := []string{"id", "sender", "recipient", "subject", "status", "created", "delivered", "opens", "clicks"}
-	if showDetails {
-		fieldOrder = append(fieldOrder, "message_id", "direction", "domain_id", "attempts", "tags", "bounce_class", "retain_until")
-	}
-
 	return handler.HandleMessageList(response, printer.ListConfig{
 		SuccessMessage: "Messages retrieved successfully",
-		EmptyMessage:   "No messages found matching criteria",
-		ShowPagination: true,
-		FieldOrder:     fieldOrder,
+		EmptyMessage:   "No messages found",
+		Detailed:       showDetails,
 	})
 }

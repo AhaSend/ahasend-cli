@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -16,17 +18,17 @@ func NewTriggerCommand() *cobra.Command {
 		Short: "Trigger route events for testing",
 		Long: `Trigger route events for development and testing purposes.
 
-This command allows you to manually trigger a message.routing event to test your
-route endpoints without waiting for actual inbound emails. This is particularly
-useful during development and integration testing.
+The command triggers a message.routing event to test your route endpoints
+without waiting for actual inbound emails. This is particularly useful during
+development and integration testing.
 
 The route ID can be found using the 'ahasend routes list' command.
 
-Note: This is a development-only feature and may not be available in
-production environments.`,
+A disabled route gets no event: the API answers that it is queued, and then
+drops it.`,
 		Example: `  # Trigger a route event
   ahasend routes trigger abcd1234-5678-90ef-abcd-1234567890ab`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runRoutesTrigger,
 		SilenceUsage: true,
 	}
@@ -35,15 +37,17 @@ production environments.`,
 }
 
 func runRoutesTrigger(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
-	client, err := auth.GetAuthenticatedClient(cmd)
+	routeID := args[0]
+	routeUUID, err := validation.ParseUUIDField("route ID", routeID)
 	if err != nil {
 		return err
 	}
 
-	routeID := args[0]
+	handler := printer.GetResponseHandlerFromCommand(cmd)
+	client, err := auth.GetAuthenticatedClient(cmd)
+	if err != nil {
+		return err
+	}
 
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
@@ -51,15 +55,15 @@ func runRoutesTrigger(cmd *cobra.Command, args []string) error {
 	}).Debug("Executing routes trigger command")
 
 	// Trigger the route
-	err = client.TriggerRoute(routeID)
+	response, err := client.TriggerRoute(routeUUID)
 	if err != nil {
 		return err
 	}
 
 	// Show success message
-	successMsg := fmt.Sprintf("Successfully triggered route event for route ID: %s", routeID)
+	successMsg := fmt.Sprintf("Route '%s' triggered successfully", routeID)
 
-	return handler.HandleTriggerRoute(routeID, printer.TriggerConfig{
+	return handler.HandleSuccessResponse(response, printer.ResultConfig{
 		SuccessMessage: successMsg,
 	})
 }

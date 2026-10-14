@@ -2,6 +2,7 @@ package subaccounts
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ account and its sub-accounts, including reception counts and allocated cost.`,
 
   # Show sub-account usage with JSON output
   ahasend subaccounts usage --output json`,
-		Args:         cobra.NoArgs,
+		Args:         cmdutil.NoArgs,
 		RunE:         runSubAccountsUsage,
 		SilenceUsage: true,
 	}
@@ -43,10 +44,6 @@ func runSubAccountsUsage(cmd *cobra.Command, args []string) error {
 	response, err := client.GetSubAccountsUsage()
 	if err != nil {
 		return err
-	}
-
-	if response == nil {
-		return handler.HandleEmpty("No sub-account usage data found")
 	}
 
 	// Handle successful usage response

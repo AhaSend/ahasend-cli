@@ -6,15 +6,18 @@ on:
       - 'v*.*.*'
 
 env:
-  GO_VERSION: '1.26'
+  # The toolchain line of go.mod; make check-go-version checks it
+  GO_VERSION: '1.27.2'
 
-permissions:
-  contents: write
+# Each job asks for the permissions it needs
+permissions: {}
 
 jobs:
   test:
     name: Test before release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +29,17 @@ jobs:
           cache: false
 
       - name: Download dependencies
-        run: make deps
+        run: go mod download
+
+      # The release builds only after these pass, as CI checks them
+      - name: Check go.mod and go.sum are tidy
+        run: make deps-check
+
+      - name: Check THIRD_PARTY_NOTICES is current
+        run: make notices-check
+
+      - name: Check the Go version is the same everywhere
+        run: make check-go-version
 
       - name: Run tests
         run: make test
@@ -35,6 +48,8 @@ jobs:
     name: Build and Release
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,20 +63,24 @@ jobs:
           cache: false
 
       - name: Download dependencies
-        run: make deps
-
-      - name: Build all binaries
-        run: VERSION=${{ steps.version.outputs.VERSION }} make build-all
-
-      - name: Generate checksums
-        run: |
-          cd bin
-          sha256sum * > checksums.txt
-          cat checksums.txt
+        run: go mod download
 
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build all binaries
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: make build-all
+
+      # The licence files are release assets too, so the checksums cover them
+      - name: Generate checksums
+        run: |
+          cp LICENSE THIRD_PARTY_NOTICES bin/
+          cd bin
+          sha256sum * > checksums.txt
+          cat checksums.txt
 
       - name: Generate changelog
         id: changelog
@@ -102,9 +121,16 @@ jobs:
 
             Download the appropriate binary for your platform from the assets below.
 
-            ### Linux
+            ### Linux (x86-64)
             ```bash
             curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-linux-amd64 -o ahasend
+            chmod +x ahasend
+            sudo mv ahasend /usr/local/bin/
+            ```
+
+            ### Linux (ARM64)
+            ```bash
+            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-linux-arm64 -o ahasend
             chmod +x ahasend
             sudo mv ahasend /usr/local/bin/
             ```
@@ -124,7 +150,7 @@ jobs:
             ```
 
             ### Windows
-            Download `ahasend-windows-amd64.exe` and add it to your PATH.
+            Download `ahasend-windows-amd64.exe` (or `ahasend-windows-arm64.exe` on ARM64) and add it to your PATH.
 
             ## Checksums
 
@@ -136,13 +162,16 @@ jobs:
             See `checksums.txt` in the release assets for the expected values.
           files: |
             bin/ahasend-linux-amd64
+            bin/ahasend-linux-arm64
             bin/ahasend-darwin-amd64
             bin/ahasend-darwin-arm64
             bin/ahasend-windows-amd64.exe
+            bin/ahasend-windows-arm64.exe
             bin/checksums.txt
+            bin/LICENSE
+            bin/THIRD_PARTY_NOTICES
           draft: false
           prerelease: false
-          generate_release_notes: true
 
   docker:
     name: Build and Push Docker Image
@@ -161,7 +190,13 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/}
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "VERSION_WITHOUT_V=${VERSION#v}" >> $GITHUB_OUTPUT
-          echo "REPO_OWNER_LOWER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "REPO_OWNER_LOWER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      # QEMU runs the arm64 image's setup steps; Go cross-compiles the binary
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -187,7 +222,11 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+            GIT_COMMIT=${{ steps.version.outputs.GIT_COMMIT }}
+            BUILD_TIME=${{ steps.version.outputs.BUILD_TIME }}
           tags: |
             ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION }}
             ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION_WITHOUT_V }}

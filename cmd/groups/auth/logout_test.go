@@ -4,28 +4,14 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestLogoutCommand_Structure(t *testing.T) {
-	logoutCmd := NewLogoutCommand()
-	assert.Equal(t, "logout", logoutCmd.Name())
-	assert.Equal(t, "Log out and remove stored credentials", logoutCmd.Short)
-	assert.NotEmpty(t, logoutCmd.Long)
-	assert.NotEmpty(t, logoutCmd.Example)
-}
-
-func TestLogoutCommand_Flags(t *testing.T) {
-	// Test that logout command has required flags
-	logoutCmd := NewLogoutCommand()
-	flags := logoutCmd.Flags()
-
-	allFlag := flags.Lookup("all")
-	assert.NotNil(t, allFlag)
-}
 
 func TestLogoutCommand_ArgumentParsing(t *testing.T) {
 	tests := []struct {
@@ -77,10 +63,7 @@ func TestLogoutCommand_ArgumentParsing(t *testing.T) {
 }
 
 func TestLogoutCommand_ExecutionFlow(t *testing.T) {
-	tempDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHome)
-	os.Setenv("HOME", tempDir)
+	tempDir := testutil.UseNewHome(t)
 
 	// Create .ahasend directory
 	configDir := filepath.Join(tempDir, ".ahasend")
@@ -120,7 +103,7 @@ profiles:
 		},
 		{
 			name:        "logout all profiles",
-			args:        []string{"--all"},
+			args:        []string{"--all", "--force"},
 			expectError: false,
 		},
 		{
@@ -155,23 +138,6 @@ profiles:
 	}
 }
 
-func TestLogoutCommand_Help(t *testing.T) {
-	cmd := NewLogoutCommand()
-
-	// Capture help output
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs([]string{"--help"})
-
-	err := cmd.Execute()
-	assert.NoError(t, err)
-
-	helpOutput := buf.String()
-	assert.Contains(t, helpOutput, "Remove stored")
-	assert.Contains(t, helpOutput, "--all")
-}
-
 func TestLogoutCommand_DefaultValues(t *testing.T) {
 	cmd := NewLogoutCommand()
 
@@ -204,4 +170,78 @@ func BenchmarkLogoutCommand_FlagParsing(b *testing.B) {
 		cmd.ResetFlags()
 		cmd = NewLogoutCommand()
 	}
+}
+
+// TestLogoutWithoutProfilesPrintsTheAuthResult checks that logout prints the
+// auth result shape, success included, when there is nothing to log out of.
+func TestLogoutWithoutProfilesPrintsTheAuthResult(t *testing.T) {
+	tests := map[string]string{
+		"json":  "{\n  \"profile\": \"\",\n  \"success\": true,\n  \"message\": \"No authentication profiles found\"\n}\n",
+		"csv":   "profile,success,message\n,true,No authentication profiles found\n",
+		"plain": "No authentication profiles found\n",
+	}
+	for format, want := range tests {
+		t.Run(format, func(t *testing.T) {
+			testutil.UseNewHome(t)
+
+			stdout, _, err := testutil.RunCommand(t, NewLogoutCommand(), format, "")
+
+			require.NoError(t, err)
+			assert.Equal(t, want, stdout)
+		})
+	}
+}
+
+// TestLogoutAllAsksForConfirmation checks that --all asks on stderr before it
+// removes every profile, that declining or ending stdin keeps the profiles
+// and exits 4, and that --force or a "y" removes them.
+func TestLogoutAllAsksForConfirmation(t *testing.T) {
+	tests := map[string]struct {
+		stdin   string
+		args    []string
+		removed bool
+		err     string
+	}{
+		"declined":     {stdin: "n\n", args: []string{"--all"}, err: "operation cancelled"},
+		"end of input": {stdin: "", args: []string{"--all"}, err: "operation cancelled; use --force to skip the confirmation"},
+		"accepted":     {stdin: "y\n", args: []string{"--all"}, removed: true},
+		"forced":       {stdin: "", args: []string{"--all", "--force"}, removed: true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			home := testutil.UseNewHome(t)
+			path := testutil.WriteProfiles(t, home, "http://127.0.0.1:1", "11111111-1111-4111-8111-111111111111", "default", "production")
+
+			stdout, stderr, err := testutil.RunCommand(t, NewLogoutCommand(), "plain", test.stdin, test.args...)
+
+			config, readErr := os.ReadFile(path)
+			require.NoError(t, readErr)
+			if test.removed {
+				require.NoError(t, err)
+				assert.Equal(t, "Logged out from all profiles (2 removed)\n", stdout)
+				assert.NotContains(t, string(config), "production")
+			} else {
+				require.Error(t, err)
+				assert.Equal(t, 4, clierrors.GetExitCode(err))
+				assert.Equal(t, test.err, err.Error())
+				assert.Empty(t, stdout)
+				assert.Contains(t, string(config), "production")
+			}
+			if slices.Contains(test.args, "--force") {
+				assert.Empty(t, stderr)
+			} else {
+				assert.Contains(t, stderr, "Are you sure you want to log out of all 2 profiles and delete their stored API keys? (y/N): ")
+			}
+		})
+	}
+}
+
+// TestLogoutForceNeedsAll checks that --force without --all is refused.
+func TestLogoutForceNeedsAll(t *testing.T) {
+	testutil.UseNewHome(t)
+
+	_, _, err := testutil.RunCommand(t, NewLogoutCommand(), "plain", "", "--force")
+
+	require.EqualError(t, err, "--force needs --all")
+	assert.Equal(t, 4, clierrors.GetExitCode(err))
 }

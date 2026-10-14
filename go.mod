@@ -1,44 +1,39 @@
 module github.com/AhaSend/ahasend-cli
 
-go 1.26.1
+go 1.26.0
+
+toolchain go1.27.2
 
 require (
-	github.com/AhaSend/ahasend-go v0.0.0-20260615154630-644dd6729972
+	github.com/AhaSend/ahasend-go v0.3.2
+	github.com/fatih/color v1.19.0
 	github.com/google/uuid v1.6.0
-	github.com/olekukonko/tablewriter v1.0.9
-	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.9.1
-	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
-	golang.org/x/term v0.34.0
-	golang.org/x/time v0.12.0
+	github.com/gorilla/websocket v1.5.3
+	github.com/olekukonko/tablewriter v1.1.5
+	github.com/sirupsen/logrus v1.10.2
+	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
+	github.com/stretchr/testify v1.12.1
+	golang.org/x/sys v0.49.0
+	golang.org/x/term v0.47.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fatih/color v1.18.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/clipperhouse/displaywidth v0.10.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/olekukonko/errors v1.1.0 // indirect
-	github.com/olekukonko/ll v0.0.9 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sagikazarmark/locafero v0.10.0 // indirect
-	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
-	github.com/spf13/afero v1.14.0 // indirect
-	github.com/spf13/cast v1.9.2 // indirect
-	github.com/spf13/pflag v1.0.7 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/subosito/gotenv v1.6.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
+	github.com/mattn/go-runewidth v0.0.19 // indirect
+	github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6 // indirect
+	github.com/olekukonko/errors v1.2.0 // indirect
+	github.com/olekukonko/ll v0.1.6 // indirect
+	github.com/stretchr/objx v0.5.3 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )

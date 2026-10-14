@@ -1,16 +1,11 @@
 package stats
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
-	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
-	"github.com/AhaSend/ahasend-cli/internal/logger"
-	"github.com/AhaSend/ahasend-cli/internal/output"
+	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-go/models/requests"
+	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
 )
 
@@ -19,16 +14,14 @@ func NewBouncesCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bounces",
 		Short: "View email bounce statistics and analysis",
-		Long: `View detailed email bounce statistics with classification and trend analysis.
+		Long: `View email bounce statistics by classification for each time period.
 
-Bounce statistics show how many messages bounced, categorized by specific bounce reasons
-to help identify and troubleshoot delivery issues faster.
+Bounce statistics show how many messages bounced, categorized by specific
+bounce reasons, to help identify and troubleshoot delivery issues faster.
 
-The command provides bounce trends over time, top bounce domains, and detailed
-classification analysis to help improve email deliverability.
-
-Bounce Classifications:
+Bounce classifications include:
 - AuthenticationFailed: Message rejected due to DMARC or authentication issues
+- BadConnection: The connection to the recipient server or its TLS failed
 - BadDomain: The recipient domain doesn't exist
 - DNSFailure: The domain's MX record is invalid
 - InactiveMailbox: The mailbox provider has deactivated the email address
@@ -38,139 +31,36 @@ Bounce Classifications:
 - QuotaIssues: The recipient's mailbox is full
 - RoutingErrors: The recipient mail server couldn't route the email
 - TransientFailure: The recipient server temporarily rejected the message
-- Uncategorized: Other bounce types not specifically categorized`,
-		Example: `  # View bounce trends (default view)
+- Uncategorized: Other bounce types not specifically categorized
+
+The API may return other classifications too; the output shows each as the
+API names it.`,
+		Example: `  # View bounces of the last 7 days
   ahasend stats bounces --from-time 7d
 
-  # View classification summary breakdown
-  ahasend stats bounces --classification --from-time 7d
+  # Export the data to CSV for further analysis
+  ahasend stats bounces --from-time 30d --output csv
 
-  # Export raw data to CSV (ideal for further analysis)
-  ahasend stats bounces --raw --from-time 30d --output csv
+  # View bounces with hourly grouping
+  ahasend stats bounces --from-time 24h --group-by hour
 
-  # View trends with hourly grouping
-  ahasend stats bounces --trends --from-time 24h --group-by hour
-
-  # Filter classification view by domain
-  ahasend stats bounces --classification \
-    --sender-domain example.com \
-    --from-time 7d`,
-		RunE: runBounceStats,
+  # Filter by sender domain
+  ahasend stats bounces --sender-domain example.com --from-time 7d`,
+		Args:         cmdutil.NoArgs,
+		RunE:         runBounceStats,
+		SilenceUsage: true,
 	}
 
-	// Time range flags (inherit from deliverability pattern)
-	cmd.Flags().String("from-time", "7d", "Start time (RFC3339 format or relative like '7d', '24h')")
-	cmd.Flags().String("to-time", "", "End time (RFC3339 format or relative, defaults to now)")
-
-	// Filtering flags
-	cmd.Flags().String("group-by", "day", "Group results by: hour, day, week, month")
-	cmd.Flags().String("sender-domain", "", "Filter by sender domain")
-	cmd.Flags().StringSlice("recipient-domain", []string{}, "Filter by recipient domains (can be used multiple times)")
-	cmd.Flags().String("tags", "", "Filter by message tags (comma-separated)")
-
-	// View mode flags (mutually exclusive)
-	cmd.Flags().Bool("raw", false, "Show raw data without interpretation (useful for CSV/JSON)")
-	cmd.Flags().Bool("classification", false, "Show classification summary breakdown")
-	cmd.Flags().Bool("trends", false, "Show time-period focused trends (default)")
-
-	// Additional analysis flags
-	cmd.Flags().Bool("show-domains", false, "Show top bouncing recipient domains")
-	cmd.Flags().Bool("show-totals", true, "Show summary totals")
+	addFilterFlags(cmd)
+	for _, name := range []string{"raw", "classification", "trends", "show-domains", "show-totals"} {
+		addNoEffectFlag(cmd, name)
+	}
 
 	return cmd
 }
 
 func runBounceStats(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
-	client, err := auth.GetAuthenticatedClient(cmd)
-	if err != nil {
-		return err
-	}
-
-	// Get flag values
-	fromTimeStr, _ := cmd.Flags().GetString("from-time")
-	toTimeStr, _ := cmd.Flags().GetString("to-time")
-	groupBy, _ := cmd.Flags().GetString("group-by")
-	senderDomain, _ := cmd.Flags().GetString("sender-domain")
-	recipientDomains, _ := cmd.Flags().GetStringSlice("recipient-domain")
-	tags, _ := cmd.Flags().GetString("tags")
-
-	// Note: View mode flags (raw, classification, trends) are handled by the ResponseHandler
-	// which provides consistent output across all formats
-
-	// Parse time parameters (reuse logic from deliverability)
-	var fromTime *time.Time
-	if fromTimeStr != "" {
-		parsedTime, err := output.ParseTimePast(fromTimeStr)
-		if err == nil {
-			fromTime = &parsedTime
-		}
-		if err != nil {
-			return errors.NewValidationError(fmt.Sprintf("invalid from-time: %v", err), nil)
-		}
-	} else {
-		f := time.Now().Add(-30 * 24 * time.Hour)
-		fromTime = &f
-	}
-
-	var toTime *time.Time
-	if toTimeStr != "" {
-		parsed, err := output.ParseTimePast(toTimeStr)
-		if err != nil {
-			return errors.NewValidationError(fmt.Sprintf("invalid to-time: %v", err), nil)
-		}
-		toTime = &parsed
-	} else {
-		n := time.Now()
-		toTime = &n
-	}
-
-	// Validate group-by parameter
-	validGroupBy := []string{"hour", "day", "week", "month"}
-	if !contains(validGroupBy, groupBy) {
-		return handler.HandleError(errors.NewValidationError(fmt.Sprintf("invalid group-by '%s', must be one of: %s",
-			groupBy, strings.Join(validGroupBy, ", ")), nil))
-	}
-
-	logger.Get().WithFields(map[string]interface{}{
-		"from_time":         fromTime,
-		"to_time":           toTime,
-		"group_by":          groupBy,
-		"sender_domain":     senderDomain,
-		"recipient_domains": recipientDomains,
-	}).Debug("Fetching bounce statistics")
-
-	// Build request parameters
-	params := requests.GetBounceStatisticsParams{
-		FromTime: fromTime,
-		ToTime:   toTime,
-		GroupBy:  &groupBy,
-	}
-
-	if senderDomain != "" {
-		params.SenderDomain = &senderDomain
-	}
-	if len(recipientDomains) > 0 {
-		recipientDomainsStr := strings.Join(recipientDomains, ",")
-		params.RecipientDomains = &recipientDomainsStr
-	}
-	if tags != "" {
-		params.Tags = &tags
-	}
-
-	// Fetch statistics
-	response, err := client.GetBounceStatistics(params)
-	if err != nil {
-		return errors.NewAPIError("failed to get bounce statistics", err)
-	}
-
-	// Use the new ResponseHandler to display bounce statistics
-	return handler.HandleBounceStats(response, printer.StatsConfig{
-		Title:      "Bounce Statistics",
-		ShowChart:  false, // Complex bounce data doesn't work well with simple charts
-		FieldOrder: []string{"time_bucket", "classification", "count", "percentage", "description"},
-	})
-
+	return runStats(cmd, "Bounce Statistics", func(c client.AhaSendClient, filters statsFilters) (*responses.BounceStatisticsResponse, error) {
+		return c.GetBounceStatistics(requests.GetBounceStatisticsParams(filters))
+	}, printer.ResponseHandler.HandleBounceStats)
 }

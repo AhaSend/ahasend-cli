@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
@@ -17,18 +18,19 @@ import (
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <sub-account-id>",
-		Short: "Update an existing sub-account",
-		Long: `Update an existing sub-account under your AhaSend parent account.
+		Short: "Update a sub-account",
+		Long: `Update a sub-account under your AhaSend parent account.
 
-Only the flags you provide are changed; omitted fields remain unchanged. At least
-one of --name, --website, or --monthly-credit must be provided. An explicit
---monthly-credit 0 is honored and distinguished from an omitted flag.`,
+Only the flags you provide are changed; omitted fields remain unchanged. At
+least one of --name, --website or --monthly-credit must be provided. An
+explicit --monthly-credit 0 is honored and distinguished from an omitted flag.
+--website is sent as the API stores it, as for 'subaccounts create'.`,
 		Example: `  # Rename a sub-account
   ahasend subaccounts update 123e4567-e89b-12d3-a456-426614174000 --name "New Name"
 
   # Update website and monthly credit
   ahasend subaccounts update 123e4567-e89b-12d3-a456-426614174000 --website acme.example.com --monthly-credit 1000`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runSubAccountsUpdate,
 		SilenceUsage: true,
 	}
@@ -47,7 +49,8 @@ func runSubAccountsUpdate(cmd *cobra.Command, args []string) error {
 	subAccountID := args[0]
 
 	// Validate the ID before anything else, before auth.
-	if err := validation.ValidateUUIDField("sub-account ID", subAccountID); err != nil {
+	subAccountUUID, err := validation.ParseUUIDField("sub-account ID", subAccountID)
+	if err != nil {
 		return err
 	}
 
@@ -55,40 +58,45 @@ func runSubAccountsUpdate(cmd *cobra.Command, args []string) error {
 	// from explicit values.
 	req := requests.UpdateSubAccountRequest{}
 
-	if cmd.Flags().Changed("name") {
-		v, _ := cmd.Flags().GetString("name")
-		v = strings.TrimSpace(v)
-		if v == "" {
-			return errors.NewValidationError("--name cannot be empty", nil)
-		}
-		req.Name = &v
+	name, err := cmdutil.ReadNonEmpty(cmd, "name", "")
+	if err != nil {
+		return err
 	}
+	// The name is sent trimmed, as the API stores it, since the SDK refuses
+	// one over the limit before the API trims it
+	if name != nil {
+		trimmed := strings.TrimSpace(*name)
+		name = &trimmed
+	}
+	if err := cmdutil.CheckMaxLength("name", name, cmdutil.MaxNameLength); err != nil {
+		return err
+	}
+	req.Name = name
 
-	if cmd.Flags().Changed("website") {
-		v, _ := cmd.Flags().GetString("website")
-		website, err := normalizeWebsite(v)
+	website, err := cmdutil.ReadNonEmpty(cmd, "website", "")
+	if err != nil {
+		return err
+	}
+	if website != nil {
+		normalized, err := normalizeWebsite(*website)
 		if err != nil {
 			return err
 		}
-		req.Website = &website
+		req.Website = &normalized
 	}
 
-	if cmd.Flags().Changed("monthly-credit") {
-		v, _ := cmd.Flags().GetInt64("monthly-credit")
-		if err := validateMonthlyCredit(v); err != nil {
-			return err
-		}
-		req.MonthlyCredit = &v
+	if req.MonthlyCredit, err = readMonthlyCredit(cmd); err != nil {
+		return err
 	}
 
 	// Require at least one changed flag, before auth.
 	if req.Name == nil && req.Website == nil && req.MonthlyCredit == nil {
-		return errors.NewValidationError("at least one of --name, --website, or --monthly-credit must be provided", nil)
+		return errors.NewValidationError("at least one of --name, --website or --monthly-credit must be provided", nil)
 	}
 
 	// SDK backstop validation after local validation and before auth.
 	if err := req.Validate(); err != nil {
-		return err
+		return errors.NewValidationError(err.Error(), nil)
 	}
 
 	// Only authenticate after local validation passes
@@ -102,19 +110,14 @@ func runSubAccountsUpdate(cmd *cobra.Command, args []string) error {
 		"request":        fmt.Sprintf("%+v", req),
 	}).Debug("Executing subaccounts update command")
 
-	response, err := client.UpdateSubAccount(subAccountID, req)
+	response, err := client.UpdateSubAccount(subAccountUUID, req)
 	if err != nil {
 		return err
 	}
 
-	if response == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("sub-account '%s' not found", subAccountID), nil)
-	}
-
 	config := printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Sub-account '%s' updated successfully", subAccountID),
+		SuccessMessage: "Sub-account updated successfully",
 		EmptyMessage:   "Sub-account not found",
-		FieldOrder:     []string{"name", "id", "parent_account_id", "status", "website", "monthly_credit", "domain_count", "member_count", "created_at", "last_activity_at"},
 	}
 
 	return handler.HandleSingleSubAccount(response, config)

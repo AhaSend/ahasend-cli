@@ -3,18 +3,14 @@ package domains
 import (
 	"testing"
 
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
-
-func TestDeleteCommand_Flags(t *testing.T) {
-	// Test that delete command has required flags
-	deleteCmd := NewDeleteCommand()
-	flags := deleteCmd.Flags()
-
-	forceFlag := flags.Lookup("force")
-	assert.NotNil(t, forceFlag)
-	assert.Equal(t, "bool", forceFlag.Value.Type())
-}
 
 func TestDeleteCommand_Args(t *testing.T) {
 	// Test that delete command requires exactly 1 argument
@@ -22,12 +18,26 @@ func TestDeleteCommand_Args(t *testing.T) {
 	assert.NotNil(t, deleteCmd.Args)
 }
 
-func TestDeleteCommand_Structure(t *testing.T) {
-	deleteCmd := NewDeleteCommand()
-	assert.Equal(t, "delete", deleteCmd.Name())
-	assert.Equal(t, "Delete a domain", deleteCmd.Short)
-	assert.NotEmpty(t, deleteCmd.Long)
-	assert.NotEmpty(t, deleteCmd.Example)
-	assert.Contains(t, deleteCmd.Long, "WARNING")
-	assert.Contains(t, deleteCmd.Long, "cannot be undone")
+func TestDeleteDeclinedPromptsOnStderrBeforeAuthentication(t *testing.T) {
+	authCalled := testutil.RefuseAuth(t)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "n\n", "example.com")
+	require.Error(t, err)
+	assert.Equal(t, "operation cancelled", err.Error())
+	assert.Equal(t, 4, clierrors.GetExitCode(err))
+	assert.Contains(t, stderr, "Are you sure you want to delete domain example.com? (y/N): ")
+	assert.Empty(t, stdout)
+	assert.False(t, *authCalled)
+}
+
+func TestDeleteAcceptedDeletesWithoutFetchingTheDomain(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("DeleteDomain", "example.com").Return(&common.SuccessResponse{Message: "domain deleted"}, nil)
+	testutil.InjectClient(t, mockClient)
+
+	stdout, _, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "y\n", "example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "domain deleted\n", stdout)
+	mockClient.AssertExpectations(t)
+	mockClient.AssertNotCalled(t, "GetDomain", mock.Anything)
 }

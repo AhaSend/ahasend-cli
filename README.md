@@ -1,7 +1,7 @@
 # AhaSend CLI
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://go.dev/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-go)](https://goreportcard.com/report/github.com/AhaSend/ahasend-go)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.26-blue.svg)](https://go.dev/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/AhaSend/ahasend-cli)](https://goreportcard.com/report/github.com/AhaSend/ahasend-cli)
 [![API Documentation](https://img.shields.io/badge/docs-api-green.svg)](https://ahasend.com/docs/api-reference)
 [![License: Apache 2.0](https://img.shields.io/github/license/ahasend/ahasend-cli)](https://opensource.org/licenses/apache-2.0)
 
@@ -80,8 +80,8 @@ ahasend auth login --api-key YOUR_API_KEY --account-id YOUR_ACCOUNT_ID
 # Add a domain for email sending
 ahasend domains create example.com
 
-# Verify the domain after DNS configuration
-ahasend domains verify example.com
+# Check the DNS records after configuring them
+ahasend domains check-dns example.com
 ```
 
 ### 3. Send an Email
@@ -99,7 +99,7 @@ ahasend messages send \
   --from noreply@example.com \
   --to user@recipient.com \
   --subject "Welcome {{name}}" \
-  --html-template welcome.html \
+  --html-file welcome.html \
   --global-substitutions data.json
 ```
 
@@ -125,20 +125,20 @@ ahasend messages send \
   --from noreply@example.com \
   --recipients users.csv \
   --subject "Welcome to AhaSend" \
-  --html-template welcome.html \
+  --html-file welcome.html \
   --max-concurrency 5 \
-  --progress \
-  --show-metrics
+  --progress
 ```
 
 ### 5. Test Webhooks & Inbound Routes
 
 ```bash
-# Listen for outbound email webhook events in real-time
-ahasend webhooks listen http://localhost:8080/webhook \
-  --events "message.delivered,message.opened,message.clicked"
+# Stream outbound email webhook events in real time and forward them locally
+ahasend webhooks listen \
+  --events "message.delivered,message.opened,message.clicked" \
+  --forward-to http://localhost:8080/webhook
 
-# Trigger test webhook events for development
+# Trigger test webhook events
 ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
   --events "message.delivered,message.opened"
 
@@ -146,8 +146,8 @@ ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
 ahasend routes listen --recipient "*@example.com" \
   --forward-to http://localhost:3000/webhook
 
-# Trigger route events for testing (development only)
-ahasend routes trigger route-id-here
+# Trigger a test route event
+ahasend routes trigger <route-id>
 ```
 
 ## Command Reference
@@ -157,29 +157,71 @@ ahasend routes trigger route-id-here
 | Command | Description |
 |---------|-------------|
 | `auth` | Manage authentication and profiles |
-| `domains` | Manage sending domains |
-| `messages` | Send and manage email messages |
+| `domains` | Manage sending domains, their sending type and DKIM selector |
+| `messages` | Send and manage email messages, inline or from a stored template |
 | `webhooks` | Configure webhook endpoints |
 | `suppressions` | Manage suppression lists |
 | `stats` | View email statistics |
-| `apikeys` | Manage API keys |
-| `subaccounts` | Manage sub-accounts and their nested API keys |
+| `apikeys` | Manage API keys and their IP allow lists |
+| `subaccounts` | Manage sub-accounts, their nested API keys and paused domains |
 | `smtp` | SMTP credentials and testing |
 | `routes` | Email routing rules |
 | `ping` | Test API connectivity |
+| `completion` | Print the shell completion script for `bash`, `zsh`, `fish` or `powershell` |
 
 ### Global Flags
 
 ```bash
---api-key        # Override API key for this command
---account-id     # Override Account ID
+--api-key        # Use this API key instead of a profile (production API; not with --profile)
+--account-id     # Account ID of --api-key (only with --api-key, which needs it)
 --profile        # Use specific profile
---output         # Output format (json, table, csv, plain)
---no-color       # Disable colored output
+--output         # Output format (json, table, csv, plain; default plain)
+--no-color       # Turn off colors
 --verbose        # Enable verbose logging
---debug          # Enable debug logging with HTTP details
+--debug          # Enable debug logging with HTTP details (secrets redacted)
 --help           # Show help for any command
 ```
+
+[Global Flags](USAGE.mdx#global-flags) says when the output has colors.
+
+### Scripting
+
+- `--output json` prints the API's response body unchanged, for successes and
+  errors alike. Commands that call the API once per item, such as
+  `messages cancel` with several IDs, print a JSON array with one response per
+  call.
+- Every failure exits nonzero. API errors exit by HTTP status: 401 exits 2,
+  400 and 422 exit 4, 404 exits 5, 403 exits 6, 429 exits 8, and other
+  statuses exit 1. Invalid input and command-line mistakes exit 4, an unknown
+  profile, a missing default profile, a profile's bad `api_url`, empty
+  `api_key` or non-UUID `account_id`, or an unreadable configuration file
+  exits 3, a network failure, including a
+  dropped `webhooks listen` or `routes listen` stream or an SMTP server that
+  closed the connection, exits 7, a command with failed items or output it
+  could not write, such as to a pipe closed early, exits 1, and
+  `messages send`, or `messages cancel` of several messages, stopped by
+  Ctrl+C or SIGTERM exits 130 after it reports what it did.
+- Commands that delete, overwrite, cancel or suspend, and
+  `auth logout --all`, ask for confirmation on stderr (the list is in
+  [USAGE.mdx](USAGE.mdx#confirmation-prompts)); declining, or a stdin that
+  ends or cannot be read, exits 4. Pass `--force` (`-f`) in scripts.
+  `messages send` and `smtp send` send without asking for confirmation.
+- A request that failed with HTTP 429, a 5xx status or a network error is
+  sent again as [Rate Limiting](USAGE.mdx#rate-limiting) describes, which
+  also lists the requests that are sent only once.
+- Table and plain list output end with the `--after <cursor>` and
+  `--before <cursor>` flags that fetch the next and previous pages; CSV
+  output has no cursor line.
+- `messages send` saves the recipients that failed, or were not sent because
+  the send was interrupted, to a new file in `~/.ahasend/` and prints its path
+  on stderr, so a script can pass it back to `--recipients`. Recipients whose
+  request may have reached the API without an answer, such as one the API
+  was still processing or that timed out, go to a separate `unknown-*.json`
+  file, since they may have been sent; stderr names the idempotency key that
+  sends them again safely within 24 hours, and the time a relative
+  `--schedule` stood for, to pass in its place.
+
+See [USAGE.mdx](USAGE.mdx) for the full rules.
 
 ## Examples
 
@@ -197,19 +239,23 @@ cat > welcome.html << EOF
 </html>
 EOF
 
+# Create the substitution data
+echo '{"first_name": "John", "company_name": "ACME Corp"}' > data.json
+
 # Send with substitutions
 ahasend messages send \
   --from noreply@company.com \
   --to user@example.com \
   --subject "Welcome to {{company_name}}" \
-  --html-template welcome.html \
-  --global-substitutions '{"first_name": "John", "company_name": "ACME Corp"}'
+  --html-file welcome.html \
+  --global-substitutions data.json
 ```
 
 ### Batch Processing with CSV
 
+`recipients.csv`:
+
 ```csv
-# recipients.csv
 email,name,first_name,account_type
 john@example.com,John Doe,John,premium
 jane@example.com,Jane Smith,Jane,basic
@@ -220,7 +266,7 @@ ahasend messages send \
   --from noreply@example.com \
   --recipients recipients.csv \
   --subject "Account Update for {{first_name}}" \
-  --html-template notification.html \
+  --html-file notification.html \
   --max-concurrency 5 \
   --progress
 ```
@@ -246,19 +292,18 @@ ahasend auth switch production
 ### Webhook Development and Testing
 
 ```bash
-# Configure a webhook endpoint
+# Configure a webhook endpoint for every domain
 ahasend webhooks create \
+  --name "Production webhook handler" \
   --url https://api.example.com/webhooks/ahasend \
-  --events "on_delivered,on_bounced,on_failed" \
-  --description "Production webhook handler"
+  --scope global \
+  --events "delivered,bounced,failed"
 
-# Test webhook locally with real-time monitoring
-ahasend webhooks listen http://localhost:3000/webhook \
-  --events "all" \
-  --verbose
+# Stream events in real time and forward them to a local handler
+ahasend webhooks listen --forward-to http://localhost:3000/webhook
 
 # Trigger test events for integration testing
-ahasend webhooks trigger webhook-id-here \
+ahasend webhooks trigger <webhook-id> \
   --all-events
 
 # List all configured webhooks
@@ -273,16 +318,17 @@ ahasend routes listen --recipient "*@example.com" \
   --forward-to http://localhost:3000/webhook
 
 # Listen with existing route and slim output
-ahasend routes listen --route-id abc123 \
+ahasend routes listen --route-id <route-id> \
   --slim-output
 
-# Test route processing without real emails (dev only)
-ahasend routes trigger route-id-here
+# Test route processing without real emails
+ahasend routes trigger <route-id>
 
 # Create and test a support email route
 ahasend routes create \
-  --match-recipient "support@example.com" \
-  --forward-to "team@company.com"
+  --name "Support" \
+  --url https://api.example.com/inbound/support \
+  --recipient "support@example.com"
 
 ahasend routes listen --recipient "support@example.com" \
   --forward-to http://localhost:8080/support-webhook
@@ -293,8 +339,8 @@ ahasend routes listen --recipient "support@example.com" \
 ```bash
 # View delivery statistics
 ahasend stats deliverability \
-  --start-date 2024-01-01 \
-  --end-date 2024-01-31 \
+  --from-time 2026-01-01T00:00:00Z \
+  --to-time 2026-02-01T00:00:00Z \
   --group-by day
 
 # Check bounce rates
@@ -315,33 +361,45 @@ profiles:
     api_key: "your-api-key"
     account_id: "your-account-id"
     api_url: "https://api.ahasend.com"
-preferences:
-  output_format: table
-  color_output: true
-  batch_concurrency: 5
 ```
+
+Saving the file keeps the keys the CLI does not know, but not comments. The file holds your API
+keys, so the CLI keeps it, and `~/.ahasend`, readable by your user only.
+Profile names keep their case and dots, and no environment variable overrides
+the file. Commands that change the file lock it and replace it in one step,
+so commands run at once never lose each other's changes; a `config.yaml`
+that is a symlink stays one. An `api_url` must be an HTTP or HTTPS URL with a
+host, and no path, user name or password, an `api_key` must not be empty, and
+an `account_id` must be a UUID; another value fails with exit code 3. An `http://` `api_url` to another machine sends the API key
+unencrypted, so every command that uses such a profile warns on stderr.
 
 ## Output Formats
 
 The CLI supports multiple output formats:
 
-- **Table** (default): Human-readable formatted tables
+- **Plain** (default): Simple key-value format
+- **Table**: Human-readable formatted tables
 - **JSON**: Machine-readable for automation
-- **CSV**: For data export and analysis
-- **Plain**: Simple key-value format
+- **CSV**: For data export and analysis; values are written as the API sent
+  them, so import a file whose content comes from others into a spreadsheet
+  as text, since a value starting with `=`, `+`, `-` or `@` can read as a
+  formula
 
 ```bash
 # Examples
-ahasend domains list              # Table format
-ahasend domains list --output json # JSON format
-ahasend stats bounces --output csv # CSV format
+ahasend domains list                # Plain format
+ahasend domains list --output table # Table format
+ahasend domains list --output json  # JSON format
+ahasend stats bounces --output csv  # CSV format
 ```
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.26 or higher. `go.mod` names Go 1.27.2 as its toolchain, which the
+  `go` command downloads when yours is older, so every build uses the same
+  release as CI, the release binaries and the Docker image
 - Make
 
 ### Building from Source
@@ -360,9 +418,25 @@ make test
 # Build binary
 make build
 
-# Run linter
+# Run linter, on the Windows-only files too
 make lint
 ```
+
+`make check-go-version` checks that the Dockerfile and the workflows use the
+toolchain of `go.mod`; change all of them together.
+
+### Third-Party Notices
+
+`THIRD_PARTY_NOTICES` holds the licence notices of the Go standard library and
+of every module built into the binary; releases and the Docker image ship it.
+After a change to the dependencies or to the Go toolchain, regenerate it with
+`make notices`, which reads the notices from the module cache with the Go
+toolchain alone, and commit the result. Both targets run with the Go release
+of the `toolchain` line of `go.mod`, which the go command downloads when it
+is not the one installed, since a Go a distribution packaged may keep the
+standard library's licence outside its GOROOT. CI and the release workflow
+run `make notices-check`, which fails when the file is out of date, or with
+the script's own error, such as a module without a licence file.
 
 ### Project Structure
 
@@ -380,8 +454,7 @@ ahasend-cli/
 │   ├── config/           # Configuration management
 │   ├── printer/          # Output formatting
 │   └── ...
-├── docs/                  # Documentation
-│   └── openapi.yaml      # API specification
+├── docs/                  # Images for this README
 ├── test/                  # Integration tests
 └── Makefile              # Build automation
 ```
@@ -404,7 +477,7 @@ make test-coverage
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -426,13 +499,12 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0; see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
 Built with:
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Viper](https://github.com/spf13/viper) - Configuration management
 - [AhaSend Go SDK](https://github.com/AhaSend/ahasend-go) - API client
 
 ---

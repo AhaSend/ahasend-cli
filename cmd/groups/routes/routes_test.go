@@ -4,169 +4,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/AhaSend/ahasend-go"
+
 	"github.com/AhaSend/ahasend-cli/internal/client"
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
-	"github.com/AhaSend/ahasend-cli/internal/webhooks"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/models/common"
+	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-// Test route command structure and subcommands
-func TestRoutesCommand_Structure(t *testing.T) {
-	// Create a fresh routes command and verify it has expected subcommands
-	routesCmd := NewCommand()
-	expectedSubcommands := []string{"list", "get", "create", "update", "delete", "listen"}
-
-	subcommands := make([]string, 0)
-	for _, cmd := range routesCmd.Commands() {
-		subcommands = append(subcommands, cmd.Name())
-	}
-
-	for _, expected := range expectedSubcommands {
-		assert.Contains(t, subcommands, expected, "routes command should have %s subcommand", expected)
-	}
-
-	assert.Equal(t, "routes", routesCmd.Name())
-	assert.Equal(t, "Manage inbound email routes", routesCmd.Short)
-	assert.NotEmpty(t, routesCmd.Long)
-}
-
-func TestRoutesCommand_Help(t *testing.T) {
-	cmd := NewCommand()
-
-	// Capture help output
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs([]string{"--help"})
-
-	err := cmd.Execute()
-	assert.NoError(t, err)
-
-	helpOutput := buf.String()
-	assert.Contains(t, helpOutput, "Manage inbound email routes")
-	assert.Contains(t, helpOutput, "list")
-	assert.Contains(t, helpOutput, "get")
-	assert.Contains(t, helpOutput, "create")
-	assert.Contains(t, helpOutput, "update")
-	assert.Contains(t, helpOutput, "delete")
-}
-
-func TestRoutesCommand_SubcommandCount(t *testing.T) {
-	cmd := NewCommand()
-	subcommands := cmd.Commands()
-
-	// Should have exactly 7 subcommands (including listen and trigger)
-	assert.Equal(t, 7, len(subcommands), "routes command should have exactly 7 subcommands")
-}
-
-// Test list command structure and flags
-func TestListCommand_Flags(t *testing.T) {
-	// Test that list command has required flags
-	listCmd := NewListCommand()
-	flags := listCmd.Flags()
-
-	limitFlag := flags.Lookup("limit")
-	assert.NotNil(t, limitFlag)
-	assert.Equal(t, "int32", limitFlag.Value.Type())
-
-	cursorFlag := flags.Lookup("cursor")
-	assert.NotNil(t, cursorFlag)
-	assert.Equal(t, "string", cursorFlag.Value.Type())
-
-	enabledFlag := flags.Lookup("enabled")
-	assert.NotNil(t, enabledFlag)
-	assert.Equal(t, "bool", enabledFlag.Value.Type())
-
-}
-
-func TestListCommand_Structure(t *testing.T) {
-	listCmd := NewListCommand()
-	assert.Equal(t, "list", listCmd.Name())
-	assert.Equal(t, "List all inbound email routes", listCmd.Short)
-	assert.NotEmpty(t, listCmd.Long)
-	assert.NotEmpty(t, listCmd.Example)
-}
-
-func TestListCommand_FlagParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected map[string]interface{}
-	}{
-		{
-			name: "all flags provided",
-			args: []string{
-				"--limit", "25",
-				"--cursor", "next-page-token",
-				"--enabled",
-			},
-			expected: map[string]interface{}{
-				"limit":   int32(25),
-				"cursor":  "next-page-token",
-				"enabled": true,
-			},
-		},
-		{
-			name: "only limit flag",
-			args: []string{"--limit", "10"},
-			expected: map[string]interface{}{
-				"limit": int32(10),
-			},
-		},
-		{
-			name: "only enabled flag",
-			args: []string{"--enabled"},
-			expected: map[string]interface{}{
-				"enabled": true,
-			},
-		},
-		{
-			name:     "no flags",
-			args:     []string{},
-			expected: map[string]interface{}{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewListCommand()
-			cmd.SetArgs(tt.args)
-
-			// Parse flags without executing the command
-			err := cmd.ParseFlags(tt.args)
-			require.NoError(t, err)
-
-			// Check parsed flag values
-			if expectedLimit, ok := tt.expected["limit"]; ok {
-				limit, _ := cmd.Flags().GetInt32("limit")
-				assert.Equal(t, expectedLimit, limit)
-			}
-
-			if expectedCursor, ok := tt.expected["cursor"]; ok {
-				cursor, _ := cmd.Flags().GetString("cursor")
-				assert.Equal(t, expectedCursor, cursor)
-			}
-
-			if expectedEnabled, ok := tt.expected["enabled"]; ok {
-				enabled, _ := cmd.Flags().GetBool("enabled")
-				assert.Equal(t, expectedEnabled, enabled)
-			}
-
-		})
-	}
-}
 
 // Test routes list command with mock
 func TestRoutesList_Success(t *testing.T) {
@@ -201,7 +56,7 @@ func TestRoutesList_WithFlags(t *testing.T) {
 		Data:   testRoutes,
 		Pagination: common.PaginationInfo{
 			HasMore:    true,
-			NextCursor: stringPtr("next-cursor"),
+			NextCursor: ahasend.String("next-cursor"),
 		},
 	}
 
@@ -226,35 +81,6 @@ func TestRoutesList_EmptyResult(t *testing.T) {
 	assert.False(t, mockResponse.Pagination.HasMore)
 }
 
-func TestRoutesList_FilterLogic(t *testing.T) {
-	// Test enabled filtering logic
-	route1 := createTestRoute("550e8400-e29b-41d4-a716-446655440004", "Enabled Route", "https://api.example.com/webhook1", true)
-	route2 := createTestRoute("550e8400-e29b-41d4-a716-446655440005", "Disabled Route", "https://api.example.com/webhook2", false)
-
-	allRoutes := []responses.Route{*route1, *route2}
-
-	// Test filtering enabled routes
-	var filteredRoutes []responses.Route
-	for _, route := range allRoutes {
-		if route.Enabled {
-			filteredRoutes = append(filteredRoutes, route)
-		}
-	}
-
-	assert.Len(t, filteredRoutes, 1)
-	assert.Equal(t, "Enabled Route", filteredRoutes[0].Name)
-	assert.True(t, filteredRoutes[0].Enabled)
-}
-
-// Test get command structure and execution
-func TestGetCommand_Structure(t *testing.T) {
-	getCmd := NewGetCommand()
-	assert.Equal(t, "get", getCmd.Name())
-	assert.Equal(t, "Get detailed information about a specific route", getCmd.Short)
-	assert.NotEmpty(t, getCmd.Long)
-	assert.NotEmpty(t, getCmd.Example)
-}
-
 func TestGetCommand_RequiresRouteID(t *testing.T) {
 	getCmd := NewGetCommand()
 
@@ -262,191 +88,12 @@ func TestGetCommand_RequiresRouteID(t *testing.T) {
 	getCmd.SetArgs([]string{})
 	err := getCmd.Execute()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg(s), received 0")
+	assert.Contains(t, err.Error(), "argument is required")
 
 	// Test with too many arguments
 	getCmd.SetArgs([]string{"route1", "route2"})
 	err = getCmd.Execute()
 	assert.Error(t, err)
-}
-
-// Test create command structure and validation
-func TestCreateCommand_Structure(t *testing.T) {
-	createCmd := NewCreateCommand()
-	assert.Equal(t, "create", createCmd.Name())
-	assert.Equal(t, "Create a new inbound email route", createCmd.Short)
-	assert.NotEmpty(t, createCmd.Long)
-	assert.NotEmpty(t, createCmd.Example)
-}
-
-func TestCreateCommand_Flags(t *testing.T) {
-	createCmd := NewCreateCommand()
-	flags := createCmd.Flags()
-
-	// Test that create command has all required flags
-	expectedFlags := []string{
-		"name", "url", "recipient", "include-attachments",
-		"include-headers", "group-by-message-id", "strip-replies",
-		"enabled", "interactive",
-	}
-
-	for _, flagName := range expectedFlags {
-		flag := flags.Lookup(flagName)
-		assert.NotNil(t, flag, "create command should have %s flag", flagName)
-	}
-}
-
-func TestCreateCommand_ValidationErrors(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:        "missing name and URL in non-interactive mode",
-			args:        []string{"--interactive=false"},
-			expectError: true,
-			errorMsg:    "name and url are required",
-		},
-		{
-			name:        "empty name",
-			args:        []string{"--name", "", "--url", "https://api.example.com", "--interactive=false"},
-			expectError: true,
-			errorMsg:    "name and url are required",
-		},
-		{
-			name:        "empty URL",
-			args:        []string{"--name", "Test Route", "--url", "", "--interactive=false"},
-			expectError: true,
-			errorMsg:    "name and url are required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Test validation logic directly
-			config := RouteCreateConfig{}
-			if len(tt.args) > 0 && strings.Contains(tt.args[0], "name") {
-				config.Name = ""
-			}
-			if len(tt.args) > 2 && strings.Contains(tt.args[2], "url") {
-				config.URL = ""
-			}
-
-			err := validateRouteConfig(config)
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), strings.Split(tt.errorMsg, " ")[0])
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestValidateRouteConfig(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  RouteCreateConfig
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid configuration",
-			config: RouteCreateConfig{
-				Name: "Test Route",
-				URL:  "https://api.example.com/webhook",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing name",
-			config: RouteCreateConfig{
-				Name: "",
-				URL:  "https://api.example.com/webhook",
-			},
-			wantErr: true,
-			errMsg:  "route name is required",
-		},
-		{
-			name: "missing URL",
-			config: RouteCreateConfig{
-				Name: "Test Route",
-				URL:  "",
-			},
-			wantErr: true,
-			errMsg:  "webhook URL is required",
-		},
-		{
-			name: "invalid URL format",
-			config: RouteCreateConfig{
-				Name: "Test Route",
-				URL:  "not-a-url",
-			},
-			wantErr: true,
-			errMsg:  "webhook URL must use http or https scheme",
-		},
-		{
-			name: "non-HTTP/HTTPS scheme",
-			config: RouteCreateConfig{
-				Name: "Test Route",
-				URL:  "ftp://example.com/webhook",
-			},
-			wantErr: true,
-			errMsg:  "webhook URL must use http or https scheme",
-		},
-		{
-			name: "missing host",
-			config: RouteCreateConfig{
-				Name: "Test Route",
-				URL:  "https://",
-			},
-			wantErr: true,
-			errMsg:  "webhook URL must include a valid host",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateRouteConfig(tt.config)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-// Test update command structure and validation
-func TestUpdateCommand_Structure(t *testing.T) {
-	updateCmd := NewUpdateCommand()
-	assert.Equal(t, "update", updateCmd.Name())
-	assert.Equal(t, "Update an existing inbound email route", updateCmd.Short)
-	assert.NotEmpty(t, updateCmd.Long)
-	assert.NotEmpty(t, updateCmd.Example)
-}
-
-func TestUpdateCommand_Flags(t *testing.T) {
-	updateCmd := NewUpdateCommand()
-	flags := updateCmd.Flags()
-
-	// Test that update command has all required flags
-	expectedFlags := []string{
-		"name", "url", "recipient", "clear-recipient",
-		"enabled", "disabled",
-		"include-attachments", "no-include-attachments",
-		"include-headers", "no-include-headers",
-		"group-by-message-id", "no-group-by-message-id",
-		"strip-replies", "no-strip-replies",
-	}
-
-	for _, flagName := range expectedFlags {
-		flag := flags.Lookup(flagName)
-		assert.NotNil(t, flag, "update command should have %s flag", flagName)
-	}
 }
 
 func TestUpdateCommand_RequiresRouteID(t *testing.T) {
@@ -456,76 +103,13 @@ func TestUpdateCommand_RequiresRouteID(t *testing.T) {
 	updateCmd.SetArgs([]string{})
 	err := updateCmd.Execute()
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "argument is required")
 
 	// Test with too many arguments
 	updateCmd.SetArgs([]string{"route1", "route2"})
 	err = updateCmd.Execute()
 	assert.Error(t, err)
-}
-
-func TestRouteUpdateConfig_HasUpdates(t *testing.T) {
-	tests := []struct {
-		name     string
-		config   RouteUpdateConfig
-		expected bool
-	}{
-		{
-			name:     "empty config",
-			config:   RouteUpdateConfig{},
-			expected: false,
-		},
-		{
-			name: "has name update",
-			config: RouteUpdateConfig{
-				Name: stringPtr("Updated Name"),
-			},
-			expected: true,
-		},
-		{
-			name: "has URL update",
-			config: RouteUpdateConfig{
-				URL: stringPtr("https://api.example.com/new"),
-			},
-			expected: true,
-		},
-		{
-			name: "has clear recipient",
-			config: RouteUpdateConfig{
-				ClearRecipient: true,
-			},
-			expected: true,
-		},
-		{
-			name: "has enabled update",
-			config: RouteUpdateConfig{
-				Enabled: boolPtr(true),
-			},
-			expected: true,
-		},
-		{
-			name: "has processing option update",
-			config: RouteUpdateConfig{
-				IncludeAttachments: boolPtr(true),
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.config.HasUpdates()
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// Test delete command structure
-func TestDeleteCommand_Structure(t *testing.T) {
-	deleteCmd := NewDeleteCommand()
-	assert.Equal(t, "delete", deleteCmd.Name())
-	assert.Equal(t, "Delete an inbound email route", deleteCmd.Short)
-	assert.NotEmpty(t, deleteCmd.Long)
-	assert.NotEmpty(t, deleteCmd.Example)
+	assert.Contains(t, err.Error(), "unexpected argument")
 }
 
 func TestDeleteCommand_RequiresRouteID(t *testing.T) {
@@ -535,20 +119,13 @@ func TestDeleteCommand_RequiresRouteID(t *testing.T) {
 	deleteCmd.SetArgs([]string{})
 	err := deleteCmd.Execute()
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "argument is required")
 
 	// Test with too many arguments
 	deleteCmd.SetArgs([]string{"route1", "route2"})
 	err = deleteCmd.Execute()
 	assert.Error(t, err)
-}
-
-func TestDeleteCommand_Flags(t *testing.T) {
-	deleteCmd := NewDeleteCommand()
-	flags := deleteCmd.Flags()
-
-	forceFlag := flags.Lookup("force")
-	assert.NotNil(t, forceFlag)
-	assert.Equal(t, "bool", forceFlag.Value.Type())
+	assert.Contains(t, err.Error(), "unexpected argument")
 }
 
 // Test integrated command execution with mocks
@@ -701,105 +278,25 @@ func BenchmarkListCommand_Creation(b *testing.B) {
 	}
 }
 
-// Helper functions for creating test data
-
+// createTestRoute returns a route with the given fields, created a day before
+// it was last updated.
 func createTestRoute(id, name, url string, enabled bool) *responses.Route {
-	// Use mock client helper to create route with proper UUID handling
-	mockClient := &mocks.MockClient{}
-	return mockClient.NewMockRoute(id, name, url, "", enabled)
-}
-
-func createTestRouteWithOptions(id, name, url string, enabled bool, options map[string]bool) *responses.Route {
-	// Use mock client helper to create route with proper UUID handling
-	mockClient := &mocks.MockClient{}
-	return mockClient.NewMockRouteWithOptions(id, name, url, enabled, options)
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-// Helper function tests removed during ResponseHandler migration
-// Functions moved to ResponseHandler implementation and are no longer public
-
-// Mock integration test that demonstrates full testing pattern
-func TestRoutesFullIntegration_MockPattern(t *testing.T) {
-	// This is a template for how full integration tests would work
-	// when authentication mocking is fully implemented
-
-	// Set up test environment
-	testRoutes := []responses.Route{
-		*createTestRoute("550e8400-e29b-41d4-a716-446655440006", "Support Route", "https://api.example.com/support", true),
-		*createTestRoute("550e8400-e29b-41d4-a716-446655440007", "Sales Route", "https://api.example.com/sales", false),
+	updatedAt := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
+	return &responses.Route{
+		ID:        uuid.MustParse(id),
+		Name:      name,
+		URL:       url,
+		Enabled:   enabled,
+		CreatedAt: updatedAt.Add(-24 * time.Hour),
+		UpdatedAt: updatedAt,
 	}
-
-	mockResponse := &responses.PaginatedRoutesResponse{
-		Object: "list",
-		Data:   testRoutes,
-		Pagination: common.PaginationInfo{
-			HasMore:    false,
-			NextCursor: nil,
-		},
-	}
-
-	// Test the mock setup
-	assert.NotNil(t, mockResponse)
-	assert.Equal(t, "list", mockResponse.Object)
-	assert.Len(t, mockResponse.Data, 2)
-
-	// Verify first route
-	assert.Equal(t, "Support Route", mockResponse.Data[0].Name)
-	assert.Equal(t, "https://api.example.com/support", mockResponse.Data[0].URL)
-	assert.True(t, mockResponse.Data[0].Enabled)
-
-	// Verify second route
-	assert.Equal(t, "Sales Route", mockResponse.Data[1].Name)
-	assert.Equal(t, "https://api.example.com/sales", mockResponse.Data[1].URL)
-	assert.False(t, mockResponse.Data[1].Enabled)
-
-	// Note: Full integration tests with command execution would be implemented
-	// in separate integration test files that can import both cmd and routes packages
 }
 
 // ================================
 // Routes Listen Command Tests
 // ================================
 
-func TestListenCommand_Structure(t *testing.T) {
-	listenCmd := NewListenCommand()
-	assert.Equal(t, "listen", listenCmd.Name())
-	assert.Equal(t, "Listen for inbound email events in real-time", listenCmd.Short)
-	assert.NotEmpty(t, listenCmd.Long)
-	assert.NotEmpty(t, listenCmd.Example)
-	assert.True(t, listenCmd.SilenceUsage)
-}
-
-func TestListenCommand_Flags(t *testing.T) {
-	listenCmd := NewListenCommand()
-	flags := listenCmd.Flags()
-
-	expectedFlags := []string{
-		"route-id", "recipient", "forward-to", "skip-verify", "slim-output",
-	}
-
-	for _, flagName := range expectedFlags {
-		flag := flags.Lookup(flagName)
-		assert.NotNil(t, flag, "listen command should have %s flag", flagName)
-	}
-
-	// Test flag types
-	assert.Equal(t, "string", flags.Lookup("route-id").Value.Type())
-	assert.Equal(t, "string", flags.Lookup("recipient").Value.Type())
-	assert.Equal(t, "string", flags.Lookup("forward-to").Value.Type())
-	assert.Equal(t, "bool", flags.Lookup("skip-verify").Value.Type())
-	assert.Equal(t, "bool", flags.Lookup("slim-output").Value.Type())
-}
-
-func TestValidateListenParameters_Success(t *testing.T) {
+func TestParseListenParameters_Success(t *testing.T) {
 	tests := []struct {
 		name      string
 		routeID   string
@@ -829,13 +326,13 @@ func TestValidateListenParameters_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateListenParameters(tt.routeID, tt.recipient)
+			_, err := parseListenParameters(tt.routeID, tt.recipient)
 			assert.NoError(t, err)
 		})
 	}
 }
 
-func TestValidateListenParameters_ValidationErrors(t *testing.T) {
+func TestParseListenParameters_ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name      string
 		routeID   string
@@ -846,320 +343,184 @@ func TestValidateListenParameters_ValidationErrors(t *testing.T) {
 			name:      "no parameters provided",
 			routeID:   "",
 			recipient: "",
-			wantError: "either --route-id or --recipient must be provided",
+			wantError: "one of --route-id or --recipient must be provided",
 		},
 		{
-			name:      "both parameters provided",
-			routeID:   "550e8400-e29b-41d4-a716-446655440001",
-			recipient: "*@example.com",
-			wantError: "only one of --route-id or --recipient can be provided, not both",
-		},
-		{
-			name:      "recipient without @ symbol",
+			name:      "recipient longer than the API takes",
 			routeID:   "",
-			recipient: "invalid-pattern",
-			wantError: "recipient pattern must be an email pattern",
-		},
-		{
-			name:      "recipient with too many wildcards",
-			routeID:   "",
-			recipient: "*@*.*.*",
-			wantError: "recipient pattern contains too many wildcards",
+			recipient: strings.Repeat("a", 256),
+			wantError: "--recipient must be at most 255 characters",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateListenParameters(tt.routeID, tt.recipient)
+			_, err := parseListenParameters(tt.routeID, tt.recipient)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantError)
 		})
 	}
 }
 
-func TestDisplayEvent_SlimOutput(t *testing.T) {
-	// Create test event data
-	eventData := map[string]interface{}{
-		"type":    "message.routing",
-		"from":    "sender@example.com",
-		"to":      "recipient@company.com",
-		"subject": "Test Email Subject",
-		"body":    "This is a test email body",
-	}
-
-	// Create test WebSocket message
-	msg := &client.WebSocketMessage{
-		Type:      "event",
-		Timestamp: time.Now().Unix(),
-		Event: &client.Event{
-			Type:      "message.routing",
-			StreamID:  "stream-123",
-			AccountID: "account-456",
-			Data:      eventData,
-			Metadata:  map[string]string{"source": "test"},
-			Timestamp: time.Now().Unix(),
+// routingEvent is a routing event as the API streams it, with the message
+// under "data".
+func routingEvent(t *testing.T, from, to, subject string) map[string]interface{} {
+	t.Helper()
+	body, err := json.Marshal(map[string]interface{}{
+		"type":      "message.routing",
+		"timestamp": "2026-10-14T10:00:00Z",
+		"route_id":  "11111111-1111-1111-1111-111111111111",
+		"data": map[string]interface{}{
+			"id":         "msg-1",
+			"from":       from,
+			"reply_to":   "",
+			"to":         to,
+			"subject":    subject,
+			"message_id": "<abc@example.com>",
+			"plain_body": "This is a test email body",
 		},
-	}
-
-	// Capture output for slim mode
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Test slim output
-	displayEvent(msg, true)
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = oldStdout
-
-	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	// Verify slim output contains key information
-	assert.Contains(t, output, "sender@example.com")
-	assert.Contains(t, output, "recipient@company.com")
-	assert.Contains(t, output, "Test Email Subject")
-	// Slim output should NOT contain full JSON structure
-	assert.NotContains(t, output, "{\n")
-}
-
-func TestDisplayEvent_FullOutput(t *testing.T) {
-	// Create test event data
-	eventData := map[string]interface{}{
-		"type":    "message.routing",
-		"from":    "sender@example.com",
-		"to":      "recipient@company.com",
-		"subject": "Test Email Subject",
-		"body":    "This is a test email body",
-	}
-
-	// Create test WebSocket message
-	msg := &client.WebSocketMessage{
-		Type:      "event",
-		Timestamp: time.Now().Unix(),
-		Event: &client.Event{
-			Type:      "message.routing",
-			StreamID:  "stream-123",
-			AccountID: "account-456",
-			Data:      eventData,
-			Metadata:  map[string]string{"source": "test"},
-			Timestamp: time.Now().Unix(),
-		},
-	}
-
-	// Capture output for full mode
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Test full output
-	displayEvent(msg, false)
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = oldStdout
-
-	buf := make([]byte, 2048)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	// Verify full output contains complete JSON structure
-	assert.Contains(t, output, "\"from\":")
-	assert.Contains(t, output, "\"to\":")
-	assert.Contains(t, output, "\"subject\":")
-	assert.Contains(t, output, "\"body\":")
-	assert.Contains(t, output, "sender@example.com")
-	assert.Contains(t, output, "recipient@company.com")
-}
-
-func TestDisplayEvent_ReplayEvent(t *testing.T) {
-	// Create test event data
-	eventData := map[string]interface{}{
-		"type": "message.routing",
-		"from": "sender@example.com",
-	}
-
-	// Create test WebSocket message with replay type
-	msg := &client.WebSocketMessage{
-		Type:      "replay",
-		Timestamp: time.Now().Unix(),
-		Event: &client.Event{
-			Type:      "message.routing",
-			StreamID:  "stream-123",
-			AccountID: "account-456",
-			Data:      eventData,
-			Metadata:  map[string]string{"source": "replay"},
-			Timestamp: time.Now().Unix(),
-		},
-	}
-
-	// Test that displayEvent doesn't panic with replay type
-	// The actual display formatting is tested implicitly through the function execution
-	assert.NotPanics(t, func() {
-		displayEvent(msg, false)
 	})
-
-	// Test the message type logic - replay events should be handled
-	assert.Equal(t, "replay", msg.Type)
-	assert.Equal(t, "message.routing", eventData["type"])
-}
-
-func TestDisplayEvent_NilEvent(t *testing.T) {
-	// Create test WebSocket message with nil event
-	msg := &client.WebSocketMessage{
-		Type:      "event",
-		Timestamp: time.Now().Unix(),
-		Event:     nil,
-	}
-
-	// Capture output
-	var buf bytes.Buffer
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Test with nil event - should not panic
-	displayEvent(msg, false)
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = oldStdout
-	io.Copy(&buf, r)
-	output := buf.String()
-
-	// Should produce no output for nil event
-	assert.Empty(t, strings.TrimSpace(output))
-}
-
-func TestForwardEvent_Success(t *testing.T) {
-	// Create test server
-	receivedHeaders := make(map[string]string)
-	var receivedBody []byte
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Capture headers
-		receivedHeaders["Content-Type"] = r.Header.Get("Content-Type")
-		receivedHeaders["webhook-id"] = r.Header.Get("webhook-id")
-		receivedHeaders["webhook-timestamp"] = r.Header.Get("webhook-timestamp")
-		receivedHeaders["webhook-signature"] = r.Header.Get("webhook-signature")
-
-		// Capture body
-		var err error
-		receivedBody, err = io.ReadAll(r.Body)
-		require.NoError(t, err)
-
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	// Create test event
-	eventData := map[string]interface{}{
-		"type": "message.routing",
-		"from": "test@example.com",
-		"to":   "recipient@company.com",
-	}
-
-	event := &client.Event{
-		Type:      "message.routing",
-		StreamID:  "stream-123",
-		AccountID: "account-456",
-		Data:      eventData,
-		Metadata:  map[string]string{"source": "test"},
-		Timestamp: time.Now().Unix(),
-	}
-
-	// Create signer
-	signer := webhooks.NewSigner("test-secret")
-
-	// Create HTTP client
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	// Forward the event
-	forwardEvent(httpClient, server.URL, event, signer)
-
-	// Give time for async operation
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify headers were set correctly
-	assert.Equal(t, "application/json", receivedHeaders["Content-Type"])
-	assert.NotEmpty(t, receivedHeaders["webhook-id"])
-	assert.NotEmpty(t, receivedHeaders["webhook-timestamp"])
-	assert.NotEmpty(t, receivedHeaders["webhook-signature"])
-
-	// Verify signature format
-	assert.True(t, strings.HasPrefix(receivedHeaders["webhook-signature"], "v1,"))
-
-	// Verify body contains event data
-	var receivedData map[string]interface{}
-	err := json.Unmarshal(receivedBody, &receivedData)
 	require.NoError(t, err)
-	assert.Equal(t, "message.routing", receivedData["type"])
-	assert.Equal(t, "test@example.com", receivedData["from"])
-	assert.Equal(t, "recipient@company.com", receivedData["to"])
+	var event map[string]interface{}
+	require.NoError(t, json.Unmarshal(body, &event))
+	return event
 }
 
-func TestForwardEvent_ServerError(t *testing.T) {
-	// Create test server that returns error
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+func TestPrintRoutingSummary(t *testing.T) {
+	var buffer bytes.Buffer
 
-	// Create test event
-	eventData := map[string]interface{}{
-		"type": "message.routing",
-		"from": "test@example.com",
-	}
+	printRoutingSummary(&buffer, routingEvent(t, "sender@example.com", "recipient@company.com", "Test Email Subject"))
 
-	event := &client.Event{
-		Type:      "message.routing",
-		StreamID:  "stream-123",
-		AccountID: "account-456",
-		Data:      eventData,
-		Metadata:  map[string]string{"source": "test"},
-		Timestamp: time.Now().Unix(),
-	}
-
-	// Create signer and HTTP client
-	signer := webhooks.NewSigner("test-secret")
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	// Forward the event - should not panic even with server error
-	forwardEvent(httpClient, server.URL, event, signer)
-
-	// Give time for async operation
-	time.Sleep(100 * time.Millisecond)
-
-	// Test completes successfully even with server error (error is logged, not returned)
+	assert.Equal(t, " from: sender@example.com to: recipient@company.com subject: Test Email Subject", buffer.String())
 }
 
-func TestForwardEvent_InvalidURL(t *testing.T) {
-	// Create test event
-	eventData := map[string]interface{}{
-		"type": "message.routing",
-		"from": "test@example.com",
+// TestPrintRoutingSummaryEscapesControlCharacters checks that the sender,
+// recipient and subject of an inbound email cannot send escape sequences to
+// the terminal.
+func TestPrintRoutingSummaryEscapesControlCharacters(t *testing.T) {
+	var buffer bytes.Buffer
+
+	printRoutingSummary(&buffer, routingEvent(t, "a\x1b]0;x\x07@example.com", "b\u009b2J@example.com", "Hi \x1b[2J\x07 there"))
+
+	assert.Equal(t, ` from: a\u001b]0;x\u0007@example.com to: b\u009b2J@example.com subject: Hi \u001b[2J\u0007 there`, buffer.String())
+}
+
+func TestDeleteDeclinedPromptsOnStderrBeforeAuthentication(t *testing.T) {
+	authCalled := testutil.RefuseAuth(t)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "n\n", "11111111-1111-1111-1111-111111111111")
+	require.Error(t, err)
+	assert.Equal(t, "operation cancelled", err.Error())
+	assert.Contains(t, stderr, "Are you sure you want to delete route 11111111-1111-1111-1111-111111111111? (y/N): ")
+	assert.Empty(t, stdout)
+	assert.False(t, *authCalled)
+}
+
+func TestDeleteAcceptedDeletesWithoutFetchingTheRoute(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("DeleteRoute", uuid.MustParse("11111111-1111-1111-1111-111111111111")).Return(&common.SuccessResponse{Message: "deleted"}, nil)
+	testutil.InjectClient(t, mockClient)
+
+	stdout, _, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "y\n", "11111111-1111-1111-1111-111111111111")
+	require.NoError(t, err)
+	assert.Equal(t, "deleted\n", stdout)
+	mockClient.AssertExpectations(t)
+	mockClient.AssertNotCalled(t, "GetRoute", mock.Anything)
+}
+
+func TestRoutesList_EnabledIsRefusedInJSON(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, _, err := testutil.RunCommand(t, NewListCommand(), "json", "", "--enabled")
+
+	require.Error(t, err)
+	assert.Equal(t, 4, clierrors.GetExitCode(err))
+	assert.Contains(t, err.Error(), "--enabled and --output json cannot be used together")
+	assert.False(t, *called, "the command must not authenticate")
+}
+
+func TestRoutesList_EnabledFiltersThePageOutsideJSON(t *testing.T) {
+	const body = `{"object":"list","data":[` +
+		`{"object":"route","id":"11111111-1111-4111-8111-111111111111","name":"On route","url":"https://example.com/a","enabled":true},` +
+		`{"object":"route","id":"22222222-2222-4222-8222-222222222222","name":"Off route","url":"https://example.com/b","enabled":false}` +
+		`],"pagination":{"has_more":false}}`
+	tests := []struct {
+		flag  string
+		shown string
+		gone  string
+	}{
+		{"--enabled", "On route", "Off route"},
+		{"--enabled=false", "Off route", "On route"},
 	}
+	for _, tt := range tests {
+		t.Run(tt.flag, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("ListRoutes", mock.Anything).
+				Return(mocks.APIResponse[responses.PaginatedRoutesResponse](t, body), nil)
 
-	event := &client.Event{
-		Type:      "message.routing",
-		StreamID:  "stream-123",
-		AccountID: "account-456",
-		Data:      eventData,
-		Metadata:  map[string]string{"source": "test"},
-		Timestamp: time.Now().Unix(),
+			out, err := testutil.RunWithClient(t, mockClient, NewListCommand(), "plain", tt.flag)
+
+			require.NoError(t, err)
+			assert.Contains(t, out, tt.shown)
+			assert.NotContains(t, out, tt.gone)
+		})
 	}
+}
 
-	// Create signer and HTTP client
-	signer := webhooks.NewSigner("test-secret")
-	httpClient := &http.Client{Timeout: 10 * time.Second}
+func TestRoutesList_DomainFiltersByRecipientDomain(t *testing.T) {
+	domain := "example.com"
+	mockClient := &mocks.MockClient{}
+	mockClient.On("ListRoutes", requests.GetRoutesParams{Domain: &domain}).
+		Return(mocks.APIResponse[responses.PaginatedRoutesResponse](t, `{"object":"list","data":[],"pagination":{"has_more":false}}`), nil)
 
-	// Forward to invalid URL - should not panic
-	forwardEvent(httpClient, "invalid-url", event, signer)
+	_, err := testutil.RunWithClient(t, mockClient, NewListCommand(), "plain", "--domain", domain)
 
-	// Give time for async operation
-	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
 
-	// Test completes successfully even with invalid URL (error is logged, not returned)
+func TestRoutesList_RejectsAnEmptyDomainBeforeAuthenticating(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunPlain(t, NewListCommand(), "--domain", "")
+
+	require.EqualError(t, err, "--domain cannot be empty")
+	assert.Equal(t, 4, clierrors.GetExitCode(err))
+	assert.False(t, *called)
+}
+
+func TestRoutesList_RejectsADomainThatIsNotOneBeforeAuthenticating(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunPlain(t, NewListCommand(), "--domain", "not a domain")
+
+	require.Error(t, err)
+	assert.Equal(t, `invalid --domain value "not a domain": not a domain name`, err.Error())
+	assert.False(t, *called)
+}
+
+// TestListenNamesTheTemporaryRouteWhenConnectingFails checks that the note on
+// the temporary route, which stays after the command, is printed even when
+// connecting to its stream fails.
+func TestListenNamesTheTemporaryRouteWhenConnectingFails(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("InitiateRouteStream", (*uuid.UUID)(nil), "*@example.com").
+		Return(&client.RouteStreamResponse{RouteID: "11111111-1111-1111-1111-111111111111", WsURL: "wss://stream"}, nil)
+	mockClient.On("ConnectWebSocket", "wss://stream", false).
+		Return(nil, errors.New("websocket: bad handshake (HTTP 502)"))
+	testutil.InjectClient(t, mockClient)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "", "--recipient", "*@example.com")
+
+	require.EqualError(t, err, "failed to connect to websocket: websocket: bad handshake (HTTP 502)")
+	assert.True(t, strings.HasPrefix(stderr, "Note: temporary route 11111111-1111-1111-1111-111111111111 stays after the listener stops; "+
+		"delete it with 'ahasend routes delete 11111111-1111-1111-1111-111111111111'\n"), stderr)
+	assert.Empty(t, stdout)
+}
+
+func TestTemporaryRouteNoteEscapesTheRouteID(t *testing.T) {
+	note := temporaryRouteNote("id\x1b]0;x\x07")
+
+	assert.Contains(t, note, `'ahasend routes delete id\u001b]0;x\u0007'`)
+	assert.NotContains(t, note, "\x1b]")
 }

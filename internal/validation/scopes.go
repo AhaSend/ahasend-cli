@@ -1,131 +1,113 @@
 package validation
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/AhaSend/ahasend-cli/internal/errors"
 )
 
-// validStaticScopes lists the API-key scopes that are accepted verbatim,
-// based on the backend implementation. The top-level API-key commands and
-// the nested sub-account API-key commands share this single set to avoid
-// drift.
-var validStaticScopes = map[string]bool{
-	// Messages scopes
-	"messages:send:all":   true,
-	"messages:cancel:all": true,
-	"messages:read:all":   true,
-
-	// Domain scopes
-	"domains:read":       true,
-	"domains:write":      true,
-	"domains:delete:all": true,
-
-	// Account scopes
-	"accounts:read":           true,
-	"accounts:write":          true,
-	"accounts:billing":        true,
-	"accounts:members:read":   true,
-	"accounts:members:add":    true,
-	"accounts:members:update": true,
-	"accounts:members:remove": true,
-
-	// Webhook scopes
-	"webhooks:read:all":   true,
-	"webhooks:write:all":  true,
-	"webhooks:delete:all": true,
-
-	// Route scopes
-	"routes:read:all":   true,
-	"routes:write:all":  true,
-	"routes:delete:all": true,
-
-	// Suppression scopes
-	"suppressions:read":   true,
-	"suppressions:write":  true,
-	"suppressions:delete": true,
-	"suppressions:wipe":   true,
-
-	// SMTP Credentials scopes
-	"smtp-credentials:read:all":   true,
-	"smtp-credentials:write:all":  true,
-	"smtp-credentials:delete:all": true,
-
-	// Statistics scopes
-	"statistics-transactional:read:all": true,
-
-	// API Keys scopes
-	"api-keys:read":   true,
-	"api-keys:write":  true,
-	"api-keys:delete": true,
-
-	// Sub-account scopes
-	"sub-accounts:read":    true,
-	"sub-accounts:write":   true,
-	"sub-accounts:delete":  true,
-	"sub-accounts:suspend": true,
-	"sub-accounts:usage":   true,
-
-	// Sub-account API key scopes
-	"sub-account-api-keys:read":   true,
-	"sub-account-api-keys:write":  true,
-	"sub-account-api-keys:delete": true,
+// ScopeGroup is a group of API key scopes, such as the scopes of messages.
+type ScopeGroup struct {
+	Name   string
+	Scopes []string
 }
 
-// validDynamicPrefixes lists scope prefixes that can carry a {domain}
-// restriction suffix.
-var validDynamicPrefixes = []string{
-	// Messages with domain restriction
-	"messages:send:{",
-	"messages:cancel:{",
-	"messages:read:{",
-
-	// Domain deletion with domain restriction
-	"domains:delete:{",
-
-	// Webhooks with domain restriction
-	"webhooks:read:{",
-	"webhooks:write:{",
-	"webhooks:delete:{",
-
-	// Routes with domain restriction
-	"routes:read:{",
-	"routes:write:{",
-	"routes:delete:{",
-
-	// SMTP Credentials with domain restriction
-	"smtp-credentials:read:{",
-	"smtp-credentials:write:{",
-	"smtp-credentials:delete:{",
-
-	// Statistics with domain restriction
-	"statistics-transactional:read:{",
+// ScopeGroups are the API key scopes the API accepts, grouped and ordered as
+// the API reference lists them. The API key commands and the sub-account API
+// key commands check and list scopes from this one list; a sub-account's key
+// cannot have the parent-only scopes (see IsParentOnlyScope). A scope ending
+// in {domain} takes one of the key's account's domains in its place, such as
+// messages:send:{example.com}.
+var ScopeGroups = []ScopeGroup{
+	{"Messages", []string{
+		"messages:send:all", "messages:send:{domain}",
+		"messages:cancel:all", "messages:cancel:{domain}",
+		"messages:read:all", "messages:read:{domain}",
+	}},
+	{"Domains", []string{"domains:read", "domains:write", "domains:delete:all", "domains:delete:{domain}"}},
+	{"Accounts", []string{
+		"accounts:read", "accounts:write", "accounts:billing",
+		"accounts:members:read", "accounts:members:add", "accounts:members:update", "accounts:members:remove",
+	}},
+	{"Webhooks", []string{
+		"webhooks:read:all", "webhooks:read:{domain}",
+		"webhooks:write:all", "webhooks:write:{domain}",
+		"webhooks:delete:all", "webhooks:delete:{domain}",
+	}},
+	{"Routes", []string{
+		"routes:read:all", "routes:read:{domain}",
+		"routes:write:all", "routes:write:{domain}",
+		"routes:delete:all", "routes:delete:{domain}",
+	}},
+	{"Suppressions", []string{"suppressions:read", "suppressions:write", "suppressions:delete", "suppressions:wipe"}},
+	{"Templates", []string{"templates:read", "templates:write", "templates:delete"}},
+	{"Campaigns", []string{"campaigns:read", "campaigns:write", "campaigns:delete", "campaigns:send"}},
+	{"Contacts", []string{"contacts:read", "contacts:write", "contacts:delete"}},
+	{"Lists", []string{"lists:read", "lists:write", "lists:delete"}},
+	{"SMTP Credentials", []string{
+		"smtp-credentials:read:all", "smtp-credentials:read:{domain}",
+		"smtp-credentials:write:all", "smtp-credentials:write:{domain}",
+		"smtp-credentials:delete:all", "smtp-credentials:delete:{domain}",
+	}},
+	{"Statistics", []string{"statistics-transactional:read:all", "statistics-transactional:read:{domain}"}},
+	{"API Keys", []string{"api-keys:read", "api-keys:write", "api-keys:delete"}},
+	{"Sub-Accounts", []string{
+		"sub-accounts:read", "sub-accounts:write", "sub-accounts:delete", "sub-accounts:suspend", "sub-accounts:usage",
+	}},
+	{"Sub-Account API Keys", []string{
+		"sub-account-api-keys:read", "sub-account-api-keys:write", "sub-account-api-keys:delete",
+	}},
 }
 
-// ValidateScope checks if an API-key scope is valid, accepting either a known
-// static scope or a dynamic scope with a {domain} restriction.
-func ValidateScope(scope string) error {
-	// Check if it's a valid static scope
-	if validStaticScopes[scope] {
-		return nil
-	}
+// domainPlaceholder ends a scope that takes a domain.
+const domainPlaceholder = "{domain}"
 
-	// Check if it's a valid dynamic scope with domain restriction
-	for _, prefix := range validDynamicPrefixes {
-		if strings.HasPrefix(scope, prefix) && strings.HasSuffix(scope, "}") {
-			// Extract domain and validate format
-			domain := strings.TrimSuffix(strings.TrimPrefix(scope, prefix), "}")
-			if domain == "" {
-				return errors.NewValidationError("empty domain in dynamic scope: "+scope, nil)
+// ValidateScope checks that scope, a value of --scope, is one of ScopeGroups,
+// with a domain name in place of {domain}. An unknown scope's error points to
+// the help of helpCommand, which lists the scopes.
+func ValidateScope(scope, helpCommand string) error {
+	for _, group := range ScopeGroups {
+		for _, valid := range group.Scopes {
+			prefix, takesDomain := strings.CutSuffix(valid, domainPlaceholder)
+			if !takesDomain {
+				if scope == valid {
+					return nil
+				}
+				continue
 			}
-			// Basic domain validation (could be enhanced)
-			if !strings.Contains(domain, ".") {
-				return errors.NewValidationError("invalid domain format in scope: "+scope, nil)
+			rest, ok := strings.CutPrefix(scope, prefix+"{")
+			if !ok {
+				continue
 			}
-			// Note: The domain must exist in your account for the API to accept it
-			return nil
+			if domain, ok := strings.CutSuffix(rest, "}"); ok {
+				if !IsDomainName(scopeDomain(domain)) {
+					return InvalidValueError("--scope", scope, fmt.Sprintf("%q is not a domain name", domain))
+				}
+				return nil
+			}
 		}
 	}
+	return InvalidValueError("--scope", scope,
+		fmt.Sprintf("not an API key scope; `%s --help` lists the scopes", helpCommand))
+}
 
-	return errors.NewValidationError("invalid scope: "+scope, nil)
+// CanonicalScope returns scope as the API compares scopes: the domain of a
+// scope that takes one in lower case and as scopeDomain reads it.
+func CanonicalScope(scope string) string {
+	prefix, domain, found := strings.Cut(scope, "{")
+	if !found {
+		return scope
+	}
+	return prefix + "{" + strings.ToLower(scopeDomain(strings.TrimSuffix(domain, "}"))) + "}"
+}
+
+// scopeDomain returns the domain of a scope as the API reads it, without a
+// trailing dot, as in example.com.
+func scopeDomain(domain string) string {
+	return strings.TrimSuffix(domain, ".")
+}
+
+// IsParentOnlyScope reports whether scope manages sub-accounts or their keys,
+// which the API refuses to a key that a sub-account owns.
+func IsParentOnlyScope(scope string) bool {
+	return strings.HasPrefix(scope, "sub-accounts:") || strings.HasPrefix(scope, "sub-account-api-keys:")
 }

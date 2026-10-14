@@ -1,13 +1,14 @@
 package integration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/AhaSend/ahasend-cli/cmd"
 	"github.com/AhaSend/ahasend-cli/internal/config"
-	"github.com/AhaSend/ahasend-cli/internal/testutil"
+	"github.com/AhaSend/ahasend-cli/internal/testenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -24,7 +25,7 @@ func (suite *AuthIntegrationTestSuite) SetupTest() {
 	require.NoError(suite.T(), err)
 
 	suite.tempDir = tempDir
-	suite.T().Setenv("HOME", tempDir)
+	testenv.SetHome(suite.T(), tempDir)
 
 	// Create config manager
 	suite.configMgr, err = config.NewManager()
@@ -35,16 +36,35 @@ func (suite *AuthIntegrationTestSuite) TearDownTest() {
 	os.RemoveAll(suite.tempDir)
 }
 
-func (suite *AuthIntegrationTestSuite) TestAuthWorkflow() {
-	t := suite.T()
+func (suite *AuthIntegrationTestSuite) TestAuthStatusWithoutProfiles() {
+	for _, all := range [][]string{nil, {"--all"}} {
+		for _, format := range []string{"table", "plain"} {
+			suite.Run(fmt.Sprintf("%s %v", format, all), func() {
+				stdout, stderr, code := execRoot(format, "", append([]string{"auth", "status"}, all...)...)
 
-	// Test auth status when no profiles exist - should run without error
-	// Note: Output goes to stderr via formatter, so we just test it doesn't crash
-	_, err := testutil.ExecuteCommand(cmd.GetRootCmd(), "auth", "status")
-	assert.NoError(t, err)
+				suite.Equal(0, code, stderr)
+				want := "No authentication profiles found\nRun 'ahasend auth login' to add one.\n"
+				if all != nil {
+					want = "No authentication profiles found\n"
+				}
+				suite.Equal(want, stdout)
+				suite.Empty(stderr)
+			})
+		}
+	}
+	for args, want := range map[string]string{
+		"auth status":       `{"empty": true, "message": "No authentication profiles found"}`,
+		"auth status --all": `{"profiles": []}`,
+		"auth logout":       `{"profile": "", "success": true, "message": "No authentication profiles found"}`,
+	} {
+		suite.Run("json "+args, func() {
+			stdout, stderr, code := execRoot("json", "", strings.Fields(args)...)
 
-	// Note: We can't test actual login without mocking the API
-	// but we can test the command structure and validation
+			suite.Equal(0, code, stderr)
+			suite.JSONEq(want, stdout)
+			suite.Empty(stderr)
+		})
+	}
 }
 
 func (suite *AuthIntegrationTestSuite) TestProfileManagement() {
@@ -53,9 +73,8 @@ func (suite *AuthIntegrationTestSuite) TestProfileManagement() {
 	// Create a test profile directly using config manager
 	profile := config.Profile{
 		APIKey:    "test-key",
-		APIURL:    "https://api.ahasend.com",
+		APIURL:    "http://127.0.0.1:1",
 		AccountID: "test-account",
-		Name:      "Test Profile",
 	}
 
 	err := suite.configMgr.SetProfile("test", profile)
@@ -93,15 +112,13 @@ func (suite *AuthIntegrationTestSuite) TestMultipleProfiles() {
 	profiles := map[string]config.Profile{
 		"dev": {
 			APIKey:    "dev-key",
-			APIURL:    "https://api.ahasend.com",
+			APIURL:    "http://127.0.0.1:1",
 			AccountID: "dev-account",
-			Name:      "Development",
 		},
 		"prod": {
 			APIKey:    "prod-key",
-			APIURL:    "https://api.ahasend.com",
+			APIURL:    "http://127.0.0.1:1",
 			AccountID: "prod-account",
-			Name:      "Production",
 		},
 	}
 

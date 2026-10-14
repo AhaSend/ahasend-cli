@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
-	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
 )
 
@@ -19,9 +19,10 @@ func NewCheckCommand() *cobra.Command {
 		Short: "Check if an email address is suppressed",
 		Long: `Check if an email address is suppressed and cannot receive emails.
 
-This command verifies whether a specific email address is in your suppression list.
-You can check for global suppressions or domain-specific suppressions.`,
-		Example: `  # Check if email is suppressed globally
+An address has a suppression per domain. Without --domain, the check shows
+every suppression of the address; with --domain, only the one for that
+domain.`,
+		Example: `  # Check the suppressions of an address on every domain
   ahasend suppressions check user@example.com
 
   # Check if email is suppressed for specific domain
@@ -29,8 +30,9 @@ You can check for global suppressions or domain-specific suppressions.`,
 
   # Check with JSON output for automation
   ahasend suppressions check user@example.com --output json`,
-		Args: cobra.ExactArgs(1),
-		RunE: runSuppressionsCheck,
+		Args:         cmdutil.ExactArgs(1),
+		RunE:         runSuppressionsCheck,
+		SilenceUsage: true,
 	}
 
 	// Add flags
@@ -45,9 +47,15 @@ func runSuppressionsCheck(cmd *cobra.Command, args []string) error {
 
 	email := args[0]
 
-	// Validate email format
-	if email == "" {
-		return errors.NewValidationError("email address is required", nil)
+	if err := validation.ValidateEmail("email", email); err != nil {
+		return err
+	}
+	domain, err := cmdutil.ReadNonEmpty(cmd, "domain", "")
+	if err != nil {
+		return err
+	}
+	if err := validation.ValidateOptionalDomainName("--domain", domain); err != nil {
+		return err
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -55,38 +63,22 @@ func runSuppressionsCheck(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Get flag values
-	domain, _ := cmd.Flags().GetString("domain")
-
-	var domainPtr *string
-	if domain != "" {
-		domainPtr = &domain
-	}
-
 	logger.Get().WithFields(map[string]interface{}{
 		"email":  email,
-		"domain": domain,
+		"domain": cmd.Flag("domain").Value.String(),
 	}).Debug("Checking suppression status")
 
 	// Check suppression
 	suppressions, err := client.ListSuppressions(requests.GetSuppressionsParams{
 		Email:  &email,
-		Domain: domainPtr,
+		Domain: domain,
 	})
 	if err != nil {
 		return err
 	}
 
-	// Use the new ResponseHandler to display suppression check results
-	found := len(suppressions.Data) > 0
-	var suppression *responses.Suppression
-	if found {
-		suppression = &suppressions.Data[0]
-	}
-
-	return handler.HandleCheckSuppression(suppression, found, printer.CheckConfig{
+	return handler.HandleCheckSuppression(suppressions, printer.CheckConfig{
 		FoundMessage:    fmt.Sprintf("Email %s is suppressed", email),
 		NotFoundMessage: fmt.Sprintf("Email %s is not suppressed", email),
-		FieldOrder:      []string{"email", "domain", "reason", "created_at", "expires_at"},
 	})
 }

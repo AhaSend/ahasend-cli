@@ -1,8 +1,38 @@
 package routes
 
 import (
+	"fmt"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
+
+// maxRecipientLength is the most characters the API takes in a recipient
+// filter.
+const maxRecipientLength = 255
+
+// validateRecipient checks a --recipient filter as the API does: at most 255
+// characters, in the form local@domain, where the local part is not empty
+// and may hold * wildcards, and the domain is a domain name. The API checks
+// that the domain is one of the account's domains. A route's recipient
+// cannot be cleared.
+func validateRecipient(recipient string) error {
+	if strings.TrimSpace(recipient) == "" {
+		return errors.NewValidationError("--recipient cannot be empty: a route's recipient cannot be cleared", nil)
+	}
+	if utf8.RuneCountInString(recipient) > maxRecipientLength {
+		return errors.NewValidationError(fmt.Sprintf("--recipient must be at most %d characters", maxRecipientLength), nil)
+	}
+	local, domain, found := strings.Cut(recipient, "@")
+	if !found || local == "" || !validation.IsDomainName(domain) {
+		return validation.InvalidValueError("--recipient", recipient,
+			"must be local@domain with one of your domains, such as support@example.com or *@example.com")
+	}
+	return nil
+}
 
 // NewCommand creates the routes command group
 func NewCommand() *cobra.Command {

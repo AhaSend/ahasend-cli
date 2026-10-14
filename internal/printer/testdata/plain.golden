@@ -1,0 +1,1144 @@
+=== api key
+
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Secret Key: [HIDDEN]
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Scopes:
+  - messages:send:all
+  - domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa)
+IP Allow List: 192.0.2.1
+Last Used: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+=== api key list
+
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Scopes: messages:send:all, domains:read
+IP Allow List: 192.0.2.1
+Last Used: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 API key
+=== auth result
+Switched
+=== auth result without a profile
+Logged out
+=== auth status
+Authentication Status
+Profile: default
+Valid: Yes
+
+Account Details:
+  ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+  Name: Acme
+  Created: 2026-09-10 10:30:00 UTC+2
+  Updated: 2026-09-10 10:30:00 UTC+2
+
+Email Settings:
+  Track Opens: Yes
+
+Data Retention:
+  Message Data: 30 days
+=== bounces
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Total Bounces: 1
+  Bounce Classifications:
+    invalid: 1 (100.00%)
+=== created api key
+
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Secret Key: sk_secret
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Scopes:
+  - messages:send:all
+  - domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa)
+IP Allow List: 192.0.2.1
+Created: 2026-09-10 10:30:00 UTC+2
+
+Save the secret key now. It will not be shown again, except to a retry with the same --idempotency-key within the 5-minute replay window.
+=== created disabled route
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: No
+Recipient Filter: *@example.com
+Secret: rsec_secret
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Save the secret now. It will not be shown again. Use it to verify route signatures.
+
+The route is disabled. Enable it to start processing emails.
+=== created route
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Secret: rsec_secret
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Save the secret now. It will not be shown again. Use it to verify route signatures.
+=== created smtp
+
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Password: smtp-password
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+
+Save the password now. It will not be shown again.
+
+SMTP Settings:
+  Server: send.ahasend.com
+  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS
+  Username: relay
+  Password: [Use the password shown above]
+  Authentication: Plain or Login
+=== created suppressions
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+=== created webhook
+
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Secret: whsec_secret
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Save the secret now. It will not be shown again. Use it to verify webhook signatures.
+=== deliverability
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Reception: 2
+  Delivered: 1
+  Deferred: 0
+  Bounced: 0
+  Failed: 0
+  Suppressed: 0
+  Opened: 0
+  Clicked: 0
+  Delivery Rate: 50.00%
+  Open Rate: 0.00%
+=== delivery times
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Delivered: 3
+  Average Delivery Time: 2.00s
+  Per-Domain Delivery Times:
+    example.com: 1.50s (0 delivered)
+=== domain
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+=== domain list
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 domain
+=== domain with DNS records
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+DNS Records:
+  1. Type: TXT, Host: example.com, Content: v=spf1, Required: No, Propagated: No
+=== empty
+Nothing found
+=== message
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: No
+Message ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+=== message list
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Created: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+
+Showing 1 message
+=== message with content
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: No
+Message ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+Content Size: 11 bytes
+Content:
+Hello
+there
+=== no response for API keys
+None found
+=== no response for SMTP credentials
+None found
+=== no response for domains
+None found
+=== no response for messages
+None found
+=== no response for routes
+None found
+=== no response for sub-accounts
+None found
+=== no response for suppressions
+None found
+=== no response for webhooks
+None found
+=== page of 0 API keys
+None found
+--after next-page
+--before previous-page
+=== page of 0 SMTP credentials
+None found
+--after next-page
+--before previous-page
+=== page of 0 domains
+None found
+--after next-page
+--before previous-page
+=== page of 0 messages
+None found
+--after next-page
+--before previous-page
+=== page of 0 routes
+None found
+--after next-page
+--before previous-page
+=== page of 0 sub-accounts
+None found
+--after next-page
+--before previous-page
+=== page of 0 suppressions
+None found
+--after next-page
+--before previous-page
+=== page of 0 webhooks
+None found
+--after next-page
+--before previous-page
+=== page of 1 API keys
+Retrieved
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Scopes: messages:send:all, domains:read
+IP Allow List: 192.0.2.1
+Last Used: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 API key (more available)
+--after next-page
+--before previous-page
+=== page of 1 SMTP credentials
+Retrieved
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 SMTP credential (more available)
+--after next-page
+--before previous-page
+=== page of 1 domains
+Retrieved
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 domain (more available)
+--after next-page
+--before previous-page
+=== page of 1 messages
+Retrieved
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Created: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+
+Showing 1 message (more available)
+--after next-page
+--before previous-page
+=== page of 1 routes
+Retrieved
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 route (more available)
+--after next-page
+--before previous-page
+=== page of 1 sub-accounts
+Retrieved
+Name: Acme
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Status: active
+Website: acme.example
+Monthly Credit: 0
+Domains: 0
+Members: 0
+Created: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 sub-account (more available)
+--after next-page
+--before previous-page
+=== page of 1 suppressions
+Retrieved
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+
+Showing 1 suppression (more available)
+--after next-page
+--before previous-page
+=== page of 1 webhooks
+Retrieved
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 webhook (more available)
+--after next-page
+--before previous-page
+=== page of 2 API keys
+Retrieved
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Scopes: messages:send:all, domains:read
+IP Allow List: 192.0.2.1
+Last Used: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Scopes: messages:send:all, domains:read
+IP Allow List: 192.0.2.1
+Last Used: 2026-09-10 10:30:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 API keys (more available)
+--after next-page
+--before previous-page
+=== page of 2 SMTP credentials
+Retrieved
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 SMTP credentials (more available)
+--after next-page
+--before previous-page
+=== page of 2 domains
+Retrieved
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 domains (more available)
+--after next-page
+--before previous-page
+=== page of 2 messages
+Retrieved
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Created: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Created: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+
+Showing 2 messages (more available)
+--after next-page
+--before previous-page
+=== page of 2 routes
+Retrieved
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 routes (more available)
+--after next-page
+--before previous-page
+=== page of 2 sub-accounts
+Retrieved
+Name: Acme
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Status: active
+Website: acme.example
+Monthly Credit: 0
+Domains: 0
+Members: 0
+Created: 2026-09-10 10:30:00 UTC+2
+
+Name: Acme
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Status: active
+Website: acme.example
+Monthly Credit: 0
+Domains: 0
+Members: 0
+Created: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 sub-accounts (more available)
+--after next-page
+--before previous-page
+=== page of 2 suppressions
+Retrieved
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+
+Showing 2 suppressions (more available)
+--after next-page
+--before previous-page
+=== page of 2 webhooks
+Retrieved
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 webhooks (more available)
+--after next-page
+--before previous-page
+=== route
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+=== route list
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 route
+=== sent messages
+
+
+Message 1:
+  Recipient: a@example.com
+  Status: queued
+
+Message 2:
+  Recipient: b@example.com
+  Status: queued
+=== smtp
+
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Password: [HIDDEN]
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+SMTP Settings:
+  Server: send.ahasend.com
+  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS
+  Username: relay
+  Password: [Use the password provided during creation]
+  Authentication: Plain or Login
+=== smtp list
+
+Name: Relay
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Username: relay
+Scope: scoped
+Domains: example.com, news.example.com
+Sandbox: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 SMTP credential
+=== smtp sent
+
+Message ID: <id>
+=== smtp test
+SMTP Test Result:
+  Connection: Successful
+  Authentication: Not tested (no --username and --password)
+  Status: No message was sent
+=== smtp test fails
+SMTP Test Result:
+  Connection: Successful
+  Authentication: Failed
+  Error: refused
+  Status: Please check your SMTP username and password
+=== sparse api key
+
+Label: Production
+Secret Key: [HIDDEN]
+IP Allow List: any
+=== sparse api key list
+
+Label: Production
+IP Allow List: any
+
+Showing 1 API key
+=== sparse auth status
+Authentication Status
+Profile: default
+
+Account Details:
+  Name: Acme
+=== sparse created api key
+
+Label: Production
+IP Allow List: any
+=== sparse created smtp
+
+Name: Relay
+Domains: all
+Sandbox: No
+
+SMTP Settings:
+  Server: send.ahasend.com
+  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS
+  Password: [Use your saved password]
+  Authentication: Plain or Login
+=== sparse created webhook
+
+Name: Events
+Enabled: No
+Events: none
+Domains: all
+=== sparse deliverability
+Time Period:  to 
+  Reception: 0
+  Delivered: 0
+  Deferred: 0
+  Bounced: 0
+  Failed: 0
+  Suppressed: 0
+  Opened: 0
+  Clicked: 0
+=== sparse delivery times
+Time Period:  to 
+  Delivered: 0
+  Average Delivery Time: 0.00s
+  Per-Domain Delivery Times:
+    -: - (0 delivered)
+=== sparse domain
+
+Domain: example.com
+DNS Status: Invalid
+=== sparse domain list
+
+Domain: example.com
+DNS Status: Invalid
+
+Showing 1 domain
+=== sparse message
+
+Subject: Hello
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: No
+=== sparse message list
+
+Subject: Hello
+Opens: 0
+Clicks: 0
+
+Showing 1 message
+=== sparse route
+
+Name: Inbound
+Enabled: No
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+=== sparse route list
+
+Name: Inbound
+Enabled: No
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+
+Showing 1 route
+=== sparse sent message
+
+
+Message 1:
+  Recipient: to@example.com
+  Status: queued
+=== sparse smtp
+
+Name: Relay
+Password: [HIDDEN]
+Domains: all
+Sandbox: No
+
+SMTP Settings:
+  Server: send.ahasend.com
+  Port: 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS
+  Password: [Use the password provided during creation]
+  Authentication: Plain or Login
+=== sparse smtp list
+
+Name: Relay
+Domains: all
+Sandbox: No
+
+Showing 1 SMTP credential
+=== sparse smtp send
+
+=== sparse sub-account
+
+Name: Acme
+Monthly Credit: 0
+Domains: 0
+Members: 0
+=== sparse sub-account list
+
+Name: Acme
+Monthly Credit: 0
+Domains: 0
+Members: 0
+
+Showing 1 sub-account
+=== sparse suppression list
+
+Email: user@example.com
+Protected: No
+
+Showing 1 suppression
+=== sparse updated api key
+
+Label: Production
+IP Allow List: any
+=== sparse updated webhook
+
+Name: Events
+Enabled: No
+Events: none
+Domains: all
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+=== sparse webhook
+
+Name: Events
+Enabled: No
+Events: none
+Domains: all
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+=== sparse webhook list
+
+Name: Events
+Enabled: No
+Events: none
+Domains: all
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+
+Showing 1 webhook
+=== sub-account
+
+Name: Acme
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Parent Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Status: active
+Website: acme.example
+Monthly Credit: 0
+Domains: 0
+Members: 0
+Created: 2026-09-10 10:30:00 UTC+2
+Last Activity: 2026-09-10 10:30:00 UTC+2
+=== sub-account list
+
+Name: Acme
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Status: active
+Website: acme.example
+Monthly Credit: 0
+Domains: 0
+Members: 0
+Created: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 sub-account
+=== sub-account usage
+Billing Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2
+Currency: usd
+Allocation Method: proportional
+
+Parent:
+  Account ID: 22222222-2222-2222-2222-222222222222
+  Reception: 1000
+  Allocated Cost: 10.00
+
+Acme Subsidiary:
+  Account ID: 33333333-3333-3333-3333-333333333333
+  Reception: 3000
+  Allocated Cost: 30.00
+
+Total:
+  Reception: 4000
+  Allocated Cost: 40.00
+=== sub-account usage with removed
+Usage
+Billing Period: 2026-06-01 02:00:00 UTC+2 to 2026-06-30 02:00:00 UTC+2
+Currency: usd
+Allocation Method: proportional
+Allocation Note: Shared by reception count
+
+Parent:
+  Account ID: 22222222-2222-2222-2222-222222222222
+  Reception: 1000
+  Allocated Cost: 10.00
+
+Acme Subsidiary:
+  Account ID: 33333333-3333-3333-3333-333333333333
+  Reception: 3000
+  Allocated Cost: 30.00
+
+Removed Sub-Accounts:
+  Reception: 5
+  Allocated Cost: 5.00
+
+Total:
+  Reception: 4000
+  Allocated Cost: 40.00
+=== suppression check
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+=== suppression list
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+
+Showing 1 suppression
+=== two bounce periods
+Bounces
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 
+  No bounces recorded
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 
+  Total Bounces: 1
+  Bounce Classifications:
+    invalid: 1 (100.00%)
+=== two deliverability periods
+Deliverability
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 
+  Reception: 2
+  Delivered: 1
+  Deferred: 0
+  Bounced: 0
+  Failed: 0
+  Suppressed: 0
+  Opened: 0
+  Clicked: 0
+  Delivery Rate: 50.00%
+  Open Rate: 0.00%
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 
+  Reception: 0
+  Delivered: 0
+  Deferred: 0
+  Bounced: 0
+  Failed: 0
+  Suppressed: 0
+  Opened: 0
+  Clicked: 0
+=== two delivery time periods
+Delivery times
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2
+  Delivered: 3
+  Average Delivery Time: 1.11h
+  Per-Domain Delivery Times:
+    example.com: 1.50m (0 delivered)
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2
+  Delivered: 3
+  Average Delivery Time: 1.11h
+  Per-Domain Delivery Times:
+    example.com: 1.50m (0 delivered)
+=== two domains
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Domain: example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+DNS Status: Valid
+Sending Type: transactional
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Last DNS Check: 2026-09-10 10:30:00 UTC+2
+
+Showing 2 domains
+=== two suppressions created
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+
+Email: user@example.com
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Domain: example.com
+Reason: bounce
+Created: 2026-09-10 10:30:00 UTC+2
+Expires: 2026-09-10 10:30:00 UTC+2
+Protected: No
+=== updated api key
+
+Label: Production
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Public Key: pk_a_public_key_longer_than_twenty
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Scopes:
+  - messages:send:all
+  - domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa)
+IP Allow List: 192.0.2.1
+Updated: 2026-09-10 10:30:00 UTC+2
+=== updated route
+
+Name: Inbound
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Recipient Filter: *@example.com
+Include Attachments: No
+Include Headers: No
+Group by Message ID: No
+Strip Replies: No
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 0
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+=== updated webhook
+
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+=== webhook
+
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+=== webhook list
+
+Name: Events
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
+Enabled: Yes
+Events: delivered
+Scope: account
+Domains: example.com
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Successful Calls: 2
+Failed Calls: 0
+Errors Since Last Success: 0
+Last Called: 2026-09-10 10:30:00 UTC+2
+
+Showing 1 webhook

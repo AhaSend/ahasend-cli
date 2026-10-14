@@ -1,15 +1,15 @@
 package webhooks
 
 import (
-	"fmt"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
+	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 	"github.com/AhaSend/ahasend-go"
 	"github.com/AhaSend/ahasend-go/models/requests"
-	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
 )
 
@@ -17,265 +17,177 @@ import (
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <webhook-id>",
-		Short: "Update an existing webhook",
-		Long: `Update an existing webhook's configuration including name, URL,
-enabled status, event types, scope, and domain restrictions.
+		Short: "Update a webhook",
+		Long: `Partially update a webhook. Only the flags you set are sent; other
+properties remain unchanged.
 
-You can update any combination of webhook properties by providing the
-corresponding flags. Only the specified properties will be updated;
-others will remain unchanged.
-
-The webhook ID can be found using the 'ahasend webhooks list' command.`,
+--events replaces the webhook's event types with the given ones,
+--all-events selects every event type and --clear-events removes them all.
+--domains replaces the domain restrictions of a scoped webhook; the API
+ignores it on a global webhook unless --scope scoped is given too.
+--scope global removes the domain restrictions.`,
 		Example: `  # Update webhook name and URL
   ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab \
     --name "Updated Webhook" \
     --url "https://new-endpoint.example.com/webhook"
 
-  # Enable webhook and add event types
+  # Enable webhook and set its event types
   ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab \
-    --enable \
-    --events "delivered,bounced,opened"
+    --enabled --events delivered --events bounced --events opened
 
   # Disable webhook
-  ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab --disable
+  ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab --enabled=false
 
-  # Update event types (replaces existing events)
-  ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab \
-    --events "delivered,failed"
-
-  # Add all event types
+  # Select all event types
   ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab --all-events
 
   # Clear all event types
-  ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab --no-events
+  ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab --clear-events
 
   # Update scope and domains
   ahasend webhooks update abcd1234-5678-90ef-abcd-1234567890ab \
-    --scope "domain" \
-    --domains "example.com,test.com"`,
-		Args:         cobra.ExactArgs(1),
+    --scope scoped --domains example.com --domains test.com`,
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runWebhooksUpdate,
 		SilenceUsage: true,
 	}
 
-	// Basic properties
-	cmd.Flags().String("name", "", "Update webhook name")
-	cmd.Flags().String("url", "", "Update webhook URL")
-
-	// Status flags
-	cmd.Flags().Bool("enable", false, "Enable the webhook")
-	cmd.Flags().Bool("disable", false, "Disable the webhook")
-
-	// Event type flags
-	cmd.Flags().StringSlice("events", []string{}, "Set event types (replaces existing)")
-	cmd.Flags().Bool("all-events", false, "Enable all available event types")
-	cmd.Flags().Bool("no-events", false, "Disable all event types")
-
-	// Optional configuration
-	cmd.Flags().String("scope", "", "Update webhook scope")
-	cmd.Flags().StringSlice("domains", []string{}, "Set domain restrictions (replaces existing)")
-	cmd.Flags().Bool("clear-domains", false, "Clear all domain restrictions")
+	cmd.Flags().String("name", "", "New webhook name")
+	cmd.Flags().String("url", "", "New webhook URL")
+	cmd.Flags().Bool("enabled", false, "Enable (--enabled) or disable (--enabled=false) the webhook")
+	cmdutil.AddFlagAlias(cmd, "enable", "enabled")
+	cmdutil.AddNegatedFlagAlias(cmd, "disable", "enabled")
+	cmdutil.AddRepeatableFlag(cmd, "events", "Event type, such as delivered or message.delivered, replacing all event types (can be used multiple times)")
+	cmdutil.CompleteValues(cmd, "events", webhooks.EventValues())
+	cmd.Flags().Bool("all-events", false, "Select every event type")
+	cmd.Flags().Bool("clear-events", false, "Remove every event type")
+	cmdutil.AddFlagAlias(cmd, "no-events", "clear-events")
+	cmdutil.AddOneOfFlag(cmd, "scope", "", "New webhook scope: %s", cmdutil.Scopes)
+	cmdutil.AddRepeatableFlag(cmd, "domains", "Domain restriction, replacing all domains (can be used multiple times)")
+	cmdutil.AddValueAlias(cmd, "clear-domains", "scope", "global")
 
 	return cmd
 }
 
 func runWebhooksUpdate(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
+	webhookID := args[0]
+	webhookUUID, err := validation.ParseUUIDField("webhook ID", webhookID)
+	if err != nil {
+		return err
+	}
+	req, err := readWebhookUpdate(cmd)
+	if err != nil {
+		return err
+	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
 	}
 
-	webhookID := args[0]
-
-	// Get flags
-	name, _ := cmd.Flags().GetString("name")
-	webhookURL, _ := cmd.Flags().GetString("url")
-	enable, _ := cmd.Flags().GetBool("enable")
-	disable, _ := cmd.Flags().GetBool("disable")
-	events, _ := cmd.Flags().GetStringSlice("events")
-	allEvents, _ := cmd.Flags().GetBool("all-events")
-	noEvents, _ := cmd.Flags().GetBool("no-events")
-	scope, _ := cmd.Flags().GetString("scope")
-	domains, _ := cmd.Flags().GetStringSlice("domains")
-	clearDomains, _ := cmd.Flags().GetBool("clear-domains")
-
-	// Validate conflicting flags
-	if enable && disable {
-		return fmt.Errorf("cannot specify both --enable and --disable")
-	}
-
-	eventFlagsCount := 0
-	if len(events) > 0 {
-		eventFlagsCount++
-	}
-	if allEvents {
-		eventFlagsCount++
-	}
-	if noEvents {
-		eventFlagsCount++
-	}
-	if eventFlagsCount > 1 {
-		return fmt.Errorf("cannot specify multiple event flags: choose one of --events, --all-events, or --no-events")
-	}
-
-	if len(domains) > 0 && clearDomains {
-		return fmt.Errorf("cannot specify both --domains and --clear-domains")
-	}
-
-	// Check if any update flags are provided
-	hasUpdates := name != "" || webhookURL != "" || enable || disable ||
-		len(events) > 0 || allEvents || noEvents ||
-		scope != "" || len(domains) > 0 || clearDomains
-
-	if !hasUpdates {
-		return fmt.Errorf("no update flags provided. Use --help to see available options")
-	}
-
-	// Validate URL format if provided
-	if webhookURL != "" {
-		if err := validateWebhookURL(webhookURL); err != nil {
-			return err
-		}
-	}
-
-	// Validate event types if provided
-	if len(events) > 0 {
-		_, err := validateEventTypes(events)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Create update request
-	req := &requests.UpdateWebhookRequest{}
-
-	// Set basic properties
-	if name != "" {
-		req.Name = ahasend.String(name)
-	}
-	if webhookURL != "" {
-		req.URL = ahasend.String(webhookURL)
-	}
-
-	// Set enabled status
-	if enable {
-		req.Enabled = ahasend.Bool(true)
-	} else if disable {
-		req.Enabled = ahasend.Bool(false)
-	}
-
-	// Set event types
-	if allEvents {
-		setAllEventTypesUpdate(req)
-	} else if noEvents {
-		clearAllEventTypes(req)
-	} else if len(events) > 0 {
-		clearAllEventTypes(req) // Clear existing first
-		setEventTypesUpdate(req, events)
-	}
-
-	// Set scope
-	if scope != "" {
-		req.Scope = ahasend.String(scope)
-	}
-
-	// Set domains
-	if clearDomains {
-		emptyDomains := []string{}
-		req.Domains = &emptyDomains // Empty slice to clear
-	} else if len(domains) > 0 {
-		req.Domains = &domains
-	}
-
-	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
-		"webhook_id":    webhookID,
-		"name":          name,
-		"url":           webhookURL,
-		"enable":        enable,
-		"disable":       disable,
-		"events":        events,
-		"all_events":    allEvents,
-		"no_events":     noEvents,
-		"scope":         scope,
-		"domains":       domains,
-		"clear_domains": clearDomains,
+		"webhook_id": webhookID,
 	}).Debug("Executing webhooks update command")
 
-	// Update the webhook
-	webhook, err := updateWebhook(client, webhookID, *req)
+	webhook, err := client.UpdateWebhook(webhookUUID, *req)
 	if err != nil {
 		return err
 	}
 
-	// Use the new ResponseHandler to display updated webhook
-	return handler.HandleUpdateWebhook(webhook, printer.UpdateConfig{
-		SuccessMessage: fmt.Sprintf("Successfully updated webhook: %s", webhook.Name),
-		ItemName:       "webhook",
-		FieldOrder:     []string{"id", "name", "url", "enabled", "event_types", "scope", "domains", "created_at", "updated_at"},
+	return printer.GetResponseHandlerFromCommand(cmd).HandleUpdateWebhook(webhook, printer.ResultConfig{
+		SuccessMessage: "Webhook updated successfully",
 	})
 }
 
-func updateWebhook(client client.AhaSendClient, webhookID string, req requests.UpdateWebhookRequest) (*responses.Webhook, error) {
-	webhook, err := client.UpdateWebhook(webhookID, req)
+// readWebhookUpdate reads and checks the flags of webhooks update into the
+// request, which holds only the fields given. No field given is a
+// validation error, and an --url that sends events over plain HTTP gets a
+// warning.
+func readWebhookUpdate(cmd *cobra.Command) (*requests.UpdateWebhookRequest, error) {
+	name, err := cmdutil.ReadNonEmpty(cmd, "name", "")
 	if err != nil {
 		return nil, err
 	}
-	return webhook, nil
-}
-
-func setAllEventTypesUpdate(req *requests.UpdateWebhookRequest) {
-	req.OnReception = ahasend.Bool(true)
-	req.OnDelivered = ahasend.Bool(true)
-	req.OnTransientError = ahasend.Bool(true)
-	req.OnFailed = ahasend.Bool(true)
-	req.OnBounced = ahasend.Bool(true)
-	req.OnSuppressed = ahasend.Bool(true)
-	req.OnOpened = ahasend.Bool(true)
-	req.OnClicked = ahasend.Bool(true)
-	req.OnSuppressionCreated = ahasend.Bool(true)
-	req.OnDnsError = ahasend.Bool(true)
-}
-
-func clearAllEventTypes(req *requests.UpdateWebhookRequest) {
-	req.OnReception = ahasend.Bool(false)
-	req.OnDelivered = ahasend.Bool(false)
-	req.OnTransientError = ahasend.Bool(false)
-	req.OnFailed = ahasend.Bool(false)
-	req.OnBounced = ahasend.Bool(false)
-	req.OnSuppressed = ahasend.Bool(false)
-	req.OnOpened = ahasend.Bool(false)
-	req.OnClicked = ahasend.Bool(false)
-	req.OnSuppressionCreated = ahasend.Bool(false)
-	req.OnDnsError = ahasend.Bool(false)
-}
-
-func setEventTypesUpdate(req *requests.UpdateWebhookRequest, events []string) {
-	for _, event := range events {
-		switch event {
-		case "reception":
-			req.OnReception = ahasend.Bool(true)
-		case "delivered":
-			req.OnDelivered = ahasend.Bool(true)
-		case "transient_error":
-			req.OnTransientError = ahasend.Bool(true)
-		case "failed":
-			req.OnFailed = ahasend.Bool(true)
-		case "bounced":
-			req.OnBounced = ahasend.Bool(true)
-		case "suppressed":
-			req.OnSuppressed = ahasend.Bool(true)
-		case "opened":
-			req.OnOpened = ahasend.Bool(true)
-		case "clicked":
-			req.OnClicked = ahasend.Bool(true)
-		case "suppression_created":
-			req.OnSuppressionCreated = ahasend.Bool(true)
-		case "dns_error":
-			req.OnDnsError = ahasend.Bool(true)
+	if err := cmdutil.CheckMaxLength("name", name, cmdutil.MaxNameLength); err != nil {
+		return nil, err
+	}
+	webhookURL, err := cmdutil.ReadNonEmpty(cmd, "url", "")
+	if err != nil {
+		return nil, err
+	}
+	scope, err := cmdutil.ReadOneOf(cmd, "scope")
+	if err != nil {
+		return nil, err
+	}
+	events, err := cmdutil.ReadRepeatable(cmd, "events", "clear-events")
+	if err != nil {
+		return nil, err
+	}
+	if err := cmdutil.RejectTogether(cmd, "domains", "clear-domains"); err != nil {
+		return nil, err
+	}
+	domainList, err := cmdutil.ReadRepeatable(cmd, "domains", "")
+	if err != nil {
+		return nil, errors.NewValidationError(err.Error()+"; use --scope global to remove the domain restriction", nil)
+	}
+	var domains *[]string
+	if domainList != nil {
+		if err := validation.ValidateDomainNames("--domains", domainList); err != nil {
+			return nil, err
+		}
+		domains = &domainList
+	}
+	if domains != nil && scope != nil && *scope != "scoped" {
+		return nil, errors.NewValidationError("--domains needs --scope scoped", nil)
+	}
+	for _, pair := range [][2]string{{"events", "all-events"}, {"events", "clear-events"}, {"all-events", "clear-events"}} {
+		if err := cmdutil.RejectTogether(cmd, pair[0], pair[1]); err != nil {
+			return nil, err
 		}
 	}
+	parsedEvents, err := webhooks.ParseEvents(events)
+	if err != nil {
+		return nil, err
+	}
+	if webhookURL != nil {
+		if err := cmdutil.ValidateWebhookURL("url", *webhookURL); err != nil {
+			return nil, err
+		}
+	}
+	allEvents, _ := cmd.Flags().GetBool("all-events")
+	clearEvents, _ := cmd.Flags().GetBool("clear-events")
+
+	req := requests.UpdateWebhookRequest{
+		Name:    name,
+		URL:     webhookURL,
+		Enabled: cmdutil.ChangedBool(cmd, "enabled"),
+		Scope:   scope,
+		Domains: domains,
+	}
+	if allEvents || clearEvents || events != nil {
+		setUpdateEvents(&req, eventSettings(parsedEvents, allEvents))
+	}
+
+	if req.Name == nil && req.URL == nil && req.Enabled == nil && req.Scope == nil && req.Domains == nil &&
+		!allEvents && !clearEvents && events == nil {
+		return nil, errors.NewValidationError("at least one of --name, --url, --enabled, --events, --all-events, --clear-events, --scope or --domains must be provided", nil)
+	}
+	if webhookURL != nil {
+		cmdutil.WarnIfInsecureURL(cmd, "url", *webhookURL, cmdutil.WebhookSends)
+	}
+	return &req, nil
+}
+
+// setUpdateEvents sets every event subscription of req from settings.
+func setUpdateEvents(req *requests.UpdateWebhookRequest, settings map[string]bool) {
+	req.OnReception = ahasend.Bool(settings["reception"])
+	req.OnDelivered = ahasend.Bool(settings["delivered"])
+	req.OnTransientError = ahasend.Bool(settings["transient_error"])
+	req.OnFailed = ahasend.Bool(settings["failed"])
+	req.OnBounced = ahasend.Bool(settings["bounced"])
+	req.OnSuppressed = ahasend.Bool(settings["suppressed"])
+	req.OnOpened = ahasend.Bool(settings["opened"])
+	req.OnClicked = ahasend.Bool(settings["clicked"])
+	req.OnSuppressionCreated = ahasend.Bool(settings["suppression_created"])
+	req.OnDnsError = ahasend.Bool(settings["dns_error"])
 }

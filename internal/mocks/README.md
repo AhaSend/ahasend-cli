@@ -1,305 +1,172 @@
 # Mock Infrastructure
 
-This package provides comprehensive mock implementations for testing AhaSend CLI components. All mocks use the [testify/mock](https://github.com/stretchr/testify#mock-package) framework and implement the same interfaces as production code.
+This package provides `MockClient`, a mock of the `client.AhaSendClient` interface for testing API operations without calling the API. It uses the [testify/mock](https://github.com/stretchr/testify#mock-package) framework.
 
-## Available Mocks
+## MockClient
 
-### MockClient
-
-Mock implementation of `client.AhaSendClient` interface for testing API operations.
+A test sets the calls it expects a command to make, installs the mock as the
+command's client with `testutil.RunWithClient` (or `testutil.InjectClient`),
+runs the command and checks its output. A test that calls the mock directly
+only checks the mock, so tests always go through a command.
 
 ```go
-import "github.com/AhaSend/ahasend-cli/internal/mocks"
+import (
+    "testing"
 
-func TestMyCommand(t *testing.T) {
+    "github.com/AhaSend/ahasend-cli/cmd/groups/domains"
+    "github.com/AhaSend/ahasend-cli/internal/mocks"
+    "github.com/AhaSend/ahasend-cli/internal/testutil"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestDomainsGet(t *testing.T) {
     mockClient := &mocks.MockClient{}
-    
-    // Setup expectations
-    mockClient.On("Ping").Return(nil)
-    mockClient.On("GetAccountID").Return("test-account-id")
-    
-    // Use in your test
-    err := mockClient.Ping()
-    assert.NoError(t, err)
-    
-    accountID := mockClient.GetAccountID()
-    assert.Equal(t, "test-account-id", accountID)
-    
-    // Verify all expectations were met
+
+    // Set up the call the command makes
+    mockClient.On("GetDomain", "example.com").Return(mocks.NewDomain(), nil)
+
+    // Run the command with the mock as its client
+    output, err := testutil.RunWithClient(t, mockClient, domains.NewGetCommand(), "plain", "example.com")
+
+    require.NoError(t, err)
+    assert.Contains(t, output, "example.com")
+
+    // Verify the command made every expected call
     mockClient.AssertExpectations(t)
 }
 ```
 
-#### Supported Methods
+### Methods
 
-**Authentication & Account:**
-- `GetAccountID() string`
-- `GetAuthContext() context.Context`
-- `Ping() error`
-- `ValidateConfiguration() error`
+`MockClient` has every method of the
+[`client.AhaSendClient` interface](../client/interface.go), with the same
+signature; a test sets an expectation with the method's name and arguments.
+A method that takes request options, such as an idempotency key, passes
+each option to the mock as one more argument, so a test matches it with
+`mock.MatchedBy` or `testutil.IdempotencyKeyArg`.
 
-**Message Operations:**
-- `SendMessage(req ahasend.CreateMessageRequest) (*ahasend.CreateMessageResponse, error)`
-- `SendMessageWithIdempotencyKey(req ahasend.CreateMessageRequest, idempotencyKey string) (*ahasend.CreateMessageResponse, error)`
-- `CancelMessage(accountID, messageID string) error`
-- `GetMessages(params client.GetMessagesParams) (*ahasend.PaginatedMessagesResponse, error)`
+### Raw API Responses
 
-**Domain Operations:**
-- `ListDomains(limit *int32, cursor *string) (*ahasend.PaginatedDomainsResponse, error)`
-- `CreateDomain(domain string) (*ahasend.Domain, error)`
-- `GetDomain(domain string) (*ahasend.Domain, error)`
-- `DeleteDomain(domain string) error`
-
-**Webhook Operations:**
-- `CreateWebhookVerifier(secret string) (*ahasend.WebhookVerifier, error)`
-
-**Sub-account Operations:**
-- `ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error)`
-- `CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error)`
-- `GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error)`
-- `GetSubAccount(subAccountID string) (*responses.SubAccount, error)`
-- `UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error)`
-- `DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error)`
-- `SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error)`
-- `UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error)`
-
-**Sub-account API Key Operations:**
-- `ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)`
-- `CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error)`
-- `GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error)`
-- `UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)`
-- `DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error)`
-
-#### Helper Methods
-
-MockClient provides helper methods for creating common test data:
+JSON output prints the API's response body unchanged, so a test of JSON output
+needs a result that carries its body. `mocks.APIResponse[T](t, body)` decodes
+`body` into a new `T`, records `body` as the API response behind it, and
+returns the `*T` for use in `Return`. Table, plain and CSV output then see the
+decoded struct, and JSON output prints `body`:
 
 ```go
-// Create a mock domain
-domain := mockClient.NewMockDomain("example.com", true)
+func TestListCommand_JSONPrintsBody(t *testing.T) {
+    body := `{"object":"list","data":[{"domain":"example.com","future_field":1.50}],"pagination":{"has_more":false}}`
+    mockClient := &mocks.MockClient{}
+    mockClient.On("ListDomains", requests.GetDomainsParams{}).
+        Return(mocks.APIResponse[responses.PaginatedDomainsResponse](t, body), nil)
 
-// Create a mock domains response
-domains := []*ahasend.Domain{domain}
-response := mockClient.NewMockDomainsResponse(domains, false)
+    out, err := testutil.RunWithClient(t, mockClient, NewListCommand(), "json")
 
-// Create a mock message response
-messageResponse := mockClient.NewMockMessageResponse("msg-123")
-
-// Create sub-account fixtures
-subAccount := mockClient.NewMockSubAccount(
-    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
-    "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1",
-    "Acme Subsidiary",
-    "acme.example.com",
-    "active",
-)
-subAccounts := mockClient.NewMockSubAccountsResponse([]responses.SubAccount{*subAccount}, false)
-usage := mockClient.NewMockSubAccountUsageResponse(
-    "9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1",
-    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
-    "Acme Subsidiary",
-)
-
-// Create API-key fixtures
-apiKey := mockClient.NewMockAPIKey(
-    "13b3aa8e-78d3-48a1-92d2-4b8b1228c2dd",
-    "2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a",
-    "Bootstrap key",
-    []string{"messages:send:all"},
-)
-apiKeys := mockClient.NewMockAPIKeysResponse([]responses.APIKey{*apiKey}, false)
-```
-
-### MockConfigManager
-
-Mock implementation of `config.ConfigManager` interface for testing configuration operations.
-
-```go
-func TestConfigOperation(t *testing.T) {
-    mockConfig := &mocks.MockConfigManager{}
-    
-    // Setup expectations
-    profile := config.Profile{
-        Name:      "test",
-        APIKey:    "test-key",
-        AccountID: "test-account",
-    }
-    mockConfig.On("GetCurrentProfile").Return(&profile, nil)
-    mockConfig.On("SetPreference", "output_format", "json").Return(nil)
-    
-    // Use in your test
-    currentProfile, err := mockConfig.GetCurrentProfile()
-    assert.NoError(t, err)
-    assert.Equal(t, "test", currentProfile.Name)
-    
-    err = mockConfig.SetPreference("output_format", "json")
-    assert.NoError(t, err)
-    
-    mockConfig.AssertExpectations(t)
+    require.NoError(t, err)
+    assert.Equal(t, testutil.IndentedJSON(t, body), out)
+    mockClient.AssertExpectations(t)
 }
 ```
 
-#### Supported Methods
+A body that does not decode into `T` fails the test. A result built as a Go
+value, such as one of the fixtures below, has no recorded body, and JSON
+output encodes the struct instead.
 
-**Configuration File Operations:**
-- `Load() error`
-- `Save() error`
-- `GetConfig() *config.Config`
+### Fixtures
 
-**Profile Management:**
-- `GetCurrentProfile() (*config.Profile, error)`
-- `SetProfile(name string, profile config.Profile) error`
-- `RemoveProfile(name string) error`
-- `ListProfiles() []string`
-- `SetDefaultProfile(name string) error`
+`fixtures.go` holds the fixtures that the tests share, in one place. Their
+values are fixed, so a test can compare output exactly:
 
-**Preference Management:**
-- `SetPreference(key, value string) error`
-- `GetPreference(key string) (string, error)`
-
-#### Helper Methods
-
-MockConfigManager provides helper methods for creating test data:
+- `NewSubAccount() *responses.SubAccount`: a sub-account with every field
+  set; its ID is `FixtureSubAccountID` and its parent account
+  `FixtureParentAccountID`
+- `NewSubAccountUsage(removedReception int64) *responses.SubAccountUsageResponse`:
+  the June 2026 usage of the parent account and one sub-account, with
+  `removedReception` messages of removed sub-accounts
+- `NewAPIKey() *responses.APIKey`: an API key of the sub-account of
+  `NewSubAccount`, with the ID `FixtureAPIKeyID`, without scopes, IP allow
+  list or secret key
+- `NewMessageResponse(messageID string) *responses.CreateMessageResponse`:
+  the response of a send to one recipient
+- `NewDomain() *responses.Domain`: the domain `example.com` of the account
+  `FixtureSubAccountID`, with the ID `FixtureDomainID` and a DMARC and a
+  tracking DNS record
 
 ```go
-// Create a mock profile
-profile := mockConfig.NewMockProfile("test", "api-key", "account-123")
-
-// Create a mock config
-cfg := mockConfig.NewMockConfig()
+apiKey := mocks.NewAPIKey()
+apiKey.Scopes = []responses.APIKeyScope{{Scope: "messages:send:all"}}
+mockClient.On("GetAPIKey", uuid.MustParse(mocks.FixtureAPIKeyID)).Return(apiKey, nil)
 ```
 
 ## Design Principles
 
 ### Interface Compliance
 
-All mocks implement their corresponding interfaces with compile-time verification:
+`MockClient` implements the client interface with compile-time verification:
 
 ```go
 // Ensures MockClient implements AhaSendClient
 var _ client.AhaSendClient = (*MockClient)(nil)
-
-// Ensures MockConfigManager implements ConfigManager
-var _ config.ConfigManager = (*MockConfigManager)(nil)
 ```
 
 ### Consistent Error Handling
 
-Mocks handle nil returns properly to avoid panics:
+Every `MockClient` method that returns `(*T, error)` reads its results with
+the `result[T]` helper, which returns a nil `*T` when the first result is nil,
+typed or untyped, so `Return(nil, err)` never panics:
 
 ```go
-func (m *MockClient) CreateDomain(domain string) (*ahasend.Domain, error) {
-    args := m.Called(domain)
-    if args.Get(0) == nil {
-        return nil, args.Error(1)
-    }
-    return args.Get(0).(*ahasend.Domain), args.Error(1)
+func (m *MockClient) CreateDomain(req requests.CreateDomainRequest, opts ...api.RequestOption) (*responses.Domain, error) {
+    return result[responses.Domain](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 ```
-
-### Helper Methods
-
-Each mock provides helper methods for creating common test data structures, reducing test boilerplate and ensuring consistent test data.
 
 ## Testing Patterns
-
-### Basic Mock Setup
-
-```go
-func TestCommand(t *testing.T) {
-    // Create mock
-    mockClient := &mocks.MockClient{}
-    
-    // Set expectations
-    mockClient.On("MethodName", arg1, arg2).Return(returnValue, nil)
-    
-    // Execute test
-    result, err := mockClient.MethodName(arg1, arg2)
-    
-    // Assert results
-    assert.NoError(t, err)
-    assert.Equal(t, returnValue, result)
-    
-    // Verify expectations
-    mockClient.AssertExpectations(t)
-}
-```
 
 ### Error Testing
 
 ```go
-func TestCommandError(t *testing.T) {
+func TestDomainsGetNotFound(t *testing.T) {
     mockClient := &mocks.MockClient{}
-    
-    // Setup error expectation
-    mockClient.On("Ping").Return(errors.New("connection failed"))
-    
-    err := mockClient.Ping()
-    assert.Error(t, err)
-    assert.Contains(t, err.Error(), "connection failed")
-    
+    mockClient.On("GetDomain", "example.com").
+        Return(nil, &api.APIError{StatusCode: 404, Message: "domain not found"})
+
+    _, err := testutil.RunWithClient(t, mockClient, domains.NewGetCommand(), "plain", "example.com")
+
+    require.Error(t, err)
+    assert.Equal(t, 5, clierrors.GetExitCode(err))
     mockClient.AssertExpectations(t)
 }
 ```
 
-### Complex Scenarios
+### Validation Before Authentication
+
+`testutil.RefuseAuth` makes a command that asks for its client fail the test
+by name and stop with an error, with no client to call, and returns a flag
+that reports whether the command asked, so a test can check that bad input
+fails before any request. A regression then fails that one test: a
+`MockClient` without expectations would panic on the call instead, and in
+`messages send`'s worker goroutines that ends the whole test binary.
 
 ```go
-func TestComplexScenario(t *testing.T) {
-    mockClient := &mocks.MockClient{}
-    
-    // Setup multiple expectations
-    domain := mockClient.NewMockDomain("example.com", true)
-    mockClient.On("GetDomain", "example.com").Return(domain, nil)
-    mockClient.On("DeleteDomain", "example.com").Return(nil)
-    
-    // Test the scenario
-    retrievedDomain, err := mockClient.GetDomain("example.com")
-    assert.NoError(t, err)
-    assert.Equal(t, "example.com", retrievedDomain.Domain)
-    
-    err = mockClient.DeleteDomain("example.com")
-    assert.NoError(t, err)
-    
-    mockClient.AssertExpectations(t)
+func TestDomainsCreateRejectsABadDomain(t *testing.T) {
+    called := testutil.RefuseAuth(t)
+
+    _, err := testutil.RunPlain(t, domains.NewCreateCommand(), "not a domain")
+
+    require.Error(t, err)
+    assert.False(t, *called)
 }
 ```
-
-## Migration Guide
-
-### From Old Mock Patterns
-
-If you're updating existing tests that used the old mock patterns:
-
-#### Old Pattern (Inconsistent)
-```go
-// Various inconsistent mock approaches
-type CustomMock struct {
-    // Custom implementation
-}
-```
-
-#### New Pattern (Standardized)
-```go
-// Use standardized interface-based mocks
-mockClient := &mocks.MockClient{}
-mockClient.On("MethodName", args...).Return(returnValue, nil)
-```
-
-### Benefits of New Pattern
-
-1. **Interface Compliance**: Compile-time verification that mocks match production interfaces
-2. **Consistency**: All mocks follow the same patterns and conventions
-3. **Maintainability**: Easy to update when interfaces change
-4. **Feature Completeness**: All interface methods are implemented
-5. **Helper Methods**: Convenient test data creation
-6. **Error Handling**: Proper nil checking to prevent test panics
 
 ## Best Practices
 
-1. **Always call `AssertExpectations(t)`** at the end of tests to verify all expected calls were made
-2. **Use helper methods** when possible to create consistent test data
-3. **Set up specific expectations** for each test rather than generic catch-all expectations
-4. **Test error cases** explicitly with appropriate error expectations
-5. **Keep mock setup close to usage** to improve test readability
-6. **Use meaningful test data** that reflects realistic scenarios
+1. **Test a command, not the mock**: run the command with the mock as its client, and check its output, error and exit code
+2. **Always call `AssertExpectations(t)`** at the end of tests to verify all expected calls were made
+3. **Use the shared fixtures** when possible to create consistent test data
+4. **Use `mocks.APIResponse`** for any test that checks JSON output
+5. **Set up specific expectations** for each test rather than generic catch-all expectations
+6. **Test error cases** explicitly with appropriate error expectations
+7. **Keep mock setup close to usage** to improve test readability
+8. **Use meaningful test data** that reflects realistic scenarios

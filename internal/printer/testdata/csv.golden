@@ -1,0 +1,300 @@
+=== api key
+label,id,public_key,account_id,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== api key list
+label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== auth result
+profile,success,message
+default,true,Switched
+=== auth result without a profile
+profile,success,message
+,true,Logged out
+=== auth status
+profile,account_id,valid,error,note,parent_account_id,account_name,website,about,created_at,updated_at,track_opens,track_clicks,reject_bad_recipients,reject_mistyped_recipients,message_metadata_retention,message_data_retention
+default,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,,,,Acme,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,true,,,,,30
+=== bounces
+from_timestamp,to_timestamp,classification,count,percentage
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,invalid,1,100.00
+=== created api key
+label,id,public_key,secret_key,account_id,scopes,ip_allow_list,created_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,sk_secret,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z
+=== created disabled route
+name,id,url,enabled,recipient,secret,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,false,*@example.com,rsec_secret,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== created route
+name,id,url,enabled,recipient,secret,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,rsec_secret,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== created smtp
+name,id,username,password,scope,domains,sandbox,created_at
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,smtp-password,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z
+=== created suppressions
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== created webhook
+name,id,url,enabled,events,secret,scope,domains,created_at,updated_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,whsec_secret,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== deliverability
+from_timestamp,to_timestamp,reception_count,delivered_count,deferred_count,bounced_count,failed_count,suppressed_count,opened_count,clicked_count,delivery_rate,open_rate
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,2,1,0,0,0,0,0,0,50.00,0.00
+=== delivery times
+from_timestamp,to_timestamp,delivered_count,avg_delivery_time,recipient_domain,domain_delivered_count,domain_delivery_time
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,3,2,example.com,0,1.5
+=== domain
+domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,,,,,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,
+=== domain list
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== domain with DNS records
+domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,,,,,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,"[{""type"":""TXT"",""host"":""example.com"",""content"":""v=spf1"",""required"":false,""propagated"":false}]"
+=== empty
+=== message
+subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,0,0,0,,false,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,,0,
+=== message list
+subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
+=== message with content
+subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,0,0,0,,false,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,,11,"Hello
+there"
+=== no response for API keys
+=== no response for SMTP credentials
+=== no response for domains
+=== no response for messages
+=== no response for routes
+=== no response for sub-accounts
+=== no response for suppressions
+=== no response for webhooks
+=== page of 0 API keys
+label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
+=== page of 0 SMTP credentials
+name,id,username,scope,domains,sandbox,created_at,updated_at
+=== page of 0 domains
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+=== page of 0 messages
+subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
+=== page of 0 routes
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+=== page of 0 sub-accounts
+name,id,status,website,monthly_credit,domain_count,member_count,created_at
+=== page of 0 suppressions
+email,id,domain,reason,created_at,expires_at,protected
+=== page of 0 webhooks
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+=== page of 1 API keys
+label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 1 SMTP credentials
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 1 domains
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 1 messages
+subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
+=== page of 1 routes
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== page of 1 sub-accounts
+name,id,status,website,monthly_credit,domain_count,member_count,created_at
+Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
+=== page of 1 suppressions
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== page of 1 webhooks
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+=== page of 2 API keys
+label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 2 SMTP credentials
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 2 domains
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== page of 2 messages
+subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
+=== page of 2 routes
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== page of 2 sub-accounts
+name,id,status,website,monthly_credit,domain_count,member_count,created_at
+Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
+Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
+=== page of 2 suppressions
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== page of 2 webhooks
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+=== route
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== route list
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== sent messages
+recipient,id,status,error
+a@example.com,,queued,
+b@example.com,,queued,
+=== smtp
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== smtp list
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== smtp sent
+success,message_id
+true,<id>
+=== smtp test
+test_mode,success,connected,authenticated,error
+true,true,false,false,
+=== smtp test fails
+test_mode,success,connected,authenticated,error
+true,false,true,false,refused
+=== sparse api key
+label,id,public_key,account_id,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,,,,,,,,
+=== sparse api key list
+label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
+Production,,,,,,,
+=== sparse auth status
+profile,account_id,valid,error,note,parent_account_id,account_name,website,about,created_at,updated_at,track_opens,track_clicks,reject_bad_recipients,reject_mistyped_recipients,message_metadata_retention,message_data_retention
+default,,,,,,Acme,,,,,,,,,,
+=== sparse created api key
+label,id,public_key,secret_key,account_id,scopes,ip_allow_list,created_at
+Production,,,,,,,
+=== sparse created smtp
+name,id,username,password,scope,domains,sandbox,created_at
+Relay,,,,,,false,
+=== sparse created webhook
+name,id,url,enabled,events,secret,scope,domains,created_at,updated_at
+Events,,,false,none,,,,,
+=== sparse deliverability
+from_timestamp,to_timestamp,reception_count,delivered_count,deferred_count,bounced_count,failed_count,suppressed_count,opened_count,clicked_count,delivery_rate,open_rate
+,,0,0,0,0,0,0,0,0,,
+=== sparse delivery times
+from_timestamp,to_timestamp,delivered_count,avg_delivery_time,recipient_domain,domain_delivered_count,domain_delivery_time
+,,0,0,,0,
+=== sparse domain
+domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records
+example.com,,,false,,,,,,,,,,,,,
+=== sparse domain list
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+example.com,,false,,,,,,
+=== sparse message
+subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
+Hello,,,,,,,,,,,0,0,0,,false,,,,,,,0,
+=== sparse message list
+subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
+Hello,,,,,,,0,0,
+=== sparse route
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,,,false,,false,false,false,false,,,0,0,0,
+=== sparse route list
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,,,false,,false,false,false,false,,,0,0,0,
+=== sparse sent message
+recipient,id,status,error
+to@example.com,,queued,
+=== sparse smtp
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,,,,,false,,
+=== sparse smtp list
+name,id,username,scope,domains,sandbox,created_at,updated_at
+Relay,,,,,false,,
+=== sparse smtp send
+success,message_id
+true,
+=== sparse sub-account
+name,id,parent_account_id,status,website,monthly_credit,domain_count,member_count,created_at,last_activity_at
+Acme,,,,,0,0,0,,
+=== sparse sub-account list
+name,id,status,website,monthly_credit,domain_count,member_count,created_at
+Acme,,,,0,0,0,
+=== sparse suppression list
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,,,,,,false
+=== sparse updated api key
+label,id,public_key,account_id,scopes,ip_allow_list,updated_at
+Production,,,,,,
+=== sparse updated webhook
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,0,0,0,
+=== sparse webhook
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,0,0,0,
+=== sparse webhook list
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,0,0,0,
+=== sub-account
+name,id,parent_account_id,status,website,monthly_credit,domain_count,member_count,created_at,last_activity_at
+Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== sub-account list
+name,id,status,website,monthly_credit,domain_count,member_count,created_at
+Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
+=== sub-account usage
+billing_period_start,billing_period_end,currency,allocation_method,allocation_note,account_name,account_id,reception_count,allocated_cost
+2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,usd,proportional,,Parent,22222222-2222-2222-2222-222222222222,1000,10
+2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,usd,proportional,,Acme Subsidiary,33333333-3333-3333-3333-333333333333,3000,30
+2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,usd,proportional,,Total,,4000,40
+=== sub-account usage with removed
+billing_period_start,billing_period_end,currency,allocation_method,allocation_note,account_name,account_id,reception_count,allocated_cost
+2026-06-01T00:00:00Z,2026-06-30T00:00:00Z,usd,proportional,Shared by reception count,Parent,22222222-2222-2222-2222-222222222222,1000,10
+2026-06-01T00:00:00Z,2026-06-30T00:00:00Z,usd,proportional,Shared by reception count,Acme Subsidiary,33333333-3333-3333-3333-333333333333,3000,30
+2026-06-01T00:00:00Z,2026-06-30T00:00:00Z,usd,proportional,Shared by reception count,Removed Sub-Accounts,,5,5
+2026-06-01T00:00:00Z,2026-06-30T00:00:00Z,usd,proportional,Shared by reception count,Total,,4000,40
+=== suppression check
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== suppression list
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== two bounce periods
+from_timestamp,to_timestamp,classification,count,percentage
+2026-09-10T08:30:00Z,,,0,
+2026-09-10T08:30:00Z,,invalid,1,100.00
+=== two deliverability periods
+from_timestamp,to_timestamp,reception_count,delivered_count,deferred_count,bounced_count,failed_count,suppressed_count,opened_count,clicked_count,delivery_rate,open_rate
+2026-09-10T08:30:00Z,,2,1,0,0,0,0,0,0,50.00,0.00
+2026-09-10T08:30:00Z,,0,0,0,0,0,0,0,0,,
+=== two delivery time periods
+from_timestamp,to_timestamp,delivered_count,avg_delivery_time,recipient_domain,domain_delivered_count,domain_delivery_time
+2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,3,4000,example.com,0,90
+2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,3,4000,example.com,0,90
+=== two domains
+domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+=== two suppressions created
+email,id,domain,reason,created_at,expires_at,protected
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== updated api key
+label,id,public_key,account_id,scopes,ip_allow_list,updated_at
+Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z
+=== updated route
+name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== updated webhook
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+=== webhook
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+=== webhook list
+name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z

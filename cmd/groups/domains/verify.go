@@ -3,11 +3,14 @@ package domains
 import (
 	"fmt"
 
+	"github.com/AhaSend/ahasend-go/models/responses"
+
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/dns"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -15,91 +18,69 @@ import (
 func NewVerifyCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify <domain>",
-		Short: "Check domain DNS configuration",
-		Long: `Check the DNS configuration status for a domain and provide troubleshooting information.
+		Short: "Show a domain's DNS status",
+		Long: `Show the DNS status of a domain as of its last DNS check, with
+troubleshooting information. It does not check the DNS again: run
+"ahasend domains check-dns" for a new check after changing the records.
 
-This command shows whether DNS records are properly configured and provides
-helpful guidance for fixing DNS issues.`,
-		Example: `  # Check domain DNS status
+The command shows whether DNS records are properly configured and lists them.
+When the DNS is not valid, troubleshooting tips and setup instructions for
+each record follow on stderr. --show-records prints the setup instructions
+for a valid domain too.`,
+		Example: `  # Show the domain's DNS status
   ahasend domains verify example.com
 
-  # Show detailed DNS information
-  ahasend domains verify example.com --verbose`,
-		Args:         cobra.ExactArgs(1),
+  # Also print the DNS setup instructions of a valid domain
+  ahasend domains verify example.com --show-records`,
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runDomainsVerify,
 		SilenceUsage: true,
 	}
 
-	cmd.Flags().Bool("verbose", false, "Show detailed DNS information")
+	cmd.Flags().Bool("show-records", false, "Print the DNS setup instructions even when the DNS is valid")
 
 	return cmd
 }
 
 func runDomainsVerify(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
+	return runDNSCheck(cmd, args[0], client.AhaSendClient.GetDomain)
+}
 
-	client, err := auth.GetAuthenticatedClient(cmd)
+// runDNSCheck fetches domain with fetch and prints it under a line that says
+// whether its DNS is valid, followed by the DNS help on stderr. verify and
+// check-dns differ only in how they fetch the domain.
+func runDNSCheck(cmd *cobra.Command, domain string, fetch func(client.AhaSendClient, string) (*responses.Domain, error)) error {
+	if err := validation.ValidatePathSegment("domain", domain); err != nil {
+		return err
+	}
+	showRecords, _ := cmd.Flags().GetBool("show-records")
+
+	handler := printer.GetResponseHandlerFromCommand(cmd)
+	apiClient, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
 	}
-
-	domain := args[0]
-	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	logger.Get().WithFields(map[string]interface{}{
-		"domain":  domain,
-		"verbose": verbose,
-	}).Debug("Executing domain verify command")
+		"domain":       domain,
+		"show_records": showRecords,
+	}).Debug("Executing domain " + cmd.Name() + " command")
 
-	// Get current domain status
-	response, err := client.GetDomain(domain)
+	response, err := fetch(apiClient, domain)
 	if err != nil {
 		return err
 	}
 
-	if response == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil)
-	}
-
-	// Show troubleshooting tips and DNS configuration instructions
-	// TODO: This logic should ideally be moved to the printer implementations
-	// to maintain format consistency, but for now keeping it here
-	if !response.DNSValid {
-		fmt.Println("💡 Troubleshooting tips:")
-		fmt.Println("• DNS propagation can take up to 48 hours")
-		fmt.Println("• Check that DNS records are configured exactly as shown")
-		fmt.Println("• Use 'dig' or online DNS lookup tools to verify record propagation")
-		fmt.Printf("• Run 'ahasend domains get %s --show-dns-records' to see required records\n", domain)
-
-		// Show DNS configuration instructions
-		recordSet := dns.FormatDNSRecords(response)
-		dns.PrintDNSInstructions(recordSet)
-		fmt.Println()
-	}
-
-	// Show DNS records if verbose mode is enabled
-	if verbose && response != nil {
-		recordSet := dns.FormatDNSRecords(response)
-		if len(recordSet.Records) > 0 {
-			fmt.Println("📋 DNS Records Details:")
-			dns.PrintDNSInstructions(recordSet)
-		}
-	}
-
-	// Handle successful domain verification response
-	var successMessage string
+	successMessage := fmt.Sprintf("Domain '%s' DNS configuration needs attention", domain)
 	if response.DNSValid {
-		successMessage = fmt.Sprintf("✅ Domain '%s' DNS is properly configured", domain)
-	} else {
-		successMessage = fmt.Sprintf("⚠️ Domain '%s' DNS configuration needs attention", domain)
+		successMessage = fmt.Sprintf("Domain '%s' DNS is properly configured", domain)
 	}
-
-	config := printer.SingleConfig{
+	if err := handler.HandleSingleDomain(response, printer.SingleConfig{
 		SuccessMessage: successMessage,
 		EmptyMessage:   "Domain not found",
-		FieldOrder:     []string{"domain", "dns_valid", "created_at", "updated_at", "last_dns_check_at"},
+	}); err != nil {
+		return err
 	}
-
-	return handler.HandleSingleDomain(response, config)
+	writeDNSHelp(cmd, response, showRecords)
+	return nil
 }

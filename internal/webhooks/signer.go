@@ -2,15 +2,20 @@ package webhooks
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"math/big"
 	"time"
-
-	random "math/rand/v2"
 
 	"github.com/google/uuid"
 )
+
+// randomSource is where secrets get their randomness: the operating system's
+// cryptographic random number generator. Tests replace it.
+var randomSource io.Reader = rand.Reader
 
 type Signer struct {
 	secret []byte
@@ -22,9 +27,13 @@ func NewSigner(secret string) *Signer {
 	}
 }
 
+// GenerateWebhookSecret returns a new secret for signing webhooks:
+// "aha-whsec-" and 64 random letters and digits.
 func GenerateWebhookSecret() (string, error) {
-	randomString := generateRandomString(64)
-
+	randomString, err := generateRandomString(64)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("aha-whsec-%s", randomString), nil
 }
 
@@ -45,11 +54,18 @@ func GenerateMsgID() string {
 	return id.String()
 }
 
-func generateRandomString(n int) string {
-	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890")
-	b := make([]rune, n)
+// generateRandomString returns n letters and digits drawn uniformly from
+// randomSource.
+func generateRandomString(n int) (string, error) {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	count := big.NewInt(int64(len(letters)))
+	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[random.IntN(len(letters))]
+		index, err := rand.Int(randomSource, count)
+		if err != nil {
+			return "", fmt.Errorf("failed to read random data: %w", err)
+		}
+		b[i] = letters[index.Int64()]
 	}
-	return string(b)
+	return string(b), nil
 }

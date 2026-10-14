@@ -1,28 +1,14 @@
-// Package mocks provides comprehensive mock implementations for testing AhaSend CLI components.
-//
-// This package implements standardized mock objects using the testify/mock framework:
-//
-//   - MockClient: Complete AhaSendClient interface implementation
-//   - MockConfigManager: Full ConfigManager interface implementation
-//   - Interface compliance verification at compile time
-//   - Helper methods for creating common test data structures
-//   - Consistent error handling patterns for test scenarios
-//   - Documentation and examples for proper usage patterns
-//
-// All mocks follow the same interface-based design patterns as production code,
-// enabling comprehensive testing without external dependencies while maintaining
-// type safety and interface compliance.
+// Package mocks holds MockClient, a testify mock of client.AhaSendClient,
+// with which tests run commands without calling the API, and fixtures of
+// the resources commands print. APIResponse records a body behind a mocked
+// result, as the real client does, so a test can check JSON output.
 package mocks
 
 import (
-	"context"
-	"strconv"
-	"time"
-
+	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
-	"github.com/AhaSend/ahasend-go/webhooks"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 
@@ -37,6 +23,24 @@ type MockClient struct {
 // Ensure MockClient implements AhaSendClient interface
 var _ client.AhaSendClient = (*MockClient)(nil)
 
+// withOptions appends each request option to a mocked call's arguments, so
+// tests match options with mock.MatchedBy.
+func withOptions(args []interface{}, opts []api.RequestOption) []interface{} {
+	for _, opt := range opts {
+		args = append(args, opt)
+	}
+	return args
+}
+
+// result returns a mocked call's (*T, error) results. A nil first result,
+// typed or untyped, returns a nil *T.
+func result[T any](args mock.Arguments) (*T, error) {
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*T), args.Error(1)
+}
+
 // Authentication and account info methods
 
 func (m *MockClient) GetAccountID() string {
@@ -44,827 +48,252 @@ func (m *MockClient) GetAccountID() string {
 	return args.String(0)
 }
 
-func (m *MockClient) GetAuthContext() context.Context {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return context.Background()
-	}
-	return args.Get(0).(context.Context)
-}
-
 func (m *MockClient) GetAccount() (*responses.Account, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Account), args.Error(1)
+	return result[responses.Account](m.Called())
 }
 
-func (m *MockClient) Ping() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockClient) ValidateConfiguration() error {
-	args := m.Called()
-	return args.Error(0)
+func (m *MockClient) Ping() (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called())
 }
 
 // Message operations methods
 
-func (m *MockClient) SendMessage(req requests.CreateMessageRequest) (*responses.CreateMessageResponse, error) {
-	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.CreateMessageResponse), args.Error(1)
-}
-
 func (m *MockClient) SendMessageWithIdempotencyKey(req requests.CreateMessageRequest, idempotencyKey string) (*responses.CreateMessageResponse, error) {
-	args := m.Called(req, idempotencyKey)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.CreateMessageResponse), args.Error(1)
+	return result[responses.CreateMessageResponse](m.Called(req, idempotencyKey))
 }
 
-func (m *MockClient) CancelMessage(accountID, messageID string) (*common.SuccessResponse, error) {
-	args := m.Called(accountID, messageID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+func (m *MockClient) SendTemplateMessageWithIdempotencyKey(req requests.CreateTemplateMessageRequest, idempotencyKey string) (*responses.CreateMessageResponse, error) {
+	return result[responses.CreateMessageResponse](m.Called(req, idempotencyKey))
+}
+
+func (m *MockClient) CancelMessage(messageID string) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(messageID))
 }
 
 func (m *MockClient) GetMessages(params requests.GetMessagesParams) (*responses.PaginatedMessagesResponse, error) {
-	args := m.Called(params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedMessagesResponse), args.Error(1)
+	return result[responses.PaginatedMessagesResponse](m.Called(params))
 }
 
 func (m *MockClient) GetMessage(messageID string) (*responses.Message, error) {
-	args := m.Called(messageID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Message), args.Error(1)
+	return result[responses.Message](m.Called(messageID))
 }
 
 // Domain operations methods
 
-func (m *MockClient) ListDomains(limit *int32, cursor *string) (*responses.PaginatedDomainsResponse, error) {
-	args := m.Called(limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedDomainsResponse), args.Error(1)
+func (m *MockClient) ListDomains(params requests.GetDomainsParams) (*responses.PaginatedDomainsResponse, error) {
+	return result[responses.PaginatedDomainsResponse](m.Called(params))
 }
 
-func (m *MockClient) CreateDomain(domain string) (*responses.Domain, error) {
-	args := m.Called(domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Domain), args.Error(1)
+func (m *MockClient) CreateDomain(req requests.CreateDomainRequest, opts ...api.RequestOption) (*responses.Domain, error) {
+	return result[responses.Domain](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
 func (m *MockClient) GetDomain(domain string) (*responses.Domain, error) {
-	args := m.Called(domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Domain), args.Error(1)
+	return result[responses.Domain](m.Called(domain))
 }
 
 func (m *MockClient) UpdateDomain(domain string, req requests.UpdateDomainRequest) (*responses.Domain, error) {
-	args := m.Called(domain, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Domain), args.Error(1)
+	return result[responses.Domain](m.Called(domain, req))
 }
 
 func (m *MockClient) CheckDomainDNS(domain string) (*responses.Domain, error) {
-	args := m.Called(domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Domain), args.Error(1)
+	return result[responses.Domain](m.Called(domain))
 }
 
 func (m *MockClient) DeleteDomain(domain string) (*common.SuccessResponse, error) {
-	args := m.Called(domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+	return result[common.SuccessResponse](m.Called(domain))
 }
 
 // Webhook operations methods
 
-func (m *MockClient) CreateWebhookVerifier(secret string) (*webhooks.WebhookVerifier, error) {
-	args := m.Called(secret)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*webhooks.WebhookVerifier), args.Error(1)
+func (m *MockClient) ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error) {
+	return result[responses.PaginatedWebhooksResponse](m.Called(pagination, enabled))
 }
 
-func (m *MockClient) ListWebhooks(limit *int32, cursor *string) (*responses.PaginatedWebhooksResponse, error) {
-	args := m.Called(limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedWebhooksResponse), args.Error(1)
+func (m *MockClient) CreateWebhook(req requests.CreateWebhookRequest, opts ...api.RequestOption) (*responses.Webhook, error) {
+	return result[responses.Webhook](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
-func (m *MockClient) CreateWebhook(req requests.CreateWebhookRequest) (*responses.Webhook, error) {
-	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Webhook), args.Error(1)
+func (m *MockClient) GetWebhook(webhookID uuid.UUID) (*responses.Webhook, error) {
+	return result[responses.Webhook](m.Called(webhookID))
 }
 
-func (m *MockClient) GetWebhook(webhookID string) (*responses.Webhook, error) {
-	args := m.Called(webhookID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Webhook), args.Error(1)
+func (m *MockClient) UpdateWebhook(webhookID uuid.UUID, req requests.UpdateWebhookRequest) (*responses.Webhook, error) {
+	return result[responses.Webhook](m.Called(webhookID, req))
 }
 
-func (m *MockClient) UpdateWebhook(webhookID string, req requests.UpdateWebhookRequest) (*responses.Webhook, error) {
-	args := m.Called(webhookID, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Webhook), args.Error(1)
+func (m *MockClient) DeleteWebhook(webhookID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(webhookID))
 }
 
-func (m *MockClient) DeleteWebhook(webhookID string) error {
-	args := m.Called(webhookID)
-	return args.Error(0)
-}
-
-func (m *MockClient) TriggerWebhook(webhookID string, events []string) error {
-	args := m.Called(webhookID, events)
-	return args.Error(0)
-}
-
-// Helper methods for creating mock data
-
-// NewMockDomain creates a mock domain for testing
-func (m *MockClient) NewMockDomain(domain string, valid bool) *responses.Domain {
-	return &responses.Domain{
-		Domain:    domain,
-		DNSValid:  valid,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-}
-
-// NewMockDomainsResponse creates a mock paginated domains response for testing
-func (m *MockClient) NewMockDomainsResponse(domains []responses.Domain, hasMore bool) *responses.PaginatedDomainsResponse {
-	return &responses.PaginatedDomainsResponse{
-		Object: "list",
-		Data:   domains,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
-}
-
-// NewMockMessageResponse creates a mock create message response for testing
-func (m *MockClient) NewMockMessageResponse(messageID string) *responses.CreateMessageResponse {
-	id := messageID
-	return &responses.CreateMessageResponse{
-		Object: "message.create",
-		Data: []responses.CreateSingleMessageResponse{
-			{
-				Object: "message",
-				ID:     &id,
-				Recipient: common.Recipient{
-					Email: "recipient@example.com",
-				},
-				Status: "sent",
-			},
-		},
-	}
-}
-
-// NewMockMessagesResponse creates a mock paginated messages response for testing
-func (m *MockClient) NewMockMessagesResponse(messages []responses.Message, hasMore bool) *responses.PaginatedMessagesResponse {
-	return &responses.PaginatedMessagesResponse{
-		Object: "list",
-		Data:   messages,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
-}
-
-// NewMockWebhook creates a mock webhook for testing
-func (m *MockClient) NewMockWebhook(idStr, name, url string, enabled bool) responses.Webhook {
-	// Parse string ID to UUID
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		// If invalid UUID, create a new one
-		id = uuid.New()
-	}
-
-	createdAt := time.Now().Add(-24 * time.Hour)
-	updatedAt := time.Now().Add(-1 * time.Hour)
-	scope := "account"
-
-	// Create boolean pointers for event types
-	onReception := true
-	onDelivered := true
-	onBounced := true
-
-	return responses.Webhook{
-		ID:          id,
-		Name:        name,
-		URL:         url,
-		Enabled:     enabled,
-		Scope:       scope,
-		Domains:     []string{"example.com", "test.com"},
-		OnReception: onReception,
-		OnDelivered: onDelivered,
-		OnBounced:   onBounced,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
-	}
-}
-
-// NewMockWebhooksResponse creates a mock paginated webhooks response for testing
-func (m *MockClient) NewMockWebhooksResponse(webhooks []responses.Webhook, hasMore bool) *responses.PaginatedWebhooksResponse {
-	return &responses.PaginatedWebhooksResponse{
-		Object: "list",
-		Data:   webhooks,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
+func (m *MockClient) TriggerWebhook(webhookID uuid.UUID, events []string) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(webhookID, events))
 }
 
 // Route operations methods
 
-func (m *MockClient) ListRoutes(limit *int32, cursor *string) (*responses.PaginatedRoutesResponse, error) {
-	args := m.Called(limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedRoutesResponse), args.Error(1)
+func (m *MockClient) ListRoutes(params requests.GetRoutesParams) (*responses.PaginatedRoutesResponse, error) {
+	return result[responses.PaginatedRoutesResponse](m.Called(params))
 }
 
-func (m *MockClient) CreateRoute(req requests.CreateRouteRequest) (*responses.Route, error) {
-	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Route), args.Error(1)
+func (m *MockClient) CreateRoute(req requests.CreateRouteRequest, opts ...api.RequestOption) (*responses.Route, error) {
+	return result[responses.Route](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
-func (m *MockClient) GetRoute(routeID string) (*responses.Route, error) {
-	args := m.Called(routeID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Route), args.Error(1)
+func (m *MockClient) GetRoute(routeID uuid.UUID) (*responses.Route, error) {
+	return result[responses.Route](m.Called(routeID))
 }
 
-func (m *MockClient) UpdateRoute(routeID string, req requests.UpdateRouteRequest) (*responses.Route, error) {
-	args := m.Called(routeID, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.Route), args.Error(1)
+func (m *MockClient) UpdateRoute(routeID uuid.UUID, req requests.UpdateRouteRequest) (*responses.Route, error) {
+	return result[responses.Route](m.Called(routeID, req))
 }
 
-func (m *MockClient) DeleteRoute(routeID string) error {
-	args := m.Called(routeID)
-	return args.Error(0)
-}
-
-// NewMockRoute creates a mock route for testing
-func (m *MockClient) NewMockRoute(idStr, name, url, recipientFilter string, enabled bool) *responses.Route {
-	createdAt := time.Now().Add(-24 * time.Hour)
-	updatedAt := time.Now().Add(-1 * time.Hour)
-
-	// Parse string ID to UUID
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		// If invalid UUID, create a new one
-		id = uuid.New()
-	}
-
-	route := &responses.Route{
-		ID:        id,
-		Name:      name,
-		URL:       url,
-		Enabled:   enabled,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-	}
-
-	// Set recipient filter if provided
-	if recipientFilter != "" {
-		route.Recipient = recipientFilter
-	}
-
-	return route
-}
-
-// NewMockRouteWithOptions creates a mock route with processing options for testing
-func (m *MockClient) NewMockRouteWithOptions(idStr, name, url string, enabled bool, options map[string]bool) *responses.Route {
-	route := m.NewMockRoute(idStr, name, url, "", enabled)
-
-	// Set processing options based on provided map
-	if includeAttachments, ok := options["include_attachments"]; ok {
-		route.Attachments = includeAttachments
-	}
-	if includeHeaders, ok := options["include_headers"]; ok {
-		route.Headers = includeHeaders
-	}
-	if groupByMessageID, ok := options["group_by_message_id"]; ok {
-		route.GroupByMessageID = groupByMessageID
-	}
-	if stripReplies, ok := options["strip_replies"]; ok {
-		route.StripReplies = stripReplies
-	}
-
-	return route
-}
-
-// NewMockRoutesResponse creates a mock paginated routes response for testing
-func (m *MockClient) NewMockRoutesResponse(routes []responses.Route, hasMore bool) *responses.PaginatedRoutesResponse {
-	return &responses.PaginatedRoutesResponse{
-		Object: "list",
-		Data:   routes,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
+func (m *MockClient) DeleteRoute(routeID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(routeID))
 }
 
 // SMTP operations methods
 
-func (m *MockClient) ListSMTPCredentials(limit *int32, cursor *string) (*responses.PaginatedSMTPCredentialsResponse, error) {
-	args := m.Called(limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedSMTPCredentialsResponse), args.Error(1)
+func (m *MockClient) ListSMTPCredentials(pagination common.PaginationParams) (*responses.PaginatedSMTPCredentialsResponse, error) {
+	return result[responses.PaginatedSMTPCredentialsResponse](m.Called(pagination))
 }
 
-func (m *MockClient) GetSMTPCredential(credentialID string) (*responses.SMTPCredential, error) {
-	args := m.Called(credentialID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SMTPCredential), args.Error(1)
+func (m *MockClient) GetSMTPCredential(credentialID uuid.UUID) (*responses.SMTPCredential, error) {
+	return result[responses.SMTPCredential](m.Called(credentialID))
 }
 
-func (m *MockClient) CreateSMTPCredential(req requests.CreateSMTPCredentialRequest) (*responses.SMTPCredential, error) {
-	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SMTPCredential), args.Error(1)
+func (m *MockClient) CreateSMTPCredential(req requests.CreateSMTPCredentialRequest, opts ...api.RequestOption) (*responses.SMTPCredential, error) {
+	return result[responses.SMTPCredential](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
-func (m *MockClient) DeleteSMTPCredential(credentialID string) error {
-	args := m.Called(credentialID)
-	return args.Error(0)
+func (m *MockClient) DeleteSMTPCredential(credentialID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(credentialID))
 }
 
 // Suppression operations methods
 
 func (m *MockClient) ListSuppressions(params requests.GetSuppressionsParams) (*responses.PaginatedSuppressionsResponse, error) {
-	args := m.Called(params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedSuppressionsResponse), args.Error(1)
+	return result[responses.PaginatedSuppressionsResponse](m.Called(params))
 }
 
-func (m *MockClient) CheckSuppression(email string, domain *string) (bool, *responses.Suppression, error) {
-	args := m.Called(email, domain)
-	return args.Bool(0), args.Get(1).(*responses.Suppression), args.Error(2)
-}
-
-func (m *MockClient) CreateSuppression(req requests.CreateSuppressionRequest) (*responses.CreateSuppressionResponse, error) {
-	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.CreateSuppressionResponse), args.Error(1)
+func (m *MockClient) CreateSuppression(req requests.CreateSuppressionRequest, opts ...api.RequestOption) (*responses.CreateSuppressionResponse, error) {
+	return result[responses.CreateSuppressionResponse](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
 func (m *MockClient) DeleteSuppression(email string, domain *string) (*common.SuccessResponse, error) {
-	args := m.Called(email, domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+	return result[common.SuccessResponse](m.Called(email, domain))
 }
 
 func (m *MockClient) WipeSuppressions(domain *string) (*common.SuccessResponse, error) {
-	args := m.Called(domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
-}
-
-// NewMockSuppression creates a mock suppression for testing
-func (m *MockClient) NewMockSuppression(email, reason, domain string) *responses.Suppression {
-	createdAt := time.Now().Add(-24 * time.Hour)
-	expiresAt := time.Time{} // Zero time means never expires
-
-	suppression := &responses.Suppression{
-		Object:    "suppression",
-		ID:        uuid.New(),
-		Email:     email,
-		CreatedAt: createdAt,
-		ExpiresAt: expiresAt,
-	}
-
-	// Set reason if provided
-	if reason != "" {
-		suppression.Reason = reason
-	}
-
-	// Set domain if provided
-	if domain != "" {
-		suppression.Domain = domain
-	}
-
-	return suppression
-}
-
-// NewMockSuppressionWithExpiry creates a mock suppression with expiry time for testing
-func (m *MockClient) NewMockSuppressionWithExpiry(email, reason, domain string, expiresIn time.Duration) *responses.Suppression {
-	suppression := m.NewMockSuppression(email, reason, domain)
-	suppression.ExpiresAt = time.Now().Add(expiresIn)
-	return suppression
-}
-
-// NewMockSuppressionsResponse creates a mock paginated suppressions response for testing
-func (m *MockClient) NewMockSuppressionsResponse(suppressions []responses.Suppression, hasMore bool) *responses.PaginatedSuppressionsResponse {
-	return &responses.PaginatedSuppressionsResponse{
-		Object: "list",
-		Data:   suppressions,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
-}
-
-// NewMockSMTPCredential creates a mock SMTP credential for testing
-func (m *MockClient) NewMockSMTPCredential(id uint64, name, scope string, sandbox bool, domains []string) *responses.SMTPCredential {
-	createdAt := time.Now().Add(-24 * time.Hour)
-	updatedAt := time.Now().Add(-1 * time.Hour)
-
-	credential := &responses.SMTPCredential{
-		Object:    "credential_smtp",
-		ID:        uuid.NewSHA1(uuid.NameSpaceOID, []byte(strconv.FormatUint(id, 10))),
-		Name:      name,
-		Scope:     scope,
-		Sandbox:   sandbox,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-	}
-
-	if len(domains) > 0 {
-		credential.Domains = domains
-	}
-
-	return credential
-}
-
-// NewMockSMTPCredentialsResponse creates a mock paginated SMTP credentials response for testing
-func (m *MockClient) NewMockSMTPCredentialsResponse(credentials []responses.SMTPCredential, hasMore bool) *responses.PaginatedSMTPCredentialsResponse {
-	return &responses.PaginatedSMTPCredentialsResponse{
-		Object: "list",
-		Data:   credentials,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
+	return result[common.SuccessResponse](m.Called(domain))
 }
 
 // Statistics operations methods
 func (m *MockClient) GetDeliverabilityStatistics(params requests.GetDeliverabilityStatisticsParams) (*responses.DeliverabilityStatisticsResponse, error) {
-	args := m.Called(params)
-	return args.Get(0).(*responses.DeliverabilityStatisticsResponse), args.Error(1)
+	return result[responses.DeliverabilityStatisticsResponse](m.Called(params))
 }
 
 func (m *MockClient) GetBounceStatistics(params requests.GetBounceStatisticsParams) (*responses.BounceStatisticsResponse, error) {
-	args := m.Called(params)
-	return args.Get(0).(*responses.BounceStatisticsResponse), args.Error(1)
+	return result[responses.BounceStatisticsResponse](m.Called(params))
 }
 
 func (m *MockClient) GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatisticsParams) (*responses.DeliveryTimeStatisticsResponse, error) {
-	args := m.Called(params)
-	return args.Get(0).(*responses.DeliveryTimeStatisticsResponse), args.Error(1)
+	return result[responses.DeliveryTimeStatisticsResponse](m.Called(params))
 }
 
 // Sub-account operations methods
-func (m *MockClient) ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error) {
-	args := m.Called(limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedSubAccountsResponse), args.Error(1)
+func (m *MockClient) ListSubAccounts(pagination common.PaginationParams) (*responses.PaginatedSubAccountsResponse, error) {
+	return result[responses.PaginatedSubAccountsResponse](m.Called(pagination))
 }
 
-func (m *MockClient) CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error) {
-	args := m.Called(req, idempotencyKey)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccount), args.Error(1)
+func (m *MockClient) CreateSubAccount(req requests.CreateSubAccountRequest, opts ...api.RequestOption) (*responses.SubAccount, error) {
+	return result[responses.SubAccount](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
 func (m *MockClient) GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccountUsageResponse), args.Error(1)
+	return result[responses.SubAccountUsageResponse](m.Called())
 }
 
-func (m *MockClient) GetSubAccount(subAccountID string) (*responses.SubAccount, error) {
-	args := m.Called(subAccountID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccount), args.Error(1)
+func (m *MockClient) GetSubAccount(subAccountID uuid.UUID) (*responses.SubAccount, error) {
+	return result[responses.SubAccount](m.Called(subAccountID))
 }
 
-func (m *MockClient) UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error) {
-	args := m.Called(subAccountID, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccount), args.Error(1)
+func (m *MockClient) UpdateSubAccount(subAccountID uuid.UUID, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error) {
+	return result[responses.SubAccount](m.Called(subAccountID, req))
 }
 
-func (m *MockClient) DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error) {
-	args := m.Called(subAccountID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+func (m *MockClient) DeleteSubAccount(subAccountID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(subAccountID))
 }
 
-func (m *MockClient) SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error) {
-	args := m.Called(subAccountID, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccount), args.Error(1)
+func (m *MockClient) SuspendSubAccount(subAccountID uuid.UUID, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error) {
+	return result[responses.SubAccount](m.Called(subAccountID, req))
 }
 
-func (m *MockClient) UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error) {
-	args := m.Called(subAccountID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.SubAccount), args.Error(1)
+func (m *MockClient) UnsuspendSubAccount(subAccountID uuid.UUID) (*responses.SubAccount, error) {
+	return result[responses.SubAccount](m.Called(subAccountID))
+}
+
+func (m *MockClient) UnpauseSubAccountDomain(subAccountID uuid.UUID, domain string) (*responses.Domain, error) {
+	return result[responses.Domain](m.Called(subAccountID, domain))
 }
 
 // Sub-account API key operations methods
-func (m *MockClient) ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error) {
-	args := m.Called(subAccountID, limit, cursor)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.PaginatedAPIKeysResponse), args.Error(1)
+func (m *MockClient) ListSubAccountAPIKeys(subAccountID uuid.UUID, pagination common.PaginationParams) (*responses.PaginatedAPIKeysResponse, error) {
+	return result[responses.PaginatedAPIKeysResponse](m.Called(subAccountID, pagination))
 }
 
-func (m *MockClient) CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error) {
-	args := m.Called(subAccountID, req, idempotencyKey)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) CreateSubAccountAPIKey(subAccountID uuid.UUID, req requests.CreateAPIKeyRequest, opts ...api.RequestOption) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(withOptions([]interface{}{subAccountID, req}, opts)...))
 }
 
-func (m *MockClient) GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error) {
-	args := m.Called(subAccountID, keyID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) GetSubAccountAPIKey(subAccountID, keyID uuid.UUID) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(subAccountID, keyID))
 }
 
-func (m *MockClient) UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
-	args := m.Called(subAccountID, keyID, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) UpdateSubAccountAPIKey(subAccountID, keyID uuid.UUID, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(subAccountID, keyID, req))
 }
 
-func (m *MockClient) DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error) {
-	args := m.Called(subAccountID, keyID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
-}
-
-// NewMockSubAccount creates a mock sub-account for testing
-func (m *MockClient) NewMockSubAccount(idStr, parentIDStr, name, website, status string) *responses.SubAccount {
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		id = uuid.New()
-	}
-
-	parentID, err := uuid.Parse(parentIDStr)
-	if err != nil {
-		parentID = uuid.New()
-	}
-
-	return &responses.SubAccount{
-		Object:          "sub_account",
-		ID:              id,
-		ParentAccountID: parentID,
-		CreatedAt:       time.Now().Add(-24 * time.Hour),
-		Name:            name,
-		Website:         website,
-		Status:          status,
-		MonthlyCredit:   50000,
-		DomainCount:     2,
-		MemberCount:     3,
-	}
-}
-
-// NewMockSubAccountsResponse creates a mock paginated sub-accounts response for testing
-func (m *MockClient) NewMockSubAccountsResponse(subAccounts []responses.SubAccount, hasMore bool) *responses.PaginatedSubAccountsResponse {
-	return &responses.PaginatedSubAccountsResponse{
-		Object: "list",
-		Data:   subAccounts,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
-}
-
-// NewMockSubAccountUsageResponse creates a mock sub-account usage response for testing
-func (m *MockClient) NewMockSubAccountUsageResponse(parentIDStr, subAccountIDStr, subAccountName string) *responses.SubAccountUsageResponse {
-	parentID, err := uuid.Parse(parentIDStr)
-	if err != nil {
-		parentID = uuid.New()
-	}
-
-	subAccountID, err := uuid.Parse(subAccountIDStr)
-	if err != nil {
-		subAccountID = uuid.New()
-	}
-
-	return &responses.SubAccountUsageResponse{
-		BillingPeriod: responses.SubAccountUsageBillingPeriod{
-			Start: time.Now().AddDate(0, 0, -30),
-			End:   time.Now(),
-		},
-		Currency:         "usd",
-		AllocationMethod: "proportional",
-		Parent: responses.SubAccountUsageBreakdown{
-			AccountID:      &parentID,
-			ReceptionCount: 1000,
-			AllocatedCost:  10,
-		},
-		SubAccounts: []responses.SubAccountUsageBreakdown{
-			{
-				AccountID:      &subAccountID,
-				Name:           &subAccountName,
-				ReceptionCount: 3000,
-				AllocatedCost:  30,
-			},
-		},
-		Total: responses.SubAccountUsageBreakdown{
-			ReceptionCount: 4000,
-			AllocatedCost:  40,
-		},
-	}
-}
-
-// NewMockAPIKey creates a mock API key for testing
-func (m *MockClient) NewMockAPIKey(idStr, accountIDStr, label string, scopes []string) *responses.APIKey {
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		id = uuid.New()
-	}
-
-	accountID, err := uuid.Parse(accountIDStr)
-	if err != nil {
-		accountID = uuid.New()
-	}
-
-	apiKeyScopes := make([]responses.APIKeyScope, 0, len(scopes))
-	for _, scope := range scopes {
-		apiKeyScopes = append(apiKeyScopes, responses.APIKeyScope{
-			ID:        uuid.New(),
-			CreatedAt: time.Now().Add(-24 * time.Hour),
-			UpdatedAt: time.Now().Add(-1 * time.Hour),
-			APIKeyID:  id,
-			Scope:     scope,
-		})
-	}
-
-	return &responses.APIKey{
-		Object:    "api_key",
-		ID:        id,
-		CreatedAt: time.Now().Add(-24 * time.Hour),
-		UpdatedAt: time.Now().Add(-1 * time.Hour),
-		AccountID: accountID,
-		Label:     label,
-		PublicKey: "aha-pk-test",
-		Scopes:    apiKeyScopes,
-	}
-}
-
-// NewMockAPIKeysResponse creates a mock paginated API keys response for testing
-func (m *MockClient) NewMockAPIKeysResponse(apiKeys []responses.APIKey, hasMore bool) *responses.PaginatedAPIKeysResponse {
-	return &responses.PaginatedAPIKeysResponse{
-		Object: "list",
-		Data:   apiKeys,
-		Pagination: common.PaginationInfo{
-			HasMore:    hasMore,
-			NextCursor: nil,
-		},
-	}
+func (m *MockClient) DeleteSubAccountAPIKey(subAccountID, keyID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(subAccountID, keyID))
 }
 
 // API Key operations methods
-func (m *MockClient) ListAPIKeys(limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error) {
-	args := m.Called(limit, cursor)
-	return args.Get(0).(*responses.PaginatedAPIKeysResponse), args.Error(1)
+func (m *MockClient) ListAPIKeys(pagination common.PaginationParams) (*responses.PaginatedAPIKeysResponse, error) {
+	return result[responses.PaginatedAPIKeysResponse](m.Called(pagination))
 }
 
-func (m *MockClient) GetAPIKey(keyID string) (*responses.APIKey, error) {
-	args := m.Called(keyID)
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) GetAPIKey(keyID uuid.UUID) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(keyID))
 }
 
-func (m *MockClient) CreateAPIKey(req requests.CreateAPIKeyRequest) (*responses.APIKey, error) {
-	args := m.Called(req)
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) CreateAPIKey(req requests.CreateAPIKeyRequest, opts ...api.RequestOption) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(withOptions([]interface{}{req}, opts)...))
 }
 
-func (m *MockClient) UpdateAPIKey(keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
-	args := m.Called(keyID, req)
-	return args.Get(0).(*responses.APIKey), args.Error(1)
+func (m *MockClient) UpdateAPIKey(keyID uuid.UUID, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error) {
+	return result[responses.APIKey](m.Called(keyID, req))
 }
 
-func (m *MockClient) DeleteAPIKey(keyID string) (*common.SuccessResponse, error) {
-	args := m.Called(keyID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*common.SuccessResponse), args.Error(1)
+func (m *MockClient) DeleteAPIKey(keyID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(keyID))
 }
 
 // WebSocket methods for webhook streaming
 
-func (m *MockClient) InitiateWebhookStream(webhookID string) (*client.WebhookStreamResponse, error) {
-	args := m.Called(webhookID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*client.WebhookStreamResponse), args.Error(1)
+func (m *MockClient) InitiateWebhookStream(webhookID *uuid.UUID) (*client.WebhookStreamResponse, error) {
+	return result[client.WebhookStreamResponse](m.Called(webhookID))
 }
 
-func (m *MockClient) InitiateRouteStream(routeID, recipient string) (*client.RouteStreamResponse, error) {
-	args := m.Called(routeID, recipient)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*client.RouteStreamResponse), args.Error(1)
+func (m *MockClient) InitiateRouteStream(routeID *uuid.UUID, recipient string) (*client.RouteStreamResponse, error) {
+	return result[client.RouteStreamResponse](m.Called(routeID, recipient))
 }
 
-func (m *MockClient) TriggerRoute(routeID string) error {
-	args := m.Called(routeID)
-	return args.Error(0)
+func (m *MockClient) TriggerRoute(routeID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(routeID))
 }
 
-func (m *MockClient) ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipVerify bool) (*client.WebSocketClient, error) {
-	args := m.Called(wsURL, webhookID, forceReconnect, skipVerify)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*client.WebSocketClient), args.Error(1)
+func (m *MockClient) ConnectWebSocket(wsURL string, forceReconnect bool) (*client.WebSocketClient, error) {
+	return result[client.WebSocketClient](m.Called(wsURL, forceReconnect))
 }

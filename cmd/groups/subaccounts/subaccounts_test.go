@@ -2,15 +2,13 @@ package subaccounts
 
 import (
 	"bytes"
-	"context"
+	"os"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/client"
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
-	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
@@ -22,174 +20,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// execCommand runs a leaf command with a plain response handler installed in
-// context and captures its output. It mirrors how the root command wires the
-// handler before a runner executes.
-func execCommand(cmd *cobra.Command, args ...string) (string, error) {
-	var buf bytes.Buffer
-	handler := printer.GetResponseHandler("plain", false, &buf)
-	ctx := context.WithValue(context.Background(), printer.ResponseHandlerKey, handler)
-	cmd.SetContext(ctx)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
-}
-
-// trackingResolver installs a test auth resolver that records whether it was
-// invoked and returns the supplied client. The returned restore function and
-// the *bool let tests assert validation-before-auth ordering.
-func trackingResolver(t *testing.T, c client.AhaSendClient) *bool {
-	t.Helper()
-	called := false
-	restore := auth.SetAuthenticatedClientResolverForTesting(func(*cobra.Command) (client.AhaSendClient, error) {
-		called = true
-		return c, nil
-	})
-	t.Cleanup(restore)
-	return &called
-}
-
-func newTestSubAccount() *responses.SubAccount {
-	id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	parentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	return &responses.SubAccount{
-		Object:          "sub_account",
-		ID:              id,
-		ParentAccountID: parentID,
-		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		Name:            "Acme Subsidiary",
-		Website:         "acme.example.com",
-		Status:          "active",
-		MonthlyCredit:   500,
-		DomainCount:     3,
-		MemberCount:     7,
-	}
-}
-
-func newTestSubAccountUsage() *responses.SubAccountUsageResponse {
-	parentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	subID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
-	subName := "Acme Subsidiary"
-	return &responses.SubAccountUsageResponse{
-		BillingPeriod: responses.SubAccountUsageBillingPeriod{
-			Start: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-			End:   time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC),
-		},
-		Currency:         "usd",
-		AllocationMethod: "proportional",
-		Parent: responses.SubAccountUsageBreakdown{
-			AccountID:      &parentID,
-			ReceptionCount: 1000,
-			AllocatedCost:  10,
-		},
-		SubAccounts: []responses.SubAccountUsageBreakdown{
-			{
-				AccountID:      &subID,
-				Name:           &subName,
-				ReceptionCount: 3000,
-				AllocatedCost:  30,
-			},
-		},
-		Total: responses.SubAccountUsageBreakdown{
-			ReceptionCount: 4000,
-			AllocatedCost:  40,
-		},
-	}
-}
-
 // Group structure -----------------------------------------------------------
-
-func TestSubAccountsCommand_Structure(t *testing.T) {
-	cmd := NewCommand()
-	assert.Equal(t, "subaccounts", cmd.Name())
-	assert.Equal(t, "Manage your AhaSend sub-accounts", cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
-
-	subcommands := make([]string, 0)
-	for _, c := range cmd.Commands() {
-		subcommands = append(subcommands, c.Name())
-	}
-	assert.ElementsMatch(t, []string{"list", "get", "usage", "create", "update", "delete", "suspend", "unsuspend", "api-keys"}, subcommands)
-}
-
-func TestSubAccountsCommand_Help(t *testing.T) {
-	out, err := execCommand(NewCommand(), "--help")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Manage sub-accounts under your AhaSend parent account")
-	assert.Contains(t, out, "list")
-	assert.Contains(t, out, "get")
-	assert.Contains(t, out, "usage")
-}
 
 // list -----------------------------------------------------------------------
 
-func TestListCommand_Structure(t *testing.T) {
-	cmd := NewListCommand()
-	assert.Equal(t, "list", cmd.Name())
-	assert.Equal(t, "List all sub-accounts", cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-}
-
-func TestListCommand_Flags(t *testing.T) {
-	flags := NewListCommand().Flags()
-
-	limitFlag := flags.Lookup("limit")
-	require.NotNil(t, limitFlag)
-	assert.Equal(t, "int32", limitFlag.Value.Type())
-	assert.Equal(t, "0", limitFlag.DefValue)
-
-	cursorFlag := flags.Lookup("cursor")
-	require.NotNil(t, cursorFlag)
-	assert.Equal(t, "string", cursorFlag.Value.Type())
-	assert.Empty(t, cursorFlag.DefValue)
-}
-
-func TestListCommand_LimitOutOfBoundsFailsBeforeAuth(t *testing.T) {
-	for _, limit := range []string{"--limit=-1", "--limit=101"} {
-		t.Run(limit, func(t *testing.T) {
-			mockClient := &mocks.MockClient{}
-			called := trackingResolver(t, mockClient)
-
-			_, err := execCommand(NewListCommand(), limit)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid page limit")
-			assert.False(t, *called, "auth resolver must not be reached when validation fails")
-			mockClient.AssertNotCalled(t, "ListSubAccounts", mock.Anything, mock.Anything)
-		})
-	}
-}
-
 func TestListCommand_LimitZeroAccepted_NilPagination(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListSubAccounts", (*int32)(nil), (*string)(nil)).
+	mockClient.On("ListSubAccounts", common.PaginationParams{}).
 		Return(&responses.PaginatedSubAccountsResponse{
 			Object: "list",
-			Data:   []responses.SubAccount{*newTestSubAccount()},
+			Data:   []responses.SubAccount{*mocks.NewSubAccount()},
 		}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewListCommand(), "--limit=0")
+	out, err := testutil.RunCommandCombined(t, NewListCommand(), "plain", "--limit=0")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
-}
-
-// execCommandJSON mirrors execCommand but installs a JSON response handler so
-// tests can assert the SDK pass-through contract for machine-readable output.
-func execCommandJSON(cmd *cobra.Command, args ...string) (string, error) {
-	var buf bytes.Buffer
-	handler := printer.GetResponseHandler("json", false, &buf)
-	ctx := context.WithValue(context.Background(), printer.ResponseHandlerKey, handler)
-	cmd.SetContext(ctx)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
 }
 
 // An empty (but non-nil) list response must still flow through the sub-account
@@ -198,7 +46,7 @@ func execCommandJSON(cmd *cobra.Command, args ...string) (string, error) {
 func TestListCommand_EmptyResponseJSONPassThrough(t *testing.T) {
 	nextCursor := "next-page"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListSubAccounts", (*int32)(nil), (*string)(nil)).
+	mockClient.On("ListSubAccounts", common.PaginationParams{}).
 		Return(&responses.PaginatedSubAccountsResponse{
 			Object: "list",
 			Data:   []responses.SubAccount{},
@@ -207,9 +55,9 @@ func TestListCommand_EmptyResponseJSONPassThrough(t *testing.T) {
 				NextCursor: &nextCursor,
 			},
 		}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandJSON(NewListCommand())
+	out, err := testutil.RunCommandCombined(t, NewListCommand(), "json")
 	require.NoError(t, err)
 	assert.True(t, *called)
 
@@ -223,12 +71,11 @@ func TestListCommand_EmptyResponseJSONPassThrough(t *testing.T) {
 func TestListCommand_LimitMaxAccepted(t *testing.T) {
 	mockClient := &mocks.MockClient{}
 	mockClient.On("ListSubAccounts",
-		mock.MatchedBy(func(l *int32) bool { return l != nil && *l == 100 }),
-		(*string)(nil)).
+		mock.MatchedBy(func(p common.PaginationParams) bool { return p.Limit != nil && *p.Limit == 100 })).
 		Return(&responses.PaginatedSubAccountsResponse{Object: "list"}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewListCommand(), "--limit=100")
+	_, err := testutil.RunCommandCombined(t, NewListCommand(), "plain", "--limit=100")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	mockClient.AssertExpectations(t)
@@ -236,38 +83,28 @@ func TestListCommand_LimitMaxAccepted(t *testing.T) {
 
 // get ------------------------------------------------------------------------
 
-func TestGetCommand_Structure(t *testing.T) {
-	cmd := NewGetCommand()
-	assert.Equal(t, "get", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-}
-
 func TestGetCommand_RequiresExactlyOneArg(t *testing.T) {
-	_, err := execCommand(NewGetCommand())
+	_, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg")
+	assert.Equal(t, "the sub-account-id argument is required", err.Error())
 }
 
 func TestGetCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewGetCommand(), "not-a-uuid")
+	_, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", "not-a-uuid")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
-	mockClient.AssertNotCalled(t, "GetSubAccount", mock.Anything)
 }
 
 func TestGetCommand_MockBacked(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("GetSubAccount", id).Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+	mockClient.On("GetSubAccount", uuid.MustParse(id)).Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewGetCommand(), id)
+	out, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", id)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
@@ -275,29 +112,21 @@ func TestGetCommand_MockBacked(t *testing.T) {
 
 // usage ----------------------------------------------------------------------
 
-func TestUsageCommand_Structure(t *testing.T) {
-	cmd := NewUsageCommand()
-	assert.Equal(t, "usage", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-}
-
 func TestUsageCommand_RejectsArgs(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	trackingResolver(t, mockClient)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewUsageCommand(), "unexpected")
+	_, err := testutil.RunCommandCombined(t, NewUsageCommand(), "plain", "unexpected")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown command")
+	assert.Equal(t, `unexpected argument "unexpected"`, err.Error())
 }
 
 func TestUsageCommand_MockBacked(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("GetSubAccountsUsage").Return(newTestSubAccountUsage(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("GetSubAccountsUsage").Return(mocks.NewSubAccountUsage(0), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewUsageCommand())
+	out, err := testutil.RunCommandCombined(t, NewUsageCommand(), "plain")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	assert.NotEmpty(t, out)
@@ -307,23 +136,6 @@ func TestUsageCommand_MockBacked(t *testing.T) {
 
 // create ----------------------------------------------------------------------
 
-func TestCreateCommand_Structure(t *testing.T) {
-	cmd := NewCreateCommand()
-	assert.Equal(t, "create", cmd.Name())
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-
-	flags := cmd.Flags()
-	require.NotNil(t, flags.Lookup("name"))
-	require.NotNil(t, flags.Lookup("website"))
-
-	creditFlag := flags.Lookup("monthly-credit")
-	require.NotNil(t, creditFlag)
-	assert.Equal(t, "int64", creditFlag.Value.Type())
-
-	require.NotNil(t, flags.Lookup("idempotency-key"))
-}
-
 func TestCreateCommand_RequiresNameAndWebsite(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -331,20 +143,19 @@ func TestCreateCommand_RequiresNameAndWebsite(t *testing.T) {
 		wantErr string
 	}{
 		{"missing name", []string{"--website", "acme.example.com"}, "--name is required"},
-		{"blank name", []string{"--name", "   ", "--website", "acme.example.com"}, "--name is required"},
+		{"blank name", []string{"--name", "   ", "--website", "acme.example.com"}, "--name cannot be empty"},
 		{"missing website", []string{"--name", "Acme"}, "--website is required"},
-		{"invalid website host", []string{"--name", "Acme", "--website", "acme"}, "invalid website"},
+		{"blank website", []string{"--name", "Acme", "--website", " \t"}, "--website cannot be empty"},
+		{"invalid website host", []string{"--name", "Acme", "--website", "acme"}, `invalid --website value "acme"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockClient := &mocks.MockClient{}
-			called := trackingResolver(t, mockClient)
+			called := testutil.RefuseAuth(t)
 
-			_, err := execCommand(NewCreateCommand(), tc.args...)
+			_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", tc.args...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantErr)
 			assert.False(t, *called, "auth resolver must not be reached when validation fails")
-			mockClient.AssertNotCalled(t, "CreateSubAccount", mock.Anything, mock.Anything)
 		})
 	}
 }
@@ -362,20 +173,36 @@ func TestNormalizeWebsite(t *testing.T) {
 		{"trailing dot", "acme.example.com.", "acme.example.com", ""},
 		{"https URL", "https://acme.example.com", "acme.example.com", ""},
 		{"http URL with root path", "http://acme.example.com/", "acme.example.com", ""},
-		{"empty", "   ", "", "--website is required"},
+		{"uppercase scheme", "HTTPS://ACME.COM/Path", "acme.com", ""},
+		// The API drops the path, query, fragment and port, with or without
+		// a scheme, and a leading "//"
+		{"URL with path", "https://acme.com/about", "acme.com", ""},
+		{"URL with query and fragment", "https://acme.com/team?utm=1#frag", "acme.com", ""},
+		{"URL with port", "https://acme.example.com:8443", "acme.example.com", ""},
+		{"bare domain with root path", "acme.com/", "acme.com", ""},
+		{"bare domain with path", "acme.example.com/about", "acme.example.com", ""},
+		{"bare domain with port", "acme.example.com:8080", "acme.example.com", ""},
+		{"bare domain with port and path", "acme.com:8443/team", "acme.com", ""},
+		{"bare domain with query", "acme.com?utm=1", "acme.com", ""},
+		{"protocol-relative", "//acme.com", "acme.com", ""},
+		// An international domain is sent in Punycode, as the API stores it
+		{"international domain", "bücher.de", "xn--bcher-kva.de", ""},
+		{"international URL", "https://MÜNCHEN.de/über", "xn--mnchen-3ya.de", ""},
 		{"single label", "acme", "", "must be a fully qualified domain"},
+		{"single label URL", "https://acme", "", "must be a fully qualified domain"},
 		{"numeric TLD", "10.0.0.1", "", "valid top-level domain"},
-		{"leading hyphen", "-acme.example.com", "", "not a valid domain"},
-		{"underscore", "ac_me.example.com", "", "not a valid domain"},
-		{"bare domain with path", "acme.example.com/about", "", "not a valid domain"},
-		{"bare domain with port", "acme.example.com:8080", "", "not a valid domain"},
-		{"URL with path", "https://acme.example.com/about", "", "must not include a path"},
-		{"URL with query", "https://acme.example.com?ref=1", "", "must not include a path"},
-		{"URL with fragment", "https://acme.example.com#top", "", "must not include a path"},
-		{"URL with port", "https://acme.example.com:8443", "", "must not include a port"},
+		{"hyphen in the TLD", "example.xn--p1ai", "", "not a domain name"},
+		{"leading hyphen", "-acme.example.com", "", "not a domain name"},
+		{"underscore", "ac_me.example.com", "", "not a domain name"},
+		{"too long", strings.Repeat(strings.Repeat("a", 60)+".", 4) + strings.Repeat("b", 11) + ".com", "",
+			"longer than 255 characters"},
+		{"at the length limit", strings.Repeat(strings.Repeat("a", 60)+".", 4) + strings.Repeat("b", 7) + ".com",
+			strings.Repeat(strings.Repeat("a", 60)+".", 4) + strings.Repeat("b", 7) + ".com", ""},
 		{"URL with credentials", "https://user:pass@acme.example.com", "", "must not include credentials"},
+		{"bare domain with credentials", "acme.com@evil.com", "", "must not include credentials"},
 		{"non-http scheme", "ftp://acme.example.com", "", "only http and https"},
-		{"URL without host", "https://", "", "not a valid domain"},
+		{"javascript", "javascript:alert(1)", "", "not a domain or an http or https URL"},
+		{"URL without host", "https://", "", "not a domain name"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -396,46 +223,46 @@ func TestCreateCommand_SendsWebsiteAsDomain(t *testing.T) {
 	mockClient.On("CreateSubAccount",
 		mock.MatchedBy(func(req requests.CreateSubAccountRequest) bool {
 			return req.Website == "acme.example.com"
-		}),
-		mock.AnythingOfType("string")).
-		Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+		})).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example.com/")
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "https://acme.example.com/")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateCommand_SendsAnInternationalWebsiteInPunycode(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateSubAccount",
+		mock.MatchedBy(func(req requests.CreateSubAccountRequest) bool {
+			return req.Website == "xn--bcher-kva.de"
+		})).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "https://bücher.de/about")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
 func TestCreateCommand_InvalidWebsiteFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "https://acme.example.com/about")
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "ftp://acme.example.com")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid website")
+	assert.Contains(t, err.Error(), "invalid --website value")
 	assert.False(t, *called)
-	mockClient.AssertNotCalled(t, "CreateSubAccount", mock.Anything, mock.Anything)
 }
 
-func TestCreateCommand_GeneratesIdempotencyKeyWhenOmitted(t *testing.T) {
-	var capturedKey string
+func TestCreateCommand_LeavesTheIdempotencyKeyToTheSDKWhenOmitted(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccount",
-		mock.AnythingOfType("requests.CreateSubAccountRequest"),
-		mock.MatchedBy(func(key string) bool {
-			capturedKey = key
-			return key != ""
-		})).
-		Return(newTestSubAccount(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("CreateSubAccount", mock.AnythingOfType("requests.CreateSubAccountRequest")).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
-	assert.True(t, *called)
-
-	// A non-empty, valid UUID idempotency key is generated and passed through.
-	_, parseErr := uuid.Parse(capturedKey)
-	assert.NoError(t, parseErr, "generated idempotency key must be a UUID")
 	mockClient.AssertExpectations(t)
 }
 
@@ -443,11 +270,11 @@ func TestCreateCommand_PassesUserProvidedIdempotencyKey(t *testing.T) {
 	mockClient := &mocks.MockClient{}
 	mockClient.On("CreateSubAccount",
 		mock.AnythingOfType("requests.CreateSubAccountRequest"),
-		"my-key").
-		Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+		testutil.IdempotencyKeyArg("my-key")).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(),
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain",
 		"--name", "Acme", "--website", "acme.example.com", "--idempotency-key", "my-key")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
@@ -455,27 +282,23 @@ func TestCreateCommand_PassesUserProvidedIdempotencyKey(t *testing.T) {
 
 func TestCreateCommand_MonthlyCreditBounds(t *testing.T) {
 	t.Run("below lower bound fails before auth", func(t *testing.T) {
-		mockClient := &mocks.MockClient{}
-		called := trackingResolver(t, mockClient)
+		called := testutil.RefuseAuth(t)
 
-		_, err := execCommand(NewCreateCommand(),
+		_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain",
 			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "-1")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid monthly credit")
+		assert.Equal(t, "--monthly-credit must be between 0 and 1000000000", err.Error())
 		assert.False(t, *called)
-		mockClient.AssertNotCalled(t, "CreateSubAccount", mock.Anything, mock.Anything)
 	})
 
 	t.Run("above upper bound fails before auth", func(t *testing.T) {
-		mockClient := &mocks.MockClient{}
-		called := trackingResolver(t, mockClient)
+		called := testutil.RefuseAuth(t)
 
-		_, err := execCommand(NewCreateCommand(),
+		_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain",
 			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "1000000001")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid monthly credit")
+		assert.Equal(t, "--monthly-credit must be between 0 and 1000000000", err.Error())
 		assert.False(t, *called)
-		mockClient.AssertNotCalled(t, "CreateSubAccount", mock.Anything, mock.Anything)
 	})
 
 	t.Run("explicit zero is accepted and sent", func(t *testing.T) {
@@ -483,12 +306,11 @@ func TestCreateCommand_MonthlyCreditBounds(t *testing.T) {
 		mockClient.On("CreateSubAccount",
 			mock.MatchedBy(func(req requests.CreateSubAccountRequest) bool {
 				return req.MonthlyCredit != nil && *req.MonthlyCredit == 0
-			}),
-			mock.AnythingOfType("string")).
-			Return(newTestSubAccount(), nil)
-		called := trackingResolver(t, mockClient)
+			})).
+			Return(mocks.NewSubAccount(), nil)
+		called := testutil.InjectClient(t, mockClient)
 
-		_, err := execCommand(NewCreateCommand(),
+		_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain",
 			"--name", "Acme", "--website", "acme.example.com", "--monthly-credit", "0")
 		require.NoError(t, err)
 		assert.True(t, *called)
@@ -501,12 +323,11 @@ func TestCreateCommand_OmittedMonthlyCreditIsNil(t *testing.T) {
 	mockClient.On("CreateSubAccount",
 		mock.MatchedBy(func(req requests.CreateSubAccountRequest) bool {
 			return req.MonthlyCredit == nil
-		}),
-		mock.AnythingOfType("string")).
-		Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+		})).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -514,12 +335,11 @@ func TestCreateCommand_OmittedMonthlyCreditIsNil(t *testing.T) {
 func TestCreateCommand_MockBacked(t *testing.T) {
 	mockClient := &mocks.MockClient{}
 	mockClient.On("CreateSubAccount",
-		mock.AnythingOfType("requests.CreateSubAccountRequest"),
-		mock.AnythingOfType("string")).
-		Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+		mock.AnythingOfType("requests.CreateSubAccountRequest")).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewCreateCommand(), "--name", "Acme", "--website", "acme.example.com")
+	out, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--name", "Acme", "--website", "acme.example.com")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
@@ -546,12 +366,11 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 			}
 			mockClient := &mocks.MockClient{}
 			mockClient.On("CreateSubAccount",
-				mock.AnythingOfType("requests.CreateSubAccountRequest"),
-				mock.AnythingOfType("string")).
+				mock.AnythingOfType("requests.CreateSubAccountRequest")).
 				Return(nil, apiErr)
-			trackingResolver(t, mockClient)
+			testutil.InjectClient(t, mockClient)
 
-			_, err := execCommandJSON(NewCreateCommand(),
+			_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "json",
 				"--name", "Acme", "--website", "acme.example.com")
 
 			// The runner returns the SDK error verbatim with its raw body.
@@ -562,7 +381,7 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 
 			// The JSON handler prints the raw body and still reports the failure.
 			var buf bytes.Buffer
-			handler := printer.GetResponseHandler("json", false, &buf)
+			handler := testutil.ResponseHandler(t, "json", &buf, os.Stderr)
 			assert.Equal(t, err, handler.HandleError(err))
 			assert.JSONEq(t, tc.raw, buf.String())
 
@@ -573,77 +392,56 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 
 // update ----------------------------------------------------------------------
 
-func TestUpdateCommand_Structure(t *testing.T) {
-	cmd := NewUpdateCommand()
-	assert.Equal(t, "update", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-
-	flags := cmd.Flags()
-	require.NotNil(t, flags.Lookup("name"))
-	require.NotNil(t, flags.Lookup("website"))
-	require.NotNil(t, flags.Lookup("monthly-credit"))
-}
-
 func TestUpdateCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewUpdateCommand(), "not-a-uuid", "--name", "New")
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", "not-a-uuid", "--name", "New")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
-	mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
 }
 
 func TestUpdateCommand_NoChangedFlagsFailsBeforeAuth(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewUpdateCommand(), id)
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id)
 	require.Error(t, err)
-	assert.Equal(t, "at least one of --name, --website, or --monthly-credit must be provided", err.Error())
+	assert.Equal(t, "at least one of --name, --website or --monthly-credit must be provided", err.Error())
 	assert.False(t, *called, "auth resolver must not be reached when no flags change")
-	mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
 }
 
 func TestUpdateCommand_MonthlyCreditBounds(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 
 	t.Run("below lower bound fails before auth", func(t *testing.T) {
-		mockClient := &mocks.MockClient{}
-		called := trackingResolver(t, mockClient)
+		called := testutil.RefuseAuth(t)
 
-		_, err := execCommand(NewUpdateCommand(), id, "--monthly-credit", "-1")
+		_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--monthly-credit", "-1")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid monthly credit")
+		assert.Equal(t, "--monthly-credit must be between 0 and 1000000000", err.Error())
 		assert.False(t, *called)
-		mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
 	})
 
 	t.Run("above upper bound fails before auth", func(t *testing.T) {
-		mockClient := &mocks.MockClient{}
-		called := trackingResolver(t, mockClient)
+		called := testutil.RefuseAuth(t)
 
-		_, err := execCommand(NewUpdateCommand(), id, "--monthly-credit", "1000000001")
+		_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--monthly-credit", "1000000001")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid monthly credit")
+		assert.Equal(t, "--monthly-credit must be between 0 and 1000000000", err.Error())
 		assert.False(t, *called)
-		mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
 	})
 
 	t.Run("explicit zero is accepted and sent", func(t *testing.T) {
 		mockClient := &mocks.MockClient{}
-		mockClient.On("UpdateSubAccount", id,
+		mockClient.On("UpdateSubAccount", uuid.MustParse(id),
 			mock.MatchedBy(func(req requests.UpdateSubAccountRequest) bool {
 				return req.MonthlyCredit != nil && *req.MonthlyCredit == 0
 			})).
-			Return(newTestSubAccount(), nil)
-		called := trackingResolver(t, mockClient)
+			Return(mocks.NewSubAccount(), nil)
+		called := testutil.InjectClient(t, mockClient)
 
-		_, err := execCommand(NewUpdateCommand(), id, "--monthly-credit", "0")
+		_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--monthly-credit", "0")
 		require.NoError(t, err)
 		assert.True(t, *called)
 		mockClient.AssertExpectations(t)
@@ -653,15 +451,15 @@ func TestUpdateCommand_MonthlyCreditBounds(t *testing.T) {
 func TestUpdateCommand_PartialUpdateOnlySetsChangedFields(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("UpdateSubAccount", id,
+	mockClient.On("UpdateSubAccount", uuid.MustParse(id),
 		mock.MatchedBy(func(req requests.UpdateSubAccountRequest) bool {
 			return req.Name != nil && *req.Name == "New Name" &&
 				req.Website == nil && req.MonthlyCredit == nil
 		})).
-		Return(newTestSubAccount(), nil)
-	called := trackingResolver(t, mockClient)
+		Return(mocks.NewSubAccount(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewUpdateCommand(), id, "--name", "New Name")
+	out, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--name", "New Name")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	assert.Contains(t, out, "Acme Subsidiary")
@@ -671,116 +469,98 @@ func TestUpdateCommand_PartialUpdateOnlySetsChangedFields(t *testing.T) {
 func TestUpdateCommand_SendsWebsiteAsDomain(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("UpdateSubAccount", id,
+	mockClient.On("UpdateSubAccount", uuid.MustParse(id),
 		mock.MatchedBy(func(req requests.UpdateSubAccountRequest) bool {
 			return req.Website != nil && *req.Website == "acme.example.com" &&
 				req.Name == nil && req.MonthlyCredit == nil
 		})).
-		Return(newTestSubAccount(), nil)
-	trackingResolver(t, mockClient)
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewUpdateCommand(), id, "--website", "https://acme.example.com")
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--website", "https://acme.example.com")
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
 
 func TestUpdateCommand_InvalidWebsiteFailsBeforeAuth(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
-	for _, website := range []string{"", "acme", "https://acme.example.com:8443"} {
-		t.Run(website, func(t *testing.T) {
-			mockClient := &mocks.MockClient{}
-			called := trackingResolver(t, mockClient)
+	tests := []struct {
+		website string
+		message string
+	}{
+		{"", "--website cannot be empty"},
+		{"acme", `invalid --website value "acme": must be a fully qualified domain; use a domain such as example.com`},
+		{"https://user@acme.example.com", `invalid --website value "https://user@acme.example.com": must not include credentials; use a domain such as example.com`},
+	}
+	for _, test := range tests {
+		t.Run(test.website, func(t *testing.T) {
+			called := testutil.RefuseAuth(t)
 
-			_, err := execCommand(NewUpdateCommand(), id, "--website", website)
+			_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", id, "--website", test.website)
 			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
 			assert.False(t, *called)
-			mockClient.AssertNotCalled(t, "UpdateSubAccount", mock.Anything, mock.Anything)
 		})
 	}
 }
 
 // delete ----------------------------------------------------------------------
 
-func TestDeleteCommand_Structure(t *testing.T) {
-	cmd := NewDeleteCommand()
-	assert.Equal(t, "delete", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-	require.NotNil(t, cmd.Flags().Lookup("force"))
-}
-
 func TestDeleteCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewDeleteCommand(), "not-a-uuid", "--force")
+	_, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", "not-a-uuid", "--force")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
-	mockClient.AssertNotCalled(t, "DeleteSubAccount", mock.Anything)
 }
 
 func TestDeleteCommand_ForceSuccess(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("DeleteSubAccount", id).
+	mockClient.On("DeleteSubAccount", uuid.MustParse(id)).
 		Return(&common.SuccessResponse{Message: "deleted"}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewDeleteCommand(), id, "--force")
+	out, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", id, "--force")
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.Contains(t, out, "deleted successfully")
+	assert.Equal(t, "deleted\n", out, "table output prints the API's message")
 	mockClient.AssertExpectations(t)
 }
 
 func TestDeleteCommand_ApiErrorPropagates(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("DeleteSubAccount", id).Return(nil, assert.AnError)
-	trackingResolver(t, mockClient)
+	mockClient.On("DeleteSubAccount", uuid.MustParse(id)).Return(nil, assert.AnError)
+	testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewDeleteCommand(), id, "--force")
+	_, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", id, "--force")
 	require.Error(t, err)
 	mockClient.AssertExpectations(t)
 }
 
 // suspend ---------------------------------------------------------------------
 
-func TestSuspendCommand_Structure(t *testing.T) {
-	cmd := NewSuspendCommand()
-	assert.Equal(t, "suspend", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-	require.NotNil(t, cmd.Flags().Lookup("reason"))
-	require.NotNil(t, cmd.Flags().Lookup("force"))
-}
-
 func TestSuspendCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewSuspendCommand(), "not-a-uuid", "--reason", "x", "--force")
+	_, err := testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", "not-a-uuid", "--reason", "x", "--force")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
-	mockClient.AssertNotCalled(t, "SuspendSubAccount", mock.Anything, mock.Anything)
 }
 
 func TestSuspendCommand_EmptyReasonFailsBeforeAuth(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	for _, reason := range []string{"", "   "} {
 		t.Run("reason="+reason, func(t *testing.T) {
-			mockClient := &mocks.MockClient{}
-			called := trackingResolver(t, mockClient)
+			called := testutil.RefuseAuth(t)
 
-			_, err := execCommand(NewSuspendCommand(), id, "--reason", reason, "--force")
+			_, err := testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", id, "--reason", reason, "--force")
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "--reason is required")
+			assert.Equal(t, "--reason cannot be empty", err.Error())
 			assert.False(t, *called, "auth resolver must not be reached for empty reason")
-			mockClient.AssertNotCalled(t, "SuspendSubAccount", mock.Anything, mock.Anything)
 		})
 	}
 }
@@ -788,64 +568,222 @@ func TestSuspendCommand_EmptyReasonFailsBeforeAuth(t *testing.T) {
 func TestSuspendCommand_OverlongReasonFailsBeforeAuth(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	reason := strings.Repeat("a", 501)
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewSuspendCommand(), id, "--reason", reason, "--force")
+	_, err := testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", id, "--reason", reason, "--force")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--reason too long")
+	assert.Contains(t, err.Error(), "--reason must be at most 500 characters")
 	assert.False(t, *called, "auth resolver must not be reached for overlong reason")
-	mockClient.AssertNotCalled(t, "SuspendSubAccount", mock.Anything, mock.Anything)
 }
 
 func TestSuspendCommand_ForceSuccessSendsValidatedReason(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("SuspendSubAccount", id,
+	mockClient.On("SuspendSubAccount", uuid.MustParse(id),
 		mock.MatchedBy(func(req requests.SuspendSubAccountRequest) bool {
 			return req.Reason == "Payment overdue"
 		})).
-		Return(newTestSubAccount(), nil)
-	called := trackingResolver(t, mockClient)
+		Return(mocks.NewSubAccount(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
 	// Leading/trailing whitespace is trimmed before the reason is sent.
-	out, err := execCommand(NewSuspendCommand(), id, "--reason", "  Payment overdue  ", "--force")
+	out, err := testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", id, "--reason", "  Payment overdue  ", "--force")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
 }
 
-// unsuspend -------------------------------------------------------------------
+func TestSuspendCommand_CountsReasonCharactersNotBytes(t *testing.T) {
+	id := "11111111-1111-1111-1111-111111111111"
+	reason := strings.Repeat("é", 500)
+	mockClient := &mocks.MockClient{}
+	mockClient.On("SuspendSubAccount", uuid.MustParse(id), requests.SuspendSubAccountRequest{Reason: reason}).
+		Return(mocks.NewSubAccount(), nil)
+	testutil.InjectClient(t, mockClient)
 
-func TestUnsuspendCommand_Structure(t *testing.T) {
-	cmd := NewUnsuspendCommand()
-	assert.Equal(t, "unsuspend", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
+	_, err := testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", id, "--reason", reason, "--force")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+
+	_, err = testutil.RunCommandCombined(t, NewSuspendCommand(), "plain", id, "--reason", reason+"é", "--force")
+	require.Error(t, err)
+	assert.Equal(t, "--reason must be at most 500 characters", err.Error())
 }
 
-func TestUnsuspendCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+// unsuspend -------------------------------------------------------------------
 
-	_, err := execCommand(NewUnsuspendCommand(), "not-a-uuid")
+func TestUnsuspendCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunCommandCombined(t, NewUnsuspendCommand(), "plain", "not-a-uuid")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
-	mockClient.AssertNotCalled(t, "UnsuspendSubAccount", mock.Anything)
 }
 
 func TestUnsuspendCommand_MockBacked(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("UnsuspendSubAccount", id).Return(newTestSubAccount(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("UnsuspendSubAccount", uuid.MustParse(id)).Return(mocks.NewSubAccount(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewUnsuspendCommand(), id)
+	out, err := testutil.RunCommandCombined(t, NewUnsuspendCommand(), "plain", id)
 	require.NoError(t, err)
 	assert.True(t, *called)
 	assert.Contains(t, out, "Acme Subsidiary")
 	mockClient.AssertExpectations(t)
+}
+
+// pause, resume and unpause aliases ---------------------------------------------
+
+func TestSuspendAndUnsuspendAliasesResolve(t *testing.T) {
+	cmd := NewCommand()
+
+	pause, _, err := cmd.Find([]string{"pause"})
+	require.NoError(t, err)
+	assert.Equal(t, "suspend", pause.Name())
+
+	resume, _, err := cmd.Find([]string{"resume"})
+	require.NoError(t, err)
+	assert.Equal(t, "unsuspend", resume.Name())
+
+	unpause, _, err := cmd.Find([]string{"unpause"})
+	require.NoError(t, err)
+	assert.Equal(t, "unsuspend", unpause.Name())
+}
+
+// unpause-domain ----------------------------------------------------------------
+
+const testUnpauseSubAccountID = "11111111-1111-1111-1111-111111111111"
+
+// newTestUnpausedDomain is the domain the API returns once it is unpaused.
+func newTestUnpausedDomain() *responses.Domain {
+	return &responses.Domain{
+		Object:      "domain",
+		ID:          uuid.MustParse("55555555-5555-5555-5555-555555555555"),
+		Domain:      "example.com",
+		DNSValid:    true,
+		SendingType: common.DomainSendingTypeMarketing,
+	}
+}
+
+// TestUnpauseDomainCommand_TakesNoIdempotencyKey checks that unpause-domain
+// has no --idempotency-key: the API takes no Idempotency-Key for an unpause.
+func TestUnpauseDomainCommand_TakesNoIdempotencyKey(t *testing.T) {
+	assert.Nil(t, NewUnpauseDomainCommand().Flags().Lookup("idempotency-key"))
+}
+
+func TestUnpauseDomainCommand_SendsRequest(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UnpauseSubAccountDomain", uuid.MustParse(testUnpauseSubAccountID), "example.com").
+		Return(newTestUnpausedDomain(), nil)
+	called := testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "plain", testUnpauseSubAccountID, "example.com")
+	require.NoError(t, err)
+	assert.True(t, *called)
+	mockClient.AssertExpectations(t)
+}
+
+func TestUnpauseDomainCommand_BadUUIDFailsBeforeAuth(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "plain", "not-a-uuid", "example.com")
+	require.Error(t, err)
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
+	assert.False(t, *called, "auth resolver must not be reached for malformed UUID")
+}
+
+func TestUnpauseDomainCommand_EmptyDomainFailsBeforeAuth(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "plain", testUnpauseSubAccountID, "")
+	require.Error(t, err)
+	assert.Equal(t, "domain cannot be empty", err.Error())
+	assert.False(t, *called, "auth resolver must not be reached for an empty domain")
+}
+
+func TestUnpauseDomainCommand_DotDomainFailsBeforeAuth(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "plain", testUnpauseSubAccountID, "..")
+	require.Error(t, err)
+	assert.Equal(t, `invalid domain value "..": not a domain`, err.Error())
+	assert.Equal(t, 4, clierrors.GetExitCode(err))
+	assert.False(t, *called)
+}
+
+func TestUnpauseDomainCommand_TableOutput(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UnpauseSubAccountDomain", uuid.MustParse(testUnpauseSubAccountID), "example.com").
+		Return(newTestUnpausedDomain(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	out, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "table", testUnpauseSubAccountID, "example.com")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Domain unpaused successfully")
+	assert.Contains(t, out, "Sending Type")
+	assert.Contains(t, out, "marketing")
+	assert.NotContains(t, out, "Pause Reason")
+	mockClient.AssertExpectations(t)
+}
+
+func TestUnpauseDomainCommand_JSONIsTheDomain(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UnpauseSubAccountDomain", uuid.MustParse(testUnpauseSubAccountID), "example.com").
+		Return(newTestUnpausedDomain(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	out, err := testutil.RunCommandCombined(t, NewUnpauseDomainCommand(), "json", testUnpauseSubAccountID, "example.com")
+	require.NoError(t, err)
+	assert.Contains(t, out, `"sending_type": "marketing"`)
+	assert.Contains(t, out, `"paused": false`)
+	assert.NotContains(t, out, `"pause_reason"`)
+	mockClient.AssertExpectations(t)
+}
+
+func TestDeleteDeclinedPromptsOnStderrBeforeAuthentication(t *testing.T) {
+	authCalled := testutil.RefuseAuth(t)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "n\n", "11111111-1111-1111-1111-111111111111")
+	require.Error(t, err)
+	assert.Equal(t, "operation cancelled", err.Error())
+	assert.Contains(t, stderr, "Are you sure you want to delete sub-account 11111111-1111-1111-1111-111111111111? (y/N): ")
+	assert.Empty(t, stdout)
+	assert.False(t, *authCalled)
+}
+
+func TestSuspendDeclinedPromptsOnStderrBeforeAuthentication(t *testing.T) {
+	authCalled := testutil.RefuseAuth(t)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewSuspendCommand(), "plain", "n\n", "11111111-1111-1111-1111-111111111111", "--reason", "overdue")
+	require.Error(t, err)
+	assert.Equal(t, "operation cancelled", err.Error())
+	assert.Contains(t, stderr, "Are you sure you want to suspend sub-account 11111111-1111-1111-1111-111111111111? (y/N): ")
+	assert.Empty(t, stdout)
+	assert.False(t, *authCalled)
+}
+
+func TestOverlongNameIsAValidationError(t *testing.T) {
+	longName := strings.Repeat("a", 256)
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		args []string
+	}{
+		{"create", NewCreateCommand(), []string{"--name", longName, "--website", "example.com"}},
+		{"update", NewUpdateCommand(), []string{"11111111-1111-1111-1111-111111111111", "--name", longName}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authCalled := testutil.RefuseAuth(t)
+
+			_, _, err := testutil.RunCommand(t, tt.cmd, "plain", "", tt.args...)
+			require.Error(t, err)
+			assert.Equal(t, "--name must be at most 255 characters", err.Error())
+			assert.Equal(t, 4, clierrors.GetExitCode(err))
+			assert.False(t, *authCalled)
+		})
+	}
 }

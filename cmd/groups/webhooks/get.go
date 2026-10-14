@@ -1,13 +1,11 @@
 package webhooks
 
 import (
-	"fmt"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +13,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <webhook-id>",
-		Short: "Get detailed information about a specific webhook",
+		Short: "Get a webhook",
 		Long: `Get detailed information about a specific webhook including its
 configuration, event types, status, and metadata.
 
@@ -35,7 +33,7 @@ The webhook ID can be found using the 'ahasend webhooks list' command.`,
 
   # Get webhook configuration for backup/restore
   ahasend webhooks get abcd1234-5678-90ef-abcd-1234567890ab --output json > webhook-backup.json`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runWebhooksGet,
 		SilenceUsage: true,
 	}
@@ -44,15 +42,17 @@ The webhook ID can be found using the 'ahasend webhooks list' command.`,
 }
 
 func runWebhooksGet(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
-	client, err := auth.GetAuthenticatedClient(cmd)
+	webhookID := args[0]
+	webhookUUID, err := validation.ParseUUIDField("webhook ID", webhookID)
 	if err != nil {
 		return err
 	}
 
-	webhookID := args[0]
+	handler := printer.GetResponseHandlerFromCommand(cmd)
+	client, err := auth.GetAuthenticatedClient(cmd)
+	if err != nil {
+		return err
+	}
 
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
@@ -60,22 +60,13 @@ func runWebhooksGet(cmd *cobra.Command, args []string) error {
 	}).Debug("Executing webhooks get command")
 
 	// Get the webhook
-	webhook, err := getWebhook(client, webhookID)
+	webhook, err := client.GetWebhook(webhookUUID)
 	if err != nil {
 		return err
 	}
 
 	// Use the new ResponseHandler to display single webhook
 	return handler.HandleSingleWebhook(webhook, printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Retrieved webhook: %s", webhook.Name),
-		FieldOrder:     []string{"id", "name", "url", "enabled", "event_types", "scope", "domains", "created_at", "updated_at"},
+		SuccessMessage: "Webhook retrieved successfully",
 	})
-}
-
-func getWebhook(client client.AhaSendClient, webhookID string) (*responses.Webhook, error) {
-	webhook, err := client.GetWebhook(webhookID)
-	if err != nil {
-		return nil, err
-	}
-	return webhook, nil
 }

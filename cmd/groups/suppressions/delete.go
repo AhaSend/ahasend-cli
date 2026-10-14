@@ -1,15 +1,14 @@
 package suppressions
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -17,18 +16,18 @@ import (
 func NewDeleteCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <email>",
-		Short: "Delete an email address from the suppression list",
-		Long: `Delete an email address from the suppression list to allow sending emails.
+		Short: "Delete the suppressions of an email address",
+		Long: `Delete the suppressions of an email address so it can receive emails again.
 
-This command removes a suppression entry for the specified email address.
-Use --domain to delete only domain-specific suppressions.
-Without --domain, deletes global suppressions.
+An address has a suppression per domain. With --domain, only the suppression
+for that domain is deleted. Without it, the address's suppressions on every
+domain are deleted, protected ones (unsubscribes and complaints) included.
 
-⚠️  WARNING: Deleting suppressions may result in sending emails to addresses
-that previously bounced, complained, or unsubscribed. Use with caution.
+WARNING: Deleting suppressions may result in sending emails to addresses
+that previously bounced, complained, or unsubscribed.
 
-Use --force flag for automation and CI/CD pipelines.`,
-		Example: `  # Delete global suppression (with confirmation)
+Delete asks for confirmation unless --force is set.`,
+		Example: `  # Delete the suppressions of an address on every domain (with confirmation)
   ahasend suppressions delete user@example.com
 
   # Delete domain-specific suppression
@@ -38,27 +37,39 @@ Use --force flag for automation and CI/CD pipelines.`,
   ahasend suppressions delete user@example.com --force
 
   # Delete with JSON output
-  ahasend suppressions delete user@example.com --output json`,
-		Args: cobra.ExactArgs(1),
-		RunE: runSuppressionsDelete,
+  ahasend suppressions delete user@example.com --force --output json`,
+		Args:         cmdutil.ExactArgs(1),
+		RunE:         runSuppressionsDelete,
+		SilenceUsage: true,
 	}
 
 	// Add flags
-	cmd.Flags().String("domain", "", "Domain for domain-specific suppression removal (optional)")
-	cmd.Flags().Bool("force", false, "Skip confirmation prompt")
+	cmd.Flags().String("domain", "", "Delete only the suppression for this domain (default: every domain)")
+	prompt.AddForceFlag(cmd)
 
 	return cmd
 }
 
 func runSuppressionsDelete(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
 	email := args[0]
+	if err := validation.ValidateEmail("email", email); err != nil {
+		return err
+	}
+	domain, err := cmdutil.ReadNonEmpty(cmd, "domain", "")
+	if err != nil {
+		return err
+	}
+	if err := validation.ValidateOptionalDomainName("--domain", domain); err != nil {
+		return err
+	}
 
-	// Validate email format (basic validation)
-	if email == "" {
-		return errors.NewValidationError("email address is required", nil)
+	question := fmt.Sprintf("Are you sure you want to delete every suppression of %s, on every domain, "+
+		"including unsubscribes and complaints?", email)
+	if domain != nil {
+		question = fmt.Sprintf("Are you sure you want to delete the suppression of %s for domain %s?", email, *domain)
+	}
+	if err := prompt.Confirm(cmd, question); err != nil {
+		return err
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -66,65 +77,21 @@ func runSuppressionsDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Get flag values
-	domain, _ := cmd.Flags().GetString("domain")
-	force, _ := cmd.Flags().GetBool("force")
-
-	var domainPtr *string
-	if domain != "" {
-		domainPtr = &domain
-	}
-
-	// Show suppression details and confirm removal (unless --force is used)
-	if !force {
-		confirmed, err := confirmRemoval(email, domain)
-		if err != nil {
-			return err
-		}
-		if !confirmed {
-			return handler.HandleSimpleSuccess("Suppression removal cancelled")
-		}
-	}
-
 	logger.Get().WithFields(map[string]interface{}{
 		"email":  email,
-		"domain": domain,
-		"force":  force,
+		"domain": cmd.Flag("domain").Value.String(),
 	}).Debug("Removing suppression")
 
-	// Remove suppression
-	_, err = client.DeleteSuppression(email, domainPtr)
+	response, err := client.DeleteSuppression(email, domain)
 	if err != nil {
 		return err
 	}
 
-	// Use the new ResponseHandler to display deletion success
-	successMsg := fmt.Sprintf("Suppression removed successfully for %s", email)
-	if domain != "" {
-		successMsg += fmt.Sprintf(" (domain: %s)", domain)
+	successMsg := fmt.Sprintf("Suppression for '%s' deleted successfully", email)
+	if domain != nil {
+		successMsg += fmt.Sprintf(" (domain '%s')", *domain)
 	}
-	return handler.HandleDeleteSuppression(true, printer.DeleteConfig{
+	return printer.GetResponseHandlerFromCommand(cmd).HandleSuccessResponse(response, printer.ResultConfig{
 		SuccessMessage: successMsg,
-		ItemName:       "suppression",
 	})
-}
-
-func confirmRemoval(email, domain string) (bool, error) {
-	fmt.Printf("Found suppression for %s", email)
-	if domain != "" {
-		fmt.Printf(" (domain: %s)", domain)
-	}
-	fmt.Println(":")
-
-	fmt.Println("\n⚠️  WARNING: Removing this suppression will allow emails to be sent to this address again.")
-	fmt.Print("Are you sure you want to remove this suppression? (y/N): ")
-
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false, fmt.Errorf("failed to read confirmation: %w", err)
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	return response == "y" || response == "yes", nil
 }

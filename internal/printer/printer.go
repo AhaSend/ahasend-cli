@@ -1,35 +1,39 @@
-// Package printer provides a type-safe output formatting system for the AhaSend CLI.
+// Package printer writes the result of each command in the format --output
+// names. A ResponseHandler has one method per kind of result, taking the
+// SDK response type, and one implementation per format:
 //
-// This package implements a ResponseHandler interface that provides complete type safety
-// by using concrete SDK response types instead of interface{} for all operations.
-// The handler is instantiated based on the --output flag and passed to commands.
+//   - json: the API's response body, unchanged (see package apiresponse),
+//     or the JSON of a result the CLI built itself
+//   - table: bordered tables, for reading in a terminal
+//   - plain: one "Label: value" line per field, leaving out missing values
+//   - csv: a header row and one row per item, with RFC 3339 times
 //
-// Supported formats:
-//   - JSON: Machine-readable format for automation and APIs
-//   - Table: Human-readable tabular format with proper alignment
-//   - Plain: Simple key-value format for scripts and debugging
-//   - CSV: Comma-separated values for data processing
+// Table and plain output escape control characters, since results carry
+// text from email senders and other users. The root command creates the
+// handler and stores it in the command's context, where a command gets it:
 //
-// Usage:
-//
-//	handler := printer.GetResponseHandler(cmd)
-//	response, err := client.ListDomains(...)
+//	response, err := client.ListDomains(requests.GetDomainsParams{})
 //	if err != nil {
-//		return handler.HandleError(err)
+//		return err
 //	}
-//	return handler.HandleDomainList(response, printer.ListConfig{
-//		SuccessMessage: "Successfully retrieved domains",
+//	return printer.GetResponseHandlerFromCommand(cmd).HandleDomainList(response, printer.ListConfig{
+//		SuccessMessage: "Domains retrieved successfully",
 //		EmptyMessage:   "No domains found",
-//		ShowPagination: true,
 //	})
 package printer
 
 import (
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
+	"github.com/AhaSend/ahasend-go/api"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/responses"
+
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 )
 
 // ResponseHandler defines the interface for type-safe output formatting with concrete types.
@@ -45,51 +49,40 @@ type ResponseHandler interface {
 	// Message responses
 	HandleMessageList(response *responses.PaginatedMessagesResponse, config ListConfig) error
 	HandleSingleMessage(message *responses.Message, config SingleConfig) error
-	HandleCreateMessage(response *responses.CreateMessageResponse, config CreateConfig) error
-	HandleCancelMessage(response *CancelMessageResponse, config SimpleConfig) error
+	HandleCreateMessage(response *responses.CreateMessageResponse, config ResultConfig) error
 
 	// Webhook responses
 	HandleWebhookList(response *responses.PaginatedWebhooksResponse, config ListConfig) error
 	HandleSingleWebhook(webhook *responses.Webhook, config SingleConfig) error
-	HandleCreateWebhook(webhook *responses.Webhook, config CreateConfig) error
-	HandleUpdateWebhook(webhook *responses.Webhook, config UpdateConfig) error
-	HandleDeleteWebhook(success bool, config DeleteConfig) error
-	HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error
+	HandleCreateWebhook(webhook *responses.Webhook, config ResultConfig) error
+	HandleUpdateWebhook(webhook *responses.Webhook, config ResultConfig) error
 
 	// Route responses
 	HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error
 	HandleSingleRoute(route *responses.Route, config SingleConfig) error
-	HandleCreateRoute(route *responses.Route, config CreateConfig) error
-	HandleUpdateRoute(route *responses.Route, config UpdateConfig) error
-	HandleDeleteRoute(success bool, config DeleteConfig) error
-	HandleTriggerRoute(routeID string, config TriggerConfig) error
+	HandleCreateRoute(route *responses.Route, config ResultConfig) error
+	HandleUpdateRoute(route *responses.Route, config ResultConfig) error
 
 	// Suppression responses
 	HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error
-	HandleSingleSuppression(suppression *responses.Suppression, config SingleConfig) error
-	HandleCreateSuppression(response *responses.CreateSuppressionResponse, config CreateConfig) error
-	HandleDeleteSuppression(success bool, config DeleteConfig) error
-	HandleWipeSuppression(count int, config WipeConfig) error
-	HandleCheckSuppression(suppression *responses.Suppression, found bool, config CheckConfig) error
+	HandleCreateSuppression(response *responses.CreateSuppressionResponse, config ResultConfig) error
+	HandleCheckSuppression(response *responses.PaginatedSuppressionsResponse, config CheckConfig) error
 
 	// SMTP responses
 	HandleSMTPList(response *responses.PaginatedSMTPCredentialsResponse, config ListConfig) error
 	HandleSingleSMTP(credential *responses.SMTPCredential, config SingleConfig) error
-	HandleCreateSMTP(credential *responses.SMTPCredential, config CreateConfig) error
-	HandleDeleteSMTP(success bool, config DeleteConfig) error
-	HandleSMTPSend(result *SMTPSendResult, config SMTPSendConfig) error
+	HandleCreateSMTP(credential *responses.SMTPCredential, config ResultConfig) error
+	HandleSMTPSend(result *SMTPSendResult, config ResultConfig) error
 
 	// API Key responses
 	HandleAPIKeyList(response *responses.PaginatedAPIKeysResponse, config ListConfig) error
 	HandleSingleAPIKey(key *responses.APIKey, config SingleConfig) error
-	HandleCreateAPIKey(key *responses.APIKey, config CreateConfig) error
-	HandleUpdateAPIKey(key *responses.APIKey, config UpdateConfig) error
-	HandleDeleteAPIKey(success bool, config DeleteConfig) error
+	HandleCreateAPIKey(key *responses.APIKey, config ResultConfig) error
+	HandleUpdateAPIKey(key *responses.APIKey, config ResultConfig) error
 
 	// Sub-account responses
 	HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error
 	HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error
-	HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error
 	HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error
 
 	// Statistics responses
@@ -98,377 +91,176 @@ type ResponseHandler interface {
 	HandleDeliveryTimeStats(response *responses.DeliveryTimeStatisticsResponse, config StatsConfig) error
 
 	// Auth responses
-	HandleAuthLogin(success bool, profile string, config AuthConfig) error
-	HandleAuthLogout(success bool, config AuthConfig) error
-	HandleAuthStatus(status *AuthStatus, config AuthConfig) error
-	HandleAuthSwitch(newProfile string, config AuthConfig) error
+	HandleAuthResult(result AuthResult) error
+	HandleAuthStatus(status *AuthStatus) error
+	HandleAuthProfiles(profiles []string) error
 
-	// Simple success without data
-	HandleSimpleSuccess(message string) error
+	// API success responses, such as deletes
+	HandleSuccessResponse(response *common.SuccessResponse, config ResultConfig) error
+
+	// Commands that make the same API call for several items
+	HandleAPIResults(results []APIResult, config ResultConfig) error
 
 	// Empty state
 	HandleEmpty(message string) error
 
-	// Internal methods for format detection and output writing
+	// GetFormat returns the output format name
 	GetFormat() string
-	SetWriter(w io.Writer)
 }
 
 // Configuration types for different response scenarios
 
-// ListConfig configures how paginated list responses are displayed
+// ListConfig configures how paginated list responses are displayed. The
+// printer owns the fields of each view.
 type ListConfig struct {
-	SuccessMessage string   // Message to show on successful retrieval
-	EmptyMessage   string   // Message to show when list is empty
-	ShowPagination bool     // Whether to show pagination information
-	FieldOrder     []string // Optional field ordering for table display
+	SuccessMessage string // Message to show on successful retrieval
+	EmptyMessage   string // Message to show when list is empty
+	// Detailed selects the detailed list view, for the items that have one
+	// (messages list --show-details).
+	Detailed bool
 }
 
 // SingleConfig configures how single item responses are displayed
 type SingleConfig struct {
-	SuccessMessage string   // Message to show on successful retrieval
-	EmptyMessage   string   // Message to show when item is nil
-	FieldOrder     []string // Optional field ordering for table display
+	SuccessMessage string // Message to show on successful retrieval
+	EmptyMessage   string // Message to show when item is nil
 }
 
-// CreateConfig configures how creation responses are displayed
-type CreateConfig struct {
-	SuccessMessage string   // Message to show on successful creation
-	ItemName       string   // Name of the item being created (e.g., "domain", "webhook")
-	FieldOrder     []string // Optional field ordering for table display
-}
-
-// UpdateConfig configures how update responses are displayed
-type UpdateConfig struct {
-	SuccessMessage string   // Message to show on successful update
-	ItemName       string   // Name of the item being updated (e.g., "domain", "webhook")
-	FieldOrder     []string // Optional field ordering for table display
-}
-
-// DeleteConfig configures how deletion responses are displayed
-type DeleteConfig struct {
-	SuccessMessage string // Message to show on successful deletion
-	ItemName       string // Name of the item being deleted (e.g., "domain", "webhook")
+// ResultConfig configures how the result of a create, update, delete or
+// send is displayed.
+type ResultConfig struct {
+	SuccessMessage string // Message to show on success
 }
 
 // StatsConfig configures how statistics responses are displayed
 type StatsConfig struct {
-	Title      string   // Title for the statistics display
-	ShowChart  bool     // Whether to show ASCII charts for data
-	FieldOrder []string // Optional field ordering for table display
+	Title string // Title for the statistics display
 }
 
-// AuthConfig configures how authentication responses are displayed
-type AuthConfig struct {
-	SuccessMessage string // Message to show on successful auth operation
+// AuthResult is the outcome of auth login, switch or logout.
+type AuthResult struct {
+	Profile string // The profile the command acted on; empty for logout --all
+	Message string // What the command did, such as "Switched to profile 'production'"
 }
 
 // CheckConfig configures how check/verification responses are displayed
 type CheckConfig struct {
-	FoundMessage    string   // Message to show when item is found
-	NotFoundMessage string   // Message to show when item is not found
-	FieldOrder      []string // Optional field ordering for table display
-}
-
-// WipeConfig configures how wipe/bulk deletion responses are displayed
-type WipeConfig struct {
-	SuccessMessage string // Message to show on successful wipe
-	ItemName       string // Name of the items being wiped (e.g., "suppressions")
-}
-
-// SMTPSendConfig configures how SMTP send responses are displayed
-type SMTPSendConfig struct {
-	SuccessMessage string // Message to show on successful send
-	TestMode       bool   // Whether this was a test send
-}
-
-// SimpleConfig configures simple success responses
-type SimpleConfig struct {
-	SuccessMessage string // Message to show on success
-}
-
-// TriggerConfig configures how webhook trigger responses are displayed
-type TriggerConfig struct {
-	SuccessMessage string // Message to show on successful trigger
+	FoundMessage    string // Message to show when item is found
+	NotFoundMessage string // Message to show when item is not found
 }
 
 // Custom types for complex scenarios that don't map directly to SDK types
 
-// AuthStatus represents the current authentication status
+// AuthStatus represents the current authentication status. It never holds
+// the API key: like the logs, it identifies the credentials by account ID.
 type AuthStatus struct {
-	Profile string             // Currently active profile name
-	APIKey  string             // Masked API key (showing only account ID)
-	Account *responses.Account // Full account information
-	Valid   bool               // Whether the authentication is valid
+	Profile   string             // Currently active profile name
+	AccountID string             // The profile's account ID
+	Account   *responses.Account // Account information, nil when it could not be fetched
+	// Valid is whether the API accepted the credentials, or nil when the
+	// check could not tell, such as when the API could not be reached.
+	Valid *bool
+	// Error is why the check of the credentials failed, if it did.
+	Error string
+	// Note says why the account is missing from a check that passed, such
+	// as a key without the scope to read the account.
+	Note string
 }
 
-// SMTPSendResult represents the result of an SMTP send operation
+// SMTPSendResult represents the result of an SMTP send operation: a sent
+// message, or a test that passed or failed. A send that fails returns its
+// error without printing a result.
 type SMTPSendResult struct {
-	Success   bool   // Whether the send was successful
+	Success   bool   // Whether the send or the test was successful
 	MessageID string // Message ID if successful
-	Error     string // Error message if failed
+	Error     string // The failure of a failed test
 	TestMode  bool   // Whether this was a test send
-}
-
-// CancelMessageResponse represents a message cancellation result
-type CancelMessageResponse struct {
-	MessageID string // ID of the cancelled message
-	Success   bool   // Whether cancellation was successful
-	Error     string // Error message if failed
+	// Connected is whether a test connected to the server and read its
+	// greeting. A test that connected and failed failed the login, and
+	// Error says why.
+	Connected bool
+	// Authenticated is whether a test logged in, which it does only when
+	// credentials are given
+	Authenticated bool
 }
 
 // handlerBase provides common functionality for all response handlers
 type handlerBase struct {
-	writer      io.Writer
-	colorOutput bool
+	writer    io.Writer
+	errWriter io.Writer // where table, plain and CSV output print errors
 }
 
-// SetWriter sets the output writer
-func (h *handlerBase) SetWriter(w io.Writer) {
-	h.writer = w
+// HandleError prints err to errWriter, as table, plain and CSV output show
+// errors, escaped as EscapeDisplayText escapes, followed by what to do about
+// it, when ErrorHint knows, and returns it.
+func (h *handlerBase) HandleError(err error) error {
+	fmt.Fprintf(h.errWriter, "Error: %v%s\n", err, ErrorHint(err))
+	return err
 }
 
-// GetResponseHandler creates a new response handler based on the format string
-func GetResponseHandler(format string, colorOutput bool, writer io.Writer) ResponseHandler {
+// ErrorHint returns what to do about err, to follow its text, or "": how long
+// the API asked to wait, when its error answer had a Retry-After header, as a
+// 429 or a 503 may, and what to check when the API could not be reached. An
+// error whose text already names the wait, a WaitNamer, gets no hint.
+func ErrorHint(err error) string {
+	var apiErr *api.APIError
+	if stderrors.As(err, &apiErr) {
+		var named WaitNamer
+		if apiErr.RetryAfter > 0 && !stderrors.As(err, &named) {
+			return fmt.Sprintf(" (the API asked to wait %d s)", apiErr.RetryAfter)
+		}
+		return ""
+	}
+	if clierrors.IsAPIUnreachable(err) {
+		return " (check the network connection and the API URL: auth login --api-url or the profile's api_url)"
+	}
+	return ""
+}
+
+// WaitNamer is an error whose text names the wait the API asked for, such as
+// that of a send the API asked to retry too late, so HandleError adds no
+// hint that names it again.
+type WaitNamer interface {
+	error
+	NamesTheWait()
+}
+
+// NewResponseHandler creates the response handler for format, in any case, or
+// returns a validation error when the format is not supported. Results go to
+// writer. Errors go to errWriter in table, plain and CSV formats; JSON output
+// prints errors to writer, since they are the API's response or the CLI's
+// error object.
+func NewResponseHandler(format string, writer, errWriter io.Writer) (ResponseHandler, error) {
 	if writer == nil {
 		writer = os.Stdout
 	}
-
-	base := handlerBase{
-		writer:      writer,
-		colorOutput: colorOutput,
+	if errWriter == nil {
+		errWriter = os.Stderr
 	}
 
-	switch format {
+	// Errors are for display in every format: their text can hold the API's
+	// or a server's message
+	errWriter = displayWriter{w: errWriter}
+	base := handlerBase{writer: writer, errWriter: errWriter}
+	// Table and plain output are for display: they escape control characters
+	display := handlerBase{writer: displayWriter{w: writer}, errWriter: errWriter}
+
+	switch strings.ToLower(format) {
 	case "json":
-		return &jsonHandler{handlerBase: base}
+		return &jsonHandler{handlerBase: base}, nil
 	case "table":
-		return &tableHandler{handlerBase: base}
+		return &tableHandler{handlerBase: display}, nil
 	case "plain":
-		return &plainHandler{handlerBase: base}
+		return &plainHandler{handlerBase: display}, nil
 	case "csv":
-		return &csvHandler{handlerBase: base}
+		return &csvHandler{handlerBase: base}, nil
 	default:
-		// Return a handler that shows an error for unsupported formats
-		return &unsupportedHandler{format: format, handlerBase: base}
+		return nil, clierrors.NewValidationError(fmt.Sprintf("--output must be one of: %s",
+			strings.Join(GetSupportedFormats(), ", ")), nil)
 	}
 }
 
 // GetSupportedFormats returns the list of supported output formats
 func GetSupportedFormats() []string {
 	return []string{"json", "table", "plain", "csv"}
-}
-
-// ValidateFormat validates that a format is supported
-func ValidateFormat(format string) error {
-	supported := GetSupportedFormats()
-	for _, f := range supported {
-		if f == format {
-			return nil
-		}
-	}
-	return fmt.Errorf("unsupported output format: %s (supported: %v)", format, supported)
-}
-
-// unsupportedHandler handles unsupported formats gracefully
-type unsupportedHandler struct {
-	format string
-	handlerBase
-}
-
-// GetFormat returns the format name
-func (h *unsupportedHandler) GetFormat() string {
-	return h.format
-}
-
-// All methods return unsupported format errors
-func (h *unsupportedHandler) HandleError(err error) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDomainList(response *responses.PaginatedDomainsResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleDomain(domain *responses.Domain, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleMessageList(response *responses.PaginatedMessagesResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleMessage(message *responses.Message, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateMessage(response *responses.CreateMessageResponse, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCancelMessage(response *CancelMessageResponse, config SimpleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleWebhookList(response *responses.PaginatedWebhooksResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleWebhook(webhook *responses.Webhook, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateWebhook(webhook *responses.Webhook, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleUpdateWebhook(webhook *responses.Webhook, config UpdateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeleteWebhook(success bool, config DeleteConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleRoute(route *responses.Route, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateRoute(route *responses.Route, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleUpdateRoute(route *responses.Route, config UpdateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeleteRoute(success bool, config DeleteConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-func (h *unsupportedHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleSuppression(suppression *responses.Suppression, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateSuppression(response *responses.CreateSuppressionResponse, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeleteSuppression(success bool, config DeleteConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleWipeSuppression(count int, config WipeConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCheckSuppression(suppression *responses.Suppression, found bool, config CheckConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentialsResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleSMTP(credential *responses.SMTPCredential, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateSMTP(credential *responses.SMTPCredential, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeleteSMTP(success bool, config DeleteConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSMTPSend(result *SMTPSendResult, config SMTPSendConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleAPIKeyList(response *responses.PaginatedAPIKeysResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleAPIKey(key *responses.APIKey, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateAPIKey(key *responses.APIKey, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleUpdateAPIKey(key *responses.APIKey, config UpdateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleDeliveryTimeStats(response *responses.DeliveryTimeStatisticsResponse, config StatsConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleAuthLogin(success bool, profile string, config AuthConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleAuthLogout(success bool, config AuthConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleAuthSwitch(newProfile string, config AuthConfig) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleSimpleSuccess(message string) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
-}
-
-func (h *unsupportedHandler) HandleEmpty(message string) error {
-	return fmt.Errorf("unsupported output format: %s", h.format)
 }

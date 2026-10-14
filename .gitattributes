@@ -1,0 +1,2 @@
+# Golden files are compared byte for byte; keep their line endings on every checkout.
+*.golden -text

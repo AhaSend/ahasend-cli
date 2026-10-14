@@ -1,38 +1,10 @@
 package domains
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func TestListCommand_Flags(t *testing.T) {
-	// Test that list command has required flags
-	listCmd := NewListCommand()
-	flags := listCmd.Flags()
-
-	limitFlag := flags.Lookup("limit")
-	assert.NotNil(t, limitFlag)
-	assert.Equal(t, "int32", limitFlag.Value.Type())
-
-	cursorFlag := flags.Lookup("cursor")
-	assert.NotNil(t, cursorFlag)
-	assert.Equal(t, "string", cursorFlag.Value.Type())
-
-	statusFlag := flags.Lookup("status")
-	assert.NotNil(t, statusFlag)
-	assert.Equal(t, "string", statusFlag.Value.Type())
-}
-
-func TestListCommand_Structure(t *testing.T) {
-	listCmd := NewListCommand()
-	assert.Equal(t, "list", listCmd.Name())
-	assert.Equal(t, "List all domains", listCmd.Short)
-	assert.NotEmpty(t, listCmd.Long)
-	assert.NotEmpty(t, listCmd.Example)
-}
 
 func TestListCommand_FilterLogic(t *testing.T) {
 	// Test the domain filtering logic
@@ -66,70 +38,6 @@ func TestListCommand_FilterLogic(t *testing.T) {
 	}
 }
 
-func TestListCommand_FlagParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected map[string]interface{}
-	}{
-		{
-			name: "all flags provided",
-			args: []string{
-				"--limit", "50",
-				"--cursor", "next-page-token",
-				"--status", "verified",
-			},
-			expected: map[string]interface{}{
-				"limit":  int32(50),
-				"cursor": "next-page-token",
-				"status": "verified",
-			},
-		},
-		{
-			name: "only limit flag",
-			args: []string{"--limit", "25"},
-			expected: map[string]interface{}{
-				"limit": int32(25),
-			},
-		},
-		{
-			name: "only status flag",
-			args: []string{"--status", "pending"},
-			expected: map[string]interface{}{
-				"status": "pending",
-			},
-		},
-		{
-			name:     "no flags",
-			args:     []string{},
-			expected: map[string]interface{}{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewListCommand()
-			cmd.SetArgs(tt.args)
-
-			err := cmd.ParseFlags(tt.args)
-			require.NoError(t, err)
-
-			for flag, expected := range tt.expected {
-				switch expected := expected.(type) {
-				case int32:
-					value, err := cmd.Flags().GetInt32(flag)
-					require.NoError(t, err)
-					assert.Equal(t, expected, value, "Flag %s should have correct value", flag)
-				case string:
-					value, err := cmd.Flags().GetString(flag)
-					require.NoError(t, err)
-					assert.Equal(t, expected, value, "Flag %s should have correct value", flag)
-				}
-			}
-		})
-	}
-}
-
 func TestListCommand_DefaultValues(t *testing.T) {
 	cmd := NewListCommand()
 
@@ -137,30 +45,11 @@ func TestListCommand_DefaultValues(t *testing.T) {
 	limit, _ := cmd.Flags().GetInt32("limit")
 	assert.Equal(t, int32(0), limit, "Limit should default to 0")
 
-	cursor, _ := cmd.Flags().GetString("cursor")
-	assert.Empty(t, cursor, "Cursor should default to empty string")
+	after, _ := cmd.Flags().GetString("after")
+	assert.Empty(t, after, "After should default to empty string")
 
 	status, _ := cmd.Flags().GetString("status")
 	assert.Empty(t, status, "Status should default to empty string")
-}
-
-func TestListCommand_Help(t *testing.T) {
-	cmd := NewListCommand()
-
-	// Capture help output
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs([]string{"--help"})
-
-	err := cmd.Execute()
-	assert.NoError(t, err)
-
-	helpOutput := buf.String()
-	assert.Contains(t, helpOutput, "List all domains")
-	assert.Contains(t, helpOutput, "--limit")
-	assert.Contains(t, helpOutput, "--cursor")
-	assert.Contains(t, helpOutput, "--status")
 }
 
 func TestListCommand_StatusValidation(t *testing.T) {
@@ -190,7 +79,7 @@ func BenchmarkListCommand_Creation(b *testing.B) {
 
 func BenchmarkListCommand_FlagParsing(b *testing.B) {
 	cmd := NewListCommand()
-	args := []string{"--limit", "50", "--cursor", "token", "--status", "verified"}
+	args := []string{"--limit", "50", "--after", "token", "--status", "verified"}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

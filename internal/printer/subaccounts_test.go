@@ -4,80 +4,26 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newTestSubAccount() responses.SubAccount {
-	id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	parentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	lastActivity := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-
-	return responses.SubAccount{
-		Object:          "sub_account",
-		ID:              id,
-		ParentAccountID: parentID,
-		CreatedAt:       time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		Name:            "Acme Subsidiary",
-		Website:         "https://acme.example",
-		Status:          "active",
-		MonthlyCredit:   500,
-		DomainCount:     3,
-		MemberCount:     7,
-		LastActivityAt:  &lastActivity,
-	}
-}
-
-func newTestSubAccountUsage(removedReception int64) *responses.SubAccountUsageResponse {
-	parentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	subID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
-	subName := "Acme Subsidiary"
-
-	return &responses.SubAccountUsageResponse{
-		BillingPeriod: responses.SubAccountUsageBillingPeriod{
-			Start: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
-			End:   time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC),
-		},
-		Currency:         "usd",
-		AllocationMethod: "proportional",
-		Parent: responses.SubAccountUsageBreakdown{
-			AccountID:      &parentID,
-			ReceptionCount: 1000,
-			AllocatedCost:  10,
-		},
-		SubAccounts: []responses.SubAccountUsageBreakdown{
-			{
-				AccountID:      &subID,
-				Name:           &subName,
-				ReceptionCount: 3000,
-				AllocatedCost:  30,
-			},
-		},
-		RemovedSubAccounts: responses.SubAccountUsageBreakdown{
-			ReceptionCount: removedReception,
-			AllocatedCost:  5,
-		},
-		Total: responses.SubAccountUsageBreakdown{
-			ReceptionCount: 4000,
-			AllocatedCost:  40,
-		},
-	}
-}
-
 // JSON pass-through: the SDK struct must be emitted verbatim, with no CLI-added
 // wrapper fields (no "empty"/"success"/"message" envelope).
 
 func TestJSONSubAccountListPassThrough(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("json", false, &buf)
+	handler := testHandler(t, "json", &buf, os.Stderr)
 
-	subAccount := newTestSubAccount()
+	subAccount := *mocks.NewSubAccount()
 	response := &responses.PaginatedSubAccountsResponse{
 		Object: "list",
 		Data:   []responses.SubAccount{subAccount},
@@ -101,9 +47,9 @@ func TestJSONSubAccountListPassThrough(t *testing.T) {
 
 func TestJSONSingleSubAccountPassThrough(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("json", false, &buf)
+	handler := testHandler(t, "json", &buf, os.Stderr)
 
-	subAccount := newTestSubAccount()
+	subAccount := *mocks.NewSubAccount()
 	require.NoError(t, handler.HandleSingleSubAccount(&subAccount, SingleConfig{SuccessMessage: "ok"}))
 
 	var decoded responses.SubAccount
@@ -119,28 +65,11 @@ func TestJSONSingleSubAccountPassThrough(t *testing.T) {
 	assert.Equal(t, "22222222-2222-2222-2222-222222222222", raw["parent_account_id"])
 }
 
-func TestJSONCreateSubAccountPassThrough(t *testing.T) {
-	var buf bytes.Buffer
-	handler := GetResponseHandler("json", false, &buf)
-
-	subAccount := newTestSubAccount()
-	require.NoError(t, handler.HandleCreateSubAccount(&subAccount, CreateConfig{SuccessMessage: "created"}))
-
-	var decoded responses.SubAccount
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
-	assert.Equal(t, subAccount.ID, decoded.ID)
-
-	var raw map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &raw))
-	assert.NotContains(t, raw, "success")
-	assert.NotContains(t, raw, "message")
-}
-
 func TestJSONSubAccountUsagePassThrough(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("json", false, &buf)
+	handler := testHandler(t, "json", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(0)
+	usage := mocks.NewSubAccountUsage(0)
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	var decoded responses.SubAccountUsageResponse
@@ -161,9 +90,9 @@ func TestJSONSubAccountUsagePassThrough(t *testing.T) {
 
 func TestTableSubAccountUsageOrderingAndSuppression(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("table", false, &buf)
+	handler := testHandler(t, "table", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(0) // removed has no reception → suppressed
+	usage := mocks.NewSubAccountUsage(0) // removed has no reception → suppressed
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	out := buf.String()
@@ -181,9 +110,9 @@ func TestTableSubAccountUsageOrderingAndSuppression(t *testing.T) {
 
 func TestTableSubAccountUsageShowsRemovedWhenReceptionPositive(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("table", false, &buf)
+	handler := testHandler(t, "table", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(50) // removed has reception → shown
+	usage := mocks.NewSubAccountUsage(50) // removed has reception → shown
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	out := buf.String()
@@ -195,16 +124,16 @@ func TestTableSubAccountUsageShowsRemovedWhenReceptionPositive(t *testing.T) {
 
 func TestPlainSubAccountUsageRowsAndSuppression(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("plain", false, &buf)
+	handler := testHandler(t, "plain", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(0)
+	usage := mocks.NewSubAccountUsage(0)
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	out := buf.String()
 	assert.Contains(t, out, "Allocation Method: proportional")
 	assert.Contains(t, out, "Parent:")
 	assert.Contains(t, out, "Total:")
-	assert.Contains(t, out, "Reception Count: 4000")
+	assert.Contains(t, out, "Reception: 4000")
 	assert.NotContains(t, out, "Removed Sub-Accounts:")
 }
 
@@ -212,9 +141,9 @@ func TestTableAndPlainSingleSubAccountRendersParent(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		t.Run(format, func(t *testing.T) {
 			var buf bytes.Buffer
-			handler := GetResponseHandler(format, false, &buf)
+			handler := testHandler(t, format, &buf, os.Stderr)
 
-			subAccount := newTestSubAccount()
+			subAccount := *mocks.NewSubAccount()
 			require.NoError(t, handler.HandleSingleSubAccount(&subAccount, SingleConfig{SuccessMessage: "ok"}))
 
 			out := buf.String()
@@ -228,9 +157,10 @@ func TestTableAndPlainSingleSubAccountRendersParent(t *testing.T) {
 
 func TestCSVSubAccountUsageFlattening(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("csv", false, &buf)
+	handler := testHandler(t, "csv", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(0) // removed suppressed
+	usage := mocks.NewSubAccountUsage(0) // removed suppressed
+	usage.AllocationNote = "Split by reception"
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
@@ -238,34 +168,50 @@ func TestCSVSubAccountUsageFlattening(t *testing.T) {
 	require.GreaterOrEqual(t, len(records), 2)
 
 	expectedHeaders := []string{
-		"billing_period", "allocation_method", "currency",
+		"billing_period_start", "billing_period_end", "currency", "allocation_method", "allocation_note",
 		"account_name", "account_id", "reception_count", "allocated_cost",
 	}
 	assert.Equal(t, expectedHeaders, records[0])
 
 	// Data rows: parent, sub-account, total (removed suppressed).
 	require.Len(t, records, 4)
-	assert.Equal(t, "Parent", records[1][3])
-	assert.Equal(t, "Acme Subsidiary", records[2][3])
+	assert.Equal(t, "Parent", records[1][5])
+	assert.Equal(t, "Acme Subsidiary", records[2][5])
 
 	total := records[3]
-	assert.Equal(t, "Total", total[3])
-	assert.Equal(t, "4000", total[5])  // reception_count from response.Total
-	assert.Equal(t, "40.00", total[6]) // allocated_cost from response.Total
+	assert.Equal(t, "Total", total[5])
+	assert.Equal(t, "4000", total[7]) // reception_count from response.Total
+	assert.Equal(t, "40", total[8])   // allocated_cost from response.Total, as the API sent it
 
-	// Every row repeats billing period, allocation method, and currency.
+	// Every row repeats the billing period as RFC 3339 times, the currency,
+	// and the allocation method and note.
 	for _, row := range records[1:] {
-		assert.Equal(t, "proportional", row[1])
+		assert.Equal(t, usage.BillingPeriod.Start.Format(time.RFC3339), row[0])
+		assert.Equal(t, usage.BillingPeriod.End.Format(time.RFC3339), row[1])
 		assert.Equal(t, "usd", row[2])
-		assert.NotEmpty(t, row[0])
+		assert.Equal(t, "proportional", row[3])
+		assert.Equal(t, "Split by reception", row[4])
 	}
+}
+
+// TestCSVSubAccountUsageKeepsEveryDigitOfTheCost checks that CSV output
+// prints the allocated cost as the API sent it, where table and plain output
+// round it for display.
+func TestCSVSubAccountUsageKeepsEveryDigitOfTheCost(t *testing.T) {
+	usage := mocks.NewSubAccountUsage(0)
+	usage.Total.AllocatedCost = 0.123456
+
+	assert.Contains(t, renderWith(t, "csv", func(h ResponseHandler) error { return h.HandleSubAccountUsage(usage, SingleConfig{}) }),
+		",4000,0.123456\n")
+	assert.Contains(t, renderWith(t, "plain", func(h ResponseHandler) error { return h.HandleSubAccountUsage(usage, SingleConfig{}) }),
+		"Allocated Cost: 0.12\n")
 }
 
 func TestCSVSubAccountUsageIncludesRemovedWhenPositive(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("csv", false, &buf)
+	handler := testHandler(t, "csv", &buf, os.Stderr)
 
-	usage := newTestSubAccountUsage(50)
+	usage := mocks.NewSubAccountUsage(50)
 	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
 
 	records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
@@ -273,34 +219,35 @@ func TestCSVSubAccountUsageIncludesRemovedWhenPositive(t *testing.T) {
 
 	// header + parent + sub-account + removed + total
 	require.Len(t, records, 5)
-	assert.Equal(t, "Removed Sub-Accounts", records[3][3])
-	assert.Equal(t, "Total", records[4][3])
+	assert.Equal(t, "Removed Sub-Accounts", records[3][5])
+	assert.Equal(t, "Total", records[4][5])
 }
 
 func TestCSVSubAccountListHeaders(t *testing.T) {
 	var buf bytes.Buffer
-	handler := GetResponseHandler("csv", false, &buf)
+	handler := testHandler(t, "csv", &buf, os.Stderr)
 
-	subAccount := newTestSubAccount()
+	subAccount := *mocks.NewSubAccount()
 	response := &responses.PaginatedSubAccountsResponse{Data: []responses.SubAccount{subAccount}}
 	require.NoError(t, handler.HandleSubAccountList(response, ListConfig{}))
 
 	records, err := csv.NewReader(strings.NewReader(buf.String())).ReadAll()
 	require.NoError(t, err)
 	require.Len(t, records, 2)
-	assert.Contains(t, records[0], "parent_account_id")
-	assert.Contains(t, records[0], "name")
-	assert.Equal(t, "Acme Subsidiary", records[1][1])
+	assert.Equal(t, []string{
+		"name", "id", "status", "website", "monthly_credit", "domain_count", "member_count", "created_at",
+	}, records[0])
+	assert.Equal(t, "Acme Subsidiary", records[1][0])
 }
 
-// The shared HandleCreateAPIKey output must remain unchanged and must NOT carry a
-// 5-minute replay-window note, even after the sub-account renderers were added.
-
-func TestCreateAPIKeyHasNoReplayWindowNote(t *testing.T) {
+// TestCreateAPIKeyNoticeNamesTheReplayWindow checks that the one notice after
+// a created key's secret says the secret is shown again only to a retry within
+// the 5-minute replay window.
+func TestCreateAPIKeyNoticeNamesTheReplayWindow(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		t.Run(format, func(t *testing.T) {
 			var buf bytes.Buffer
-			handler := GetResponseHandler(format, false, &buf)
+			handler := testHandler(t, format, &buf, os.Stderr)
 
 			secret := "secret-value"
 			key := &responses.APIKey{
@@ -310,13 +257,29 @@ func TestCreateAPIKeyHasNoReplayWindowNote(t *testing.T) {
 				PublicKey: "pub",
 				SecretKey: &secret,
 			}
-			require.NoError(t, handler.HandleCreateAPIKey(key, CreateConfig{SuccessMessage: "Created"}))
+			require.NoError(t, handler.HandleCreateAPIKey(key, ResultConfig{SuccessMessage: "Created"}))
 
 			out := buf.String()
-			assert.NotContains(t, out, "5-minute")
-			assert.NotContains(t, out, "5 minute")
-			assert.NotContains(t, out, "replay")
+			assert.Equal(t, 1, strings.Count(out, apiKeySecretNotice))
+			assert.Contains(t, apiKeySecretNotice, "5-minute replay window")
 			assert.Contains(t, out, "secret-value")
 		})
 	}
+}
+
+func TestPlainSubAccountUsageLeavesOutAMissingBillingPeriod(t *testing.T) {
+	var buf bytes.Buffer
+	handler := testHandler(t, "plain", &buf, os.Stderr)
+
+	usage := mocks.NewSubAccountUsage(0)
+	usage.BillingPeriod = responses.SubAccountUsageBillingPeriod{}
+	require.NoError(t, handler.HandleSubAccountUsage(usage, SingleConfig{}))
+
+	assert.NotContains(t, buf.String(), "Billing Period")
+}
+
+func TestSubAccountBillingPeriodShowsAMissingEndAsADash(t *testing.T) {
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	got := formatSubAccountBillingPeriod(responses.SubAccountUsageBillingPeriod{Start: start})
+	assert.Equal(t, DisplayTime(start)+" to -", got)
 }

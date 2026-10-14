@@ -1,0 +1,1327 @@
+=== api key
+
+
+┌───────────────┬─────────────────────────────────────────────────────────────┐
+│     FIELD     │                            VALUE                            │
+├───────────────┼─────────────────────────────────────────────────────────────┤
+│ Label         │ Production                                                  │
+│ ID            │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Public Key    │ pk_a_public_key_longer_than_twenty                          │
+│ Secret Key    │ [HIDDEN]                                                    │
+│ Account ID    │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Scopes        │ messages:send:all                                           │
+│               │ domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa) │
+│ IP Allow List │ 192.0.2.1                                                   │
+│ Last Used     │ 2026-09-10 10:30:00 UTC+2                                   │
+│ Created       │ 2026-09-10 10:30:00 UTC+2                                   │
+│ Updated       │ 2026-09-10 10:30:00 UTC+2                                   │
+└───────────────┴─────────────────────────────────────────────────────────────┘
+=== api key list
+
+
+┌────────────┬──────────────────────────────────────┬────────────────────────────────────┬─────────────────────────────────┬───────────────────────────┐
+│   LABEL    │                  ID                  │             PUBLIC KEY             │             SCOPES              │         LAST USED         │
+├────────────┼──────────────────────────────────────┼────────────────────────────────────┼─────────────────────────────────┼───────────────────────────┤
+│ Production │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ pk_a_public_key_longer_than_twenty │ messages:send:all, domains:read │ 2026-09-10 10:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴────────────────────────────────────┴─────────────────────────────────┴───────────────────────────┘
+
+Showing 1 API key
+=== auth result
+Switched
+=== auth result without a profile
+Logged out
+=== auth status
+Authentication Status
+
+┌────────────┬─────────┐
+│   FIELD    │  VALUE  │
+├────────────┼─────────┤
+│ Profile    │ default │
+│ Account ID │ -       │
+│ Valid      │ Yes     │
+└────────────┴─────────┘
+
+Account Details:
+
+┌─────────┬──────────────────────────────────────┐
+│  FIELD  │                VALUE                 │
+├─────────┼──────────────────────────────────────┤
+│ ID      │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Name    │ Acme                                 │
+│ Created │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated │ 2026-09-10 10:30:00 UTC+2            │
+└─────────┴──────────────────────────────────────┘
+
+Email Settings:
+
+┌─────────────┬───────┐
+│   SETTING   │ VALUE │
+├─────────────┼───────┤
+│ Track Opens │ Yes   │
+└─────────────┴───────┘
+
+Data Retention:
+
+┌──────────────┬─────────┐
+│    FIELD     │  VALUE  │
+├──────────────┼─────────┤
+│ Message Data │ 30 days │
+└──────────────┴─────────┘
+=== bounces
+┌────────────────────────────────────────────────────────┬───────────────┬────────────────────────┐
+│                      TIME PERIOD                       │ TOTAL BOUNCES │ BOUNCE CLASSIFICATIONS │
+├────────────────────────────────────────────────────────┼───────────────┼────────────────────────┤
+│ 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2 │ 1             │ 1 type                 │
+└────────────────────────────────────────────────────────┴───────────────┴────────────────────────┘
+
+Bounce Classifications - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2:
+
+┌────────────────┬───────┬────────────┐
+│ CLASSIFICATION │ COUNT │ PERCENTAGE │
+├────────────────┼───────┼────────────┤
+│ invalid        │ 1     │ 100.00%    │
+└────────────────┴───────┴────────────┘
+=== created api key
+
+
+┌───────────────┬─────────────────────────────────────────────────────────────┐
+│     FIELD     │                            VALUE                            │
+├───────────────┼─────────────────────────────────────────────────────────────┤
+│ Label         │ Production                                                  │
+│ ID            │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Public Key    │ pk_a_public_key_longer_than_twenty                          │
+│ Secret Key    │ sk_secret                                                   │
+│ Account ID    │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Scopes        │ messages:send:all                                           │
+│               │ domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa) │
+│ IP Allow List │ 192.0.2.1                                                   │
+│ Created       │ 2026-09-10 10:30:00 UTC+2                                   │
+└───────────────┴─────────────────────────────────────────────────────────────┘
+
+Save the secret key now. It will not be shown again, except to a retry with the same --idempotency-key within the 5-minute replay window.
+=== created disabled route
+
+
+┌─────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│        FIELD        │                                   VALUE                                   │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                │ Inbound                                                                   │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                 │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled             │ No                                                                        │
+│ Recipient Filter    │ *@example.com                                                             │
+│ Secret              │ rsec_secret                                                               │
+│ Include Attachments │ No                                                                        │
+│ Include Headers     │ No                                                                        │
+│ Group by Message ID │ No                                                                        │
+│ Strip Replies       │ No                                                                        │
+│ Created             │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2                                                 │
+└─────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+
+Save the secret now. It will not be shown again. Use it to verify route signatures.
+
+The route is disabled. Enable it to start processing emails.
+=== created route
+
+
+┌─────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│        FIELD        │                                   VALUE                                   │
+├─────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                │ Inbound                                                                   │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                 │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled             │ Yes                                                                       │
+│ Recipient Filter    │ *@example.com                                                             │
+│ Secret              │ rsec_secret                                                               │
+│ Include Attachments │ No                                                                        │
+│ Include Headers     │ No                                                                        │
+│ Group by Message ID │ No                                                                        │
+│ Strip Replies       │ No                                                                        │
+│ Created             │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2                                                 │
+└─────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+
+Save the secret now. It will not be shown again. Use it to verify route signatures.
+=== created smtp
+
+
+┌──────────┬──────────────────────────────────────┐
+│  FIELD   │                VALUE                 │
+├──────────┼──────────────────────────────────────┤
+│ Name     │ Relay                                │
+│ ID       │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Username │ relay                                │
+│ Password │ smtp-password                        │
+│ Scope    │ scoped                               │
+│ Domains  │ example.com, news.example.com        │
+│ Sandbox  │ No                                   │
+│ Created  │ 2026-09-10 10:30:00 UTC+2            │
+└──────────┴──────────────────────────────────────┘
+
+Save the password now. It will not be shown again.
+
+SMTP Settings:
+
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│    SETTING     │                             VALUE                              │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ Server         │ send.ahasend.com                                               │
+│ Port           │ 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS │
+│ Username       │ relay                                                          │
+│ Password       │ [Use the password shown above]                                 │
+│ Authentication │ Plain or Login                                                 │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+=== created suppressions
+
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+=== created webhook
+
+
+┌─────────┬───────────────────────────────────────────────────────────────────────────┐
+│  FIELD  │                                   VALUE                                   │
+├─────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name    │ Events                                                                    │
+│ ID      │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL     │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled │ Yes                                                                       │
+│ Events  │ delivered                                                                 │
+│ Secret  │ whsec_secret                                                              │
+│ Scope   │ account                                                                   │
+│ Domains │ example.com                                                               │
+│ Created │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated │ 2026-09-10 10:30:00 UTC+2                                                 │
+└─────────┴───────────────────────────────────────────────────────────────────────────┘
+
+Save the secret now. It will not be shown again. Use it to verify webhook signatures.
+=== deliverability
+┌────────────────────────────────────────────────────────┬───────────┬───────────┬──────────┬─────────┬────────┬────────────┬────────┬─────────┬───────────────┬───────────┐
+│                      TIME PERIOD                       │ RECEPTION │ DELIVERED │ DEFERRED │ BOUNCED │ FAILED │ SUPPRESSED │ OPENED │ CLICKED │ DELIVERY RATE │ OPEN RATE │
+├────────────────────────────────────────────────────────┼───────────┼───────────┼──────────┼─────────┼────────┼────────────┼────────┼─────────┼───────────────┼───────────┤
+│ 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2 │ 2         │ 1         │ 0        │ 0       │ 0      │ 0          │ 0      │ 0       │ 50.00%        │ 0.00%     │
+└────────────────────────────────────────────────────────┴───────────┴───────────┴──────────┴─────────┴────────┴────────────┴────────┴─────────┴───────────────┴───────────┘
+=== delivery times
+┌────────────────────────────────────────────────────────┬───────────┬───────────────────────┬───────────────────────────┐
+│                      TIME PERIOD                       │ DELIVERED │ AVERAGE DELIVERY TIME │ PER-DOMAIN DELIVERY TIMES │
+├────────────────────────────────────────────────────────┼───────────┼───────────────────────┼───────────────────────────┤
+│ 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2 │ 3         │ 2.00s                 │ 1 domain                  │
+└────────────────────────────────────────────────────────┴───────────┴───────────────────────┴───────────────────────────┘
+
+Per-Domain Delivery Times - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2:
+
+┌──────────────────┬───────────┬───────────────┐
+│ RECIPIENT DOMAIN │ DELIVERED │ DELIVERY TIME │
+├──────────────────┼───────────┼───────────────┤
+│ example.com      │ 0         │ 1.50s         │
+└──────────────────┴───────────┴───────────────┘
+=== domain
+
+
+┌────────────────────────┬──────────────────────────────────────┐
+│         FIELD          │                VALUE                 │
+├────────────────────────┼──────────────────────────────────────┤
+│ Domain                 │ example.com                          │
+│ ID                     │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID             │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ DNS Status             │ Valid                                │
+│ Sending Type           │ transactional                        │
+│ Tracking Subdomain     │ -                                    │
+│ Return Path Subdomain  │ -                                    │
+│ Subscription Subdomain │ -                                    │
+│ Media Subdomain        │ -                                    │
+│ DKIM Selector          │ -                                    │
+│ DKIM Rotation Interval │ -                                    │
+│ Created                │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated                │ 2026-09-10 10:30:00 UTC+2            │
+│ Last DNS Check         │ 2026-09-10 10:30:00 UTC+2            │
+└────────────────────────┴──────────────────────────────────────┘
+=== domain list
+
+
+┌─────────────┬──────────────────────────────────────┬────────────┬───────────────┬───────────┬──────────────┐
+│   DOMAIN    │                  ID                  │ DNS STATUS │ SENDING TYPE  │ PAUSED AT │ PAUSE REASON │
+├─────────────┼──────────────────────────────────────┼────────────┼───────────────┼───────────┼──────────────┤
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+└─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
+
+Showing 1 domain
+=== domain with DNS records
+
+
+┌────────────────────────┬──────────────────────────────────────┐
+│         FIELD          │                VALUE                 │
+├────────────────────────┼──────────────────────────────────────┤
+│ Domain                 │ example.com                          │
+│ ID                     │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID             │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ DNS Status             │ Valid                                │
+│ Sending Type           │ transactional                        │
+│ Tracking Subdomain     │ -                                    │
+│ Return Path Subdomain  │ -                                    │
+│ Subscription Subdomain │ -                                    │
+│ Media Subdomain        │ -                                    │
+│ DKIM Selector          │ -                                    │
+│ DKIM Rotation Interval │ -                                    │
+│ Created                │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated                │ 2026-09-10 10:30:00 UTC+2            │
+│ Last DNS Check         │ 2026-09-10 10:30:00 UTC+2            │
+└────────────────────────┴──────────────────────────────────────┘
+
+DNS Records:
+┌─────────────┬─────────────────┐
+│    HOST     │     RECORD      │
+├─────────────┼─────────────────┤
+│ example.com │ Type: TXT       │
+│             │ Content: v=spf1 │
+│             │ Required: No    │
+│             │ Propagated: No  │
+└─────────────┴─────────────────┘
+=== empty
+Nothing found
+=== message
+
+
+┌─────────────────────┬──────────────────────────────────────┐
+│        FIELD        │                VALUE                 │
+├─────────────────────┼──────────────────────────────────────┤
+│ Subject             │ Hello                                │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID          │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ From                │ from@example.com                     │
+│ To                  │ to@example.com                       │
+│ Status              │ delivered                            │
+│ Direction           │ outgoing                             │
+│ Created             │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2            │
+│ Sent                │ -                                    │
+│ Delivered           │ 2026-09-10 10:30:00 UTC+2            │
+│ Opens               │ 0                                    │
+│ Clicks              │ 0                                    │
+│ Attempts            │ 0                                    │
+│ Bounce Class        │ -                                    │
+│ Bounce Notification │ No                                   │
+│ Message ID          │ <id@example.com>                     │
+│ Domain ID           │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Template ID         │ -                                    │
+│ Tags                │ -                                    │
+│ Retain Until        │ 2026-09-10 10:30:00 UTC+2            │
+└─────────────────────┴──────────────────────────────────────┘
+=== message list
+
+
+┌─────────┬──────────────────────────────────────┬──────────────────┬────────────────┬───────────┬───────────────────────────┐
+│ SUBJECT │                  ID                  │       FROM       │       TO       │  STATUS   │          CREATED          │
+├─────────┼──────────────────────────────────────┼──────────────────┼────────────────┼───────────┼───────────────────────────┤
+│ Hello   │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ from@example.com │ to@example.com │ delivered │ 2026-09-10 10:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────────────┴────────────────┴───────────┴───────────────────────────┘
+
+Showing 1 message
+=== message with content
+
+
+┌─────────────────────┬──────────────────────────────────────┐
+│        FIELD        │                VALUE                 │
+├─────────────────────┼──────────────────────────────────────┤
+│ Subject             │ Hello                                │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID          │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ From                │ from@example.com                     │
+│ To                  │ to@example.com                       │
+│ Status              │ delivered                            │
+│ Direction           │ outgoing                             │
+│ Created             │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2            │
+│ Sent                │ -                                    │
+│ Delivered           │ 2026-09-10 10:30:00 UTC+2            │
+│ Opens               │ 0                                    │
+│ Clicks              │ 0                                    │
+│ Attempts            │ 0                                    │
+│ Bounce Class        │ -                                    │
+│ Bounce Notification │ No                                   │
+│ Message ID          │ <id@example.com>                     │
+│ Domain ID           │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Template ID         │ -                                    │
+│ Tags                │ -                                    │
+│ Retain Until        │ 2026-09-10 10:30:00 UTC+2            │
+│ Content Size        │ 11 bytes                             │
+│ Content             │ Hello there                          │
+└─────────────────────┴──────────────────────────────────────┘
+=== no response for API keys
+None found
+=== no response for SMTP credentials
+None found
+=== no response for domains
+None found
+=== no response for messages
+None found
+=== no response for routes
+None found
+=== no response for sub-accounts
+None found
+=== no response for suppressions
+None found
+=== no response for webhooks
+None found
+=== page of 0 API keys
+None found
+--after next-page
+--before previous-page
+=== page of 0 SMTP credentials
+None found
+--after next-page
+--before previous-page
+=== page of 0 domains
+None found
+--after next-page
+--before previous-page
+=== page of 0 messages
+None found
+--after next-page
+--before previous-page
+=== page of 0 routes
+None found
+--after next-page
+--before previous-page
+=== page of 0 sub-accounts
+None found
+--after next-page
+--before previous-page
+=== page of 0 suppressions
+None found
+--after next-page
+--before previous-page
+=== page of 0 webhooks
+None found
+--after next-page
+--before previous-page
+=== page of 1 API keys
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬────────────────────────────────────┬─────────────────────────────────┬───────────────────────────┐
+│   LABEL    │                  ID                  │             PUBLIC KEY             │             SCOPES              │         LAST USED         │
+├────────────┼──────────────────────────────────────┼────────────────────────────────────┼─────────────────────────────────┼───────────────────────────┤
+│ Production │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ pk_a_public_key_longer_than_twenty │ messages:send:all, domains:read │ 2026-09-10 10:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴────────────────────────────────────┴─────────────────────────────────┴───────────────────────────┘
+
+Showing 1 API key (more available)
+--after next-page
+--before previous-page
+=== page of 1 SMTP credentials
+Retrieved
+
+┌───────┬──────────────────────────────────────┬──────────┬────────┬─────────┬───────────────────────────┐
+│ NAME  │                  ID                  │ USERNAME │ SCOPE  │ SANDBOX │          CREATED          │
+├───────┼──────────────────────────────────────┼──────────┼────────┼─────────┼───────────────────────────┤
+│ Relay │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ relay    │ scoped │ No      │ 2026-09-10 10:30:00 UTC+2 │
+└───────┴──────────────────────────────────────┴──────────┴────────┴─────────┴───────────────────────────┘
+
+Showing 1 SMTP credential (more available)
+--after next-page
+--before previous-page
+=== page of 1 domains
+Retrieved
+
+┌─────────────┬──────────────────────────────────────┬────────────┬───────────────┬───────────┬──────────────┐
+│   DOMAIN    │                  ID                  │ DNS STATUS │ SENDING TYPE  │ PAUSED AT │ PAUSE REASON │
+├─────────────┼──────────────────────────────────────┼────────────┼───────────────┼───────────┼──────────────┤
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+└─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
+
+Showing 1 domain (more available)
+--after next-page
+--before previous-page
+=== page of 1 messages
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬──────────────────┬────────────────┬───────────┬───────────────────────────┐
+│ SUBJECT │                  ID                  │       FROM       │       TO       │  STATUS   │          CREATED          │
+├─────────┼──────────────────────────────────────┼──────────────────┼────────────────┼───────────┼───────────────────────────┤
+│ Hello   │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ from@example.com │ to@example.com │ delivered │ 2026-09-10 10:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────────────┴────────────────┴───────────┴───────────────────────────┘
+
+Showing 1 message (more available)
+--after next-page
+--before previous-page
+=== page of 1 routes
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬──────────────────┐
+│  NAME   │                  ID                  │                                    URL                                    │ ENABLED │ RECIPIENT FILTER │
+├─────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼──────────────────┤
+│ Inbound │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ *@example.com    │
+└─────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴──────────────────┘
+
+Showing 1 route (more available)
+--after next-page
+--before previous-page
+=== page of 1 sub-accounts
+Retrieved
+
+┌──────┬──────────────────────────────────────┬────────┬──────────────┬────────────────┬───────────────────────────┐
+│ NAME │                  ID                  │ STATUS │   WEBSITE    │ MONTHLY CREDIT │          CREATED          │
+├──────┼──────────────────────────────────────┼────────┼──────────────┼────────────────┼───────────────────────────┤
+│ Acme │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ active │ acme.example │ 0              │ 2026-09-10 10:30:00 UTC+2 │
+└──────┴──────────────────────────────────────┴────────┴──────────────┴────────────────┴───────────────────────────┘
+
+Showing 1 sub-account (more available)
+--after next-page
+--before previous-page
+=== page of 1 suppressions
+Retrieved
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+
+Showing 1 suppression (more available)
+--after next-page
+--before previous-page
+=== page of 1 webhooks
+Retrieved
+
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+
+Showing 1 webhook (more available)
+--after next-page
+--before previous-page
+=== page of 2 API keys
+Retrieved
+
+┌────────────┬──────────────────────────────────────┬────────────────────────────────────┬─────────────────────────────────┬───────────────────────────┐
+│   LABEL    │                  ID                  │             PUBLIC KEY             │             SCOPES              │         LAST USED         │
+├────────────┼──────────────────────────────────────┼────────────────────────────────────┼─────────────────────────────────┼───────────────────────────┤
+│ Production │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ pk_a_public_key_longer_than_twenty │ messages:send:all, domains:read │ 2026-09-10 10:30:00 UTC+2 │
+│ Production │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ pk_a_public_key_longer_than_twenty │ messages:send:all, domains:read │ 2026-09-10 10:30:00 UTC+2 │
+└────────────┴──────────────────────────────────────┴────────────────────────────────────┴─────────────────────────────────┴───────────────────────────┘
+
+Showing 2 API keys (more available)
+--after next-page
+--before previous-page
+=== page of 2 SMTP credentials
+Retrieved
+
+┌───────┬──────────────────────────────────────┬──────────┬────────┬─────────┬───────────────────────────┐
+│ NAME  │                  ID                  │ USERNAME │ SCOPE  │ SANDBOX │          CREATED          │
+├───────┼──────────────────────────────────────┼──────────┼────────┼─────────┼───────────────────────────┤
+│ Relay │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ relay    │ scoped │ No      │ 2026-09-10 10:30:00 UTC+2 │
+│ Relay │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ relay    │ scoped │ No      │ 2026-09-10 10:30:00 UTC+2 │
+└───────┴──────────────────────────────────────┴──────────┴────────┴─────────┴───────────────────────────┘
+
+Showing 2 SMTP credentials (more available)
+--after next-page
+--before previous-page
+=== page of 2 domains
+Retrieved
+
+┌─────────────┬──────────────────────────────────────┬────────────┬───────────────┬───────────┬──────────────┐
+│   DOMAIN    │                  ID                  │ DNS STATUS │ SENDING TYPE  │ PAUSED AT │ PAUSE REASON │
+├─────────────┼──────────────────────────────────────┼────────────┼───────────────┼───────────┼──────────────┤
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+└─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
+
+Showing 2 domains (more available)
+--after next-page
+--before previous-page
+=== page of 2 messages
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬──────────────────┬────────────────┬───────────┬───────────────────────────┐
+│ SUBJECT │                  ID                  │       FROM       │       TO       │  STATUS   │          CREATED          │
+├─────────┼──────────────────────────────────────┼──────────────────┼────────────────┼───────────┼───────────────────────────┤
+│ Hello   │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ from@example.com │ to@example.com │ delivered │ 2026-09-10 10:30:00 UTC+2 │
+│ Hello   │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ from@example.com │ to@example.com │ delivered │ 2026-09-10 10:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────────────┴────────────────┴───────────┴───────────────────────────┘
+
+Showing 2 messages (more available)
+--after next-page
+--before previous-page
+=== page of 2 routes
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬──────────────────┐
+│  NAME   │                  ID                  │                                    URL                                    │ ENABLED │ RECIPIENT FILTER │
+├─────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼──────────────────┤
+│ Inbound │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ *@example.com    │
+│ Inbound │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ *@example.com    │
+└─────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴──────────────────┘
+
+Showing 2 routes (more available)
+--after next-page
+--before previous-page
+=== page of 2 sub-accounts
+Retrieved
+
+┌──────┬──────────────────────────────────────┬────────┬──────────────┬────────────────┬───────────────────────────┐
+│ NAME │                  ID                  │ STATUS │   WEBSITE    │ MONTHLY CREDIT │          CREATED          │
+├──────┼──────────────────────────────────────┼────────┼──────────────┼────────────────┼───────────────────────────┤
+│ Acme │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ active │ acme.example │ 0              │ 2026-09-10 10:30:00 UTC+2 │
+│ Acme │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ active │ acme.example │ 0              │ 2026-09-10 10:30:00 UTC+2 │
+└──────┴──────────────────────────────────────┴────────┴──────────────┴────────────────┴───────────────────────────┘
+
+Showing 2 sub-accounts (more available)
+--after next-page
+--before previous-page
+=== page of 2 suppressions
+Retrieved
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+
+Showing 2 suppressions (more available)
+--after next-page
+--before previous-page
+=== page of 2 webhooks
+Retrieved
+
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+
+Showing 2 webhooks (more available)
+--after next-page
+--before previous-page
+=== route
+
+
+┌───────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│           FIELD           │                                   VALUE                                   │
+├───────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                      │ Inbound                                                                   │
+│ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled                   │ Yes                                                                       │
+│ Recipient Filter          │ *@example.com                                                             │
+│ Include Attachments       │ No                                                                        │
+│ Include Headers           │ No                                                                        │
+│ Group by Message ID       │ No                                                                        │
+│ Strip Replies             │ No                                                                        │
+│ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Successful Calls          │ 0                                                                         │
+│ Failed Calls              │ 0                                                                         │
+│ Errors Since Last Success │ 0                                                                         │
+│ Last Called               │ 2026-09-10 10:30:00 UTC+2                                                 │
+└───────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+=== route list
+
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬──────────────────┐
+│  NAME   │                  ID                  │                                    URL                                    │ ENABLED │ RECIPIENT FILTER │
+├─────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼──────────────────┤
+│ Inbound │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ *@example.com    │
+└─────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴──────────────────┘
+
+Showing 1 route
+=== sent messages
+
+
+┌───┬───────────────┬────┬────────┬───────┐
+│ # │   RECIPIENT   │ ID │ STATUS │ ERROR │
+├───┼───────────────┼────┼────────┼───────┤
+│ 1 │ a@example.com │ -  │ queued │ -     │
+│ 2 │ b@example.com │ -  │ queued │ -     │
+└───┴───────────────┴────┴────────┴───────┘
+=== smtp
+
+
+┌──────────┬──────────────────────────────────────┐
+│  FIELD   │                VALUE                 │
+├──────────┼──────────────────────────────────────┤
+│ Name     │ Relay                                │
+│ ID       │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Username │ relay                                │
+│ Password │ [HIDDEN]                             │
+│ Scope    │ scoped                               │
+│ Domains  │ example.com, news.example.com        │
+│ Sandbox  │ No                                   │
+│ Created  │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated  │ 2026-09-10 10:30:00 UTC+2            │
+└──────────┴──────────────────────────────────────┘
+
+SMTP Settings:
+
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│    SETTING     │                             VALUE                              │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ Server         │ send.ahasend.com                                               │
+│ Port           │ 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS │
+│ Username       │ relay                                                          │
+│ Password       │ [Use the password provided during creation]                    │
+│ Authentication │ Plain or Login                                                 │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+=== smtp list
+
+
+┌───────┬──────────────────────────────────────┬──────────┬────────┬─────────┬───────────────────────────┐
+│ NAME  │                  ID                  │ USERNAME │ SCOPE  │ SANDBOX │          CREATED          │
+├───────┼──────────────────────────────────────┼──────────┼────────┼─────────┼───────────────────────────┤
+│ Relay │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ relay    │ scoped │ No      │ 2026-09-10 10:30:00 UTC+2 │
+└───────┴──────────────────────────────────────┴──────────┴────────┴─────────┴───────────────────────────┘
+
+Showing 1 SMTP credential
+=== smtp sent
+
+
+┌────────────┬─────────────────────────────┐
+│   FIELD    │            VALUE            │
+├────────────┼─────────────────────────────┤
+│ Status     │ Sent                        │
+│ Message ID │ <id>                        │
+│ Delivery   │ Message queued for delivery │
+└────────────┴─────────────────────────────┘
+=== smtp test
+SMTP connection test result
+
+┌────────────────┬───────────────────────────────────────────┐
+│      TEST      │                  RESULT                   │
+├────────────────┼───────────────────────────────────────────┤
+│ Connection     │ Successful                                │
+│ Authentication │ Not tested (no --username and --password) │
+│ Status         │ No message was sent                       │
+└────────────────┴───────────────────────────────────────────┘
+=== smtp test fails
+SMTP connection test result
+
+┌────────────────┬──────────────────────────────────────────────┐
+│      TEST      │                    RESULT                    │
+├────────────────┼──────────────────────────────────────────────┤
+│ Connection     │ Successful                                   │
+│ Authentication │ Failed                                       │
+│ Error          │ refused                                      │
+│ Status         │ Please check your SMTP username and password │
+└────────────────┴──────────────────────────────────────────────┘
+=== sparse api key
+
+
+┌───────────────┬────────────┐
+│     FIELD     │   VALUE    │
+├───────────────┼────────────┤
+│ Label         │ Production │
+│ ID            │ -          │
+│ Public Key    │ -          │
+│ Secret Key    │ [HIDDEN]   │
+│ Account ID    │ -          │
+│ Scopes        │ -          │
+│ IP Allow List │ any        │
+│ Last Used     │ -          │
+│ Created       │ -          │
+│ Updated       │ -          │
+└───────────────┴────────────┘
+=== sparse api key list
+
+
+┌────────────┬────┬────────────┬────────┬───────────┐
+│   LABEL    │ ID │ PUBLIC KEY │ SCOPES │ LAST USED │
+├────────────┼────┼────────────┼────────┼───────────┤
+│ Production │ -  │ -          │ -      │ -         │
+└────────────┴────┴────────────┴────────┴───────────┘
+
+Showing 1 API key
+=== sparse auth status
+Authentication Status
+
+┌────────────┬─────────┐
+│   FIELD    │  VALUE  │
+├────────────┼─────────┤
+│ Profile    │ default │
+│ Account ID │ -       │
+│ Valid      │ -       │
+└────────────┴─────────┘
+
+Account Details:
+
+┌─────────┬───────┐
+│  FIELD  │ VALUE │
+├─────────┼───────┤
+│ ID      │ -     │
+│ Name    │ Acme  │
+│ Created │ -     │
+│ Updated │ -     │
+└─────────┴───────┘
+=== sparse created api key
+
+
+┌───────────────┬────────────┐
+│     FIELD     │   VALUE    │
+├───────────────┼────────────┤
+│ Label         │ Production │
+│ ID            │ -          │
+│ Public Key    │ -          │
+│ Secret Key    │ -          │
+│ Account ID    │ -          │
+│ Scopes        │ -          │
+│ IP Allow List │ any        │
+│ Created       │ -          │
+└───────────────┴────────────┘
+=== sparse created smtp
+
+
+┌──────────┬───────┐
+│  FIELD   │ VALUE │
+├──────────┼───────┤
+│ Name     │ Relay │
+│ ID       │ -     │
+│ Username │ -     │
+│ Password │ -     │
+│ Scope    │ -     │
+│ Domains  │ all   │
+│ Sandbox  │ No    │
+│ Created  │ -     │
+└──────────┴───────┘
+
+SMTP Settings:
+
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│    SETTING     │                             VALUE                              │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ Server         │ send.ahasend.com                                               │
+│ Port           │ 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS │
+│ Username       │ -                                                              │
+│ Password       │ [Use your saved password]                                      │
+│ Authentication │ Plain or Login                                                 │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+=== sparse created webhook
+
+
+┌─────────┬────────┐
+│  FIELD  │ VALUE  │
+├─────────┼────────┤
+│ Name    │ Events │
+│ ID      │ -      │
+│ URL     │ -      │
+│ Enabled │ No     │
+│ Events  │ none   │
+│ Secret  │ -      │
+│ Scope   │ -      │
+│ Domains │ all    │
+│ Created │ -      │
+│ Updated │ -      │
+└─────────┴────────┘
+=== sparse deliverability
+┌─────────────┬───────────┬───────────┬──────────┬─────────┬────────┬────────────┬────────┬─────────┬───────────────┬───────────┐
+│ TIME PERIOD │ RECEPTION │ DELIVERED │ DEFERRED │ BOUNCED │ FAILED │ SUPPRESSED │ OPENED │ CLICKED │ DELIVERY RATE │ OPEN RATE │
+├─────────────┼───────────┼───────────┼──────────┼─────────┼────────┼────────────┼────────┼─────────┼───────────────┼───────────┤
+│ to          │ 0         │ 0         │ 0        │ 0       │ 0      │ 0          │ 0      │ 0       │ -             │ -         │
+└─────────────┴───────────┴───────────┴──────────┴─────────┴────────┴────────────┴────────┴─────────┴───────────────┴───────────┘
+=== sparse delivery times
+┌─────────────┬───────────┬───────────────────────┬───────────────────────────┐
+│ TIME PERIOD │ DELIVERED │ AVERAGE DELIVERY TIME │ PER-DOMAIN DELIVERY TIMES │
+├─────────────┼───────────┼───────────────────────┼───────────────────────────┤
+│ to          │ 0         │ 0.00s                 │ 1 domain                  │
+└─────────────┴───────────┴───────────────────────┴───────────────────────────┘
+
+Per-Domain Delivery Times -  to :
+
+┌──────────────────┬───────────┬───────────────┐
+│ RECIPIENT DOMAIN │ DELIVERED │ DELIVERY TIME │
+├──────────────────┼───────────┼───────────────┤
+│ -                │ 0         │ -             │
+└──────────────────┴───────────┴───────────────┘
+=== sparse domain
+
+
+┌────────────────────────┬─────────────┐
+│         FIELD          │    VALUE    │
+├────────────────────────┼─────────────┤
+│ Domain                 │ example.com │
+│ ID                     │ -           │
+│ Account ID             │ -           │
+│ DNS Status             │ Invalid     │
+│ Sending Type           │ -           │
+│ Tracking Subdomain     │ -           │
+│ Return Path Subdomain  │ -           │
+│ Subscription Subdomain │ -           │
+│ Media Subdomain        │ -           │
+│ DKIM Selector          │ -           │
+│ DKIM Rotation Interval │ -           │
+│ Created                │ -           │
+│ Updated                │ -           │
+│ Last DNS Check         │ -           │
+└────────────────────────┴─────────────┘
+=== sparse domain list
+
+
+┌─────────────┬────┬────────────┬──────────────┬───────────┬──────────────┐
+│   DOMAIN    │ ID │ DNS STATUS │ SENDING TYPE │ PAUSED AT │ PAUSE REASON │
+├─────────────┼────┼────────────┼──────────────┼───────────┼──────────────┤
+│ example.com │ -  │ Invalid    │ -            │ -         │ -            │
+└─────────────┴────┴────────────┴──────────────┴───────────┴──────────────┘
+
+Showing 1 domain
+=== sparse message
+
+
+┌─────────────────────┬───────┐
+│        FIELD        │ VALUE │
+├─────────────────────┼───────┤
+│ Subject             │ Hello │
+│ ID                  │ -     │
+│ Account ID          │ -     │
+│ From                │ -     │
+│ To                  │ -     │
+│ Status              │ -     │
+│ Direction           │ -     │
+│ Created             │ -     │
+│ Updated             │ -     │
+│ Sent                │ -     │
+│ Delivered           │ -     │
+│ Opens               │ 0     │
+│ Clicks              │ 0     │
+│ Attempts            │ 0     │
+│ Bounce Class        │ -     │
+│ Bounce Notification │ No    │
+│ Message ID          │ -     │
+│ Domain ID           │ -     │
+│ Template ID         │ -     │
+│ Tags                │ -     │
+│ Retain Until        │ -     │
+└─────────────────────┴───────┘
+=== sparse message list
+
+
+┌─────────┬────┬──────┬────┬────────┬─────────┐
+│ SUBJECT │ ID │ FROM │ TO │ STATUS │ CREATED │
+├─────────┼────┼──────┼────┼────────┼─────────┤
+│ Hello   │ -  │ -    │ -  │ -      │ -       │
+└─────────┴────┴──────┴────┴────────┴─────────┘
+
+Showing 1 message
+=== sparse route
+
+
+┌───────────────────────────┬─────────┐
+│           FIELD           │  VALUE  │
+├───────────────────────────┼─────────┤
+│ Name                      │ Inbound │
+│ ID                        │ -       │
+│ URL                       │ -       │
+│ Enabled                   │ No      │
+│ Recipient Filter          │ -       │
+│ Include Attachments       │ No      │
+│ Include Headers           │ No      │
+│ Group by Message ID       │ No      │
+│ Strip Replies             │ No      │
+│ Created                   │ -       │
+│ Updated                   │ -       │
+│ Successful Calls          │ 0       │
+│ Failed Calls              │ 0       │
+│ Errors Since Last Success │ 0       │
+│ Last Called               │ -       │
+└───────────────────────────┴─────────┘
+=== sparse route list
+
+
+┌─────────┬────┬─────┬─────────┬──────────────────┐
+│  NAME   │ ID │ URL │ ENABLED │ RECIPIENT FILTER │
+├─────────┼────┼─────┼─────────┼──────────────────┤
+│ Inbound │ -  │ -   │ No      │ -                │
+└─────────┴────┴─────┴─────────┴──────────────────┘
+
+Showing 1 route
+=== sparse sent message
+
+
+┌───┬────────────────┬────┬────────┬───────┐
+│ # │   RECIPIENT    │ ID │ STATUS │ ERROR │
+├───┼────────────────┼────┼────────┼───────┤
+│ 1 │ to@example.com │ -  │ queued │ -     │
+└───┴────────────────┴────┴────────┴───────┘
+=== sparse smtp
+
+
+┌──────────┬──────────┐
+│  FIELD   │  VALUE   │
+├──────────┼──────────┤
+│ Name     │ Relay    │
+│ ID       │ -        │
+│ Username │ -        │
+│ Password │ [HIDDEN] │
+│ Scope    │ -        │
+│ Domains  │ all      │
+│ Sandbox  │ No       │
+│ Created  │ -        │
+│ Updated  │ -        │
+└──────────┴──────────┘
+
+SMTP Settings:
+
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│    SETTING     │                             VALUE                              │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ Server         │ send.ahasend.com                                               │
+│ Port           │ 587 (STARTTLS, recommended); 25 and 2525 also support STARTTLS │
+│ Username       │ -                                                              │
+│ Password       │ [Use the password provided during creation]                    │
+│ Authentication │ Plain or Login                                                 │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+=== sparse smtp list
+
+
+┌───────┬────┬──────────┬───────┬─────────┬─────────┐
+│ NAME  │ ID │ USERNAME │ SCOPE │ SANDBOX │ CREATED │
+├───────┼────┼──────────┼───────┼─────────┼─────────┤
+│ Relay │ -  │ -        │ -     │ No      │ -       │
+└───────┴────┴──────────┴───────┴─────────┴─────────┘
+
+Showing 1 SMTP credential
+=== sparse smtp send
+
+
+┌────────────┬─────────────────────────────┐
+│   FIELD    │            VALUE            │
+├────────────┼─────────────────────────────┤
+│ Status     │ Sent                        │
+│ Message ID │ -                           │
+│ Delivery   │ Message queued for delivery │
+└────────────┴─────────────────────────────┘
+=== sparse sub-account
+
+
+┌───────────────────┬───────┐
+│       FIELD       │ VALUE │
+├───────────────────┼───────┤
+│ Name              │ Acme  │
+│ ID                │ -     │
+│ Parent Account ID │ -     │
+│ Status            │ -     │
+│ Website           │ -     │
+│ Monthly Credit    │ 0     │
+│ Domains           │ 0     │
+│ Members           │ 0     │
+│ Created           │ -     │
+│ Last Activity     │ -     │
+└───────────────────┴───────┘
+=== sparse sub-account list
+
+
+┌──────┬────┬────────┬─────────┬────────────────┬─────────┐
+│ NAME │ ID │ STATUS │ WEBSITE │ MONTHLY CREDIT │ CREATED │
+├──────┼────┼────────┼─────────┼────────────────┼─────────┤
+│ Acme │ -  │ -      │ -       │ 0              │ -       │
+└──────┴────┴────────┴─────────┴────────────────┴─────────┘
+
+Showing 1 sub-account
+=== sparse suppression list
+
+
+┌──────────────────┬────┬────────┬────────┬─────────┬─────────┬───────────┐
+│      EMAIL       │ ID │ DOMAIN │ REASON │ CREATED │ EXPIRES │ PROTECTED │
+├──────────────────┼────┼────────┼────────┼─────────┼─────────┼───────────┤
+│ user@example.com │ -  │ -      │ -      │ -       │ -       │ No        │
+└──────────────────┴────┴────────┴────────┴─────────┴─────────┴───────────┘
+
+Showing 1 suppression
+=== sparse updated api key
+
+
+┌───────────────┬────────────┐
+│     FIELD     │   VALUE    │
+├───────────────┼────────────┤
+│ Label         │ Production │
+│ ID            │ -          │
+│ Public Key    │ -          │
+│ Account ID    │ -          │
+│ Scopes        │ -          │
+│ IP Allow List │ any        │
+│ Updated       │ -          │
+└───────────────┴────────────┘
+=== sparse updated webhook
+
+
+┌───────────────────────────┬────────┐
+│           FIELD           │ VALUE  │
+├───────────────────────────┼────────┤
+│ Name                      │ Events │
+│ ID                        │ -      │
+│ URL                       │ -      │
+│ Enabled                   │ No     │
+│ Events                    │ none   │
+│ Scope                     │ -      │
+│ Domains                   │ all    │
+│ Created                   │ -      │
+│ Updated                   │ -      │
+│ Successful Calls          │ 0      │
+│ Failed Calls              │ 0      │
+│ Errors Since Last Success │ 0      │
+│ Last Called               │ -      │
+└───────────────────────────┴────────┘
+=== sparse webhook
+
+
+┌───────────────────────────┬────────┐
+│           FIELD           │ VALUE  │
+├───────────────────────────┼────────┤
+│ Name                      │ Events │
+│ ID                        │ -      │
+│ URL                       │ -      │
+│ Enabled                   │ No     │
+│ Events                    │ none   │
+│ Scope                     │ -      │
+│ Domains                   │ all    │
+│ Created                   │ -      │
+│ Updated                   │ -      │
+│ Successful Calls          │ 0      │
+│ Failed Calls              │ 0      │
+│ Errors Since Last Success │ 0      │
+│ Last Called               │ -      │
+└───────────────────────────┴────────┘
+=== sparse webhook list
+
+
+┌────────┬────┬─────┬─────────┬────────┐
+│  NAME  │ ID │ URL │ ENABLED │ EVENTS │
+├────────┼────┼─────┼─────────┼────────┤
+│ Events │ -  │ -   │ No      │ none   │
+└────────┴────┴─────┴─────────┴────────┘
+
+Showing 1 webhook
+=== sub-account
+
+
+┌───────────────────┬──────────────────────────────────────┐
+│       FIELD       │                VALUE                 │
+├───────────────────┼──────────────────────────────────────┤
+│ Name              │ Acme                                 │
+│ ID                │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Parent Account ID │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Status            │ active                               │
+│ Website           │ acme.example                         │
+│ Monthly Credit    │ 0                                    │
+│ Domains           │ 0                                    │
+│ Members           │ 0                                    │
+│ Created           │ 2026-09-10 10:30:00 UTC+2            │
+│ Last Activity     │ 2026-09-10 10:30:00 UTC+2            │
+└───────────────────┴──────────────────────────────────────┘
+=== sub-account list
+
+
+┌──────┬──────────────────────────────────────┬────────┬──────────────┬────────────────┬───────────────────────────┐
+│ NAME │                  ID                  │ STATUS │   WEBSITE    │ MONTHLY CREDIT │          CREATED          │
+├──────┼──────────────────────────────────────┼────────┼──────────────┼────────────────┼───────────────────────────┤
+│ Acme │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ active │ acme.example │ 0              │ 2026-09-10 10:30:00 UTC+2 │
+└──────┴──────────────────────────────────────┴────────┴──────────────┴────────────────┴───────────────────────────┘
+
+Showing 1 sub-account
+=== sub-account usage
+Billing Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2
+Currency: usd
+Allocation Method: proportional
+
+┌─────────────────┬──────────────────────────────────────┬───────────┬────────────────┐
+│     ACCOUNT     │              ACCOUNT ID              │ RECEPTION │ ALLOCATED COST │
+├─────────────────┼──────────────────────────────────────┼───────────┼────────────────┤
+│ Parent          │ 22222222-2222-2222-2222-222222222222 │ 1000      │ 10.00          │
+│ Acme Subsidiary │ 33333333-3333-3333-3333-333333333333 │ 3000      │ 30.00          │
+│ Total           │ -                                    │ 4000      │ 40.00          │
+└─────────────────┴──────────────────────────────────────┴───────────┴────────────────┘
+=== sub-account usage with removed
+Usage
+
+Billing Period: 2026-06-01 02:00:00 UTC+2 to 2026-06-30 02:00:00 UTC+2
+Currency: usd
+Allocation Method: proportional
+Allocation Note: Shared by reception count
+
+┌──────────────────────┬──────────────────────────────────────┬───────────┬────────────────┐
+│       ACCOUNT        │              ACCOUNT ID              │ RECEPTION │ ALLOCATED COST │
+├──────────────────────┼──────────────────────────────────────┼───────────┼────────────────┤
+│ Parent               │ 22222222-2222-2222-2222-222222222222 │ 1000      │ 10.00          │
+│ Acme Subsidiary      │ 33333333-3333-3333-3333-333333333333 │ 3000      │ 30.00          │
+│ Removed Sub-Accounts │ -                                    │ 5         │ 5.00           │
+│ Total                │ -                                    │ 4000      │ 40.00          │
+└──────────────────────┴──────────────────────────────────────┴───────────┴────────────────┘
+=== suppression check
+
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+=== suppression list
+
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+
+Showing 1 suppression
+=== two bounce periods
+Bounces
+
+┌──────────────────────────────┬───────────────┬────────────────────────┐
+│         TIME PERIOD          │ TOTAL BOUNCES │ BOUNCE CLASSIFICATIONS │
+├──────────────────────────────┼───────────────┼────────────────────────┤
+│ 2026-09-10 10:30:00 UTC+2 to │ 0             │ -                      │
+│ 2026-09-10 10:30:00 UTC+2 to │ 1             │ 1 type                 │
+└──────────────────────────────┴───────────────┴────────────────────────┘
+
+Bounce Classifications - 2026-09-10 10:30:00 UTC+2 to :
+
+┌────────────────┬───────┬────────────┐
+│ CLASSIFICATION │ COUNT │ PERCENTAGE │
+├────────────────┼───────┼────────────┤
+│ invalid        │ 1     │ 100.00%    │
+└────────────────┴───────┴────────────┘
+=== two deliverability periods
+Deliverability
+
+┌──────────────────────────────┬───────────┬───────────┬──────────┬─────────┬────────┬────────────┬────────┬─────────┬───────────────┬───────────┐
+│         TIME PERIOD          │ RECEPTION │ DELIVERED │ DEFERRED │ BOUNCED │ FAILED │ SUPPRESSED │ OPENED │ CLICKED │ DELIVERY RATE │ OPEN RATE │
+├──────────────────────────────┼───────────┼───────────┼──────────┼─────────┼────────┼────────────┼────────┼─────────┼───────────────┼───────────┤
+│ 2026-09-10 10:30:00 UTC+2 to │ 2         │ 1         │ 0        │ 0       │ 0      │ 0          │ 0      │ 0       │ 50.00%        │ 0.00%     │
+│ 2026-09-10 10:30:00 UTC+2 to │ 0         │ 0         │ 0        │ 0       │ 0      │ 0          │ 0      │ 0       │ -             │ -         │
+└──────────────────────────────┴───────────┴───────────┴──────────┴─────────┴────────┴────────────┴────────┴─────────┴───────────────┴───────────┘
+=== two delivery time periods
+Delivery times
+
+┌────────────────────────────────────────────────────────┬───────────┬───────────────────────┬───────────────────────────┐
+│                      TIME PERIOD                       │ DELIVERED │ AVERAGE DELIVERY TIME │ PER-DOMAIN DELIVERY TIMES │
+├────────────────────────────────────────────────────────┼───────────┼───────────────────────┼───────────────────────────┤
+│ 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2 │ 3         │ 1.11h                 │ 1 domain                  │
+│ 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2 │ 3         │ 1.11h                 │ 1 domain                  │
+└────────────────────────────────────────────────────────┴───────────┴───────────────────────┴───────────────────────────┘
+
+Per-Domain Delivery Times - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2:
+
+┌──────────────────┬───────────┬───────────────┐
+│ RECIPIENT DOMAIN │ DELIVERED │ DELIVERY TIME │
+├──────────────────┼───────────┼───────────────┤
+│ example.com      │ 0         │ 1.50m         │
+└──────────────────┴───────────┴───────────────┘
+
+Per-Domain Delivery Times - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 10:30:00 UTC+2:
+
+┌──────────────────┬───────────┬───────────────┐
+│ RECIPIENT DOMAIN │ DELIVERED │ DELIVERY TIME │
+├──────────────────┼───────────┼───────────────┤
+│ example.com      │ 0         │ 1.50m         │
+└──────────────────┴───────────┴───────────────┘
+=== two domains
+
+
+┌─────────────┬──────────────────────────────────────┬────────────┬───────────────┬───────────┬──────────────┐
+│   DOMAIN    │                  ID                  │ DNS STATUS │ SENDING TYPE  │ PAUSED AT │ PAUSE REASON │
+├─────────────┼──────────────────────────────────────┼────────────┼───────────────┼───────────┼──────────────┤
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+│ example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ Valid      │ transactional │ -         │ -            │
+└─────────────┴──────────────────────────────────────┴────────────┴───────────────┴───────────┴──────────────┘
+
+Showing 2 domains
+=== two suppressions created
+
+
+┌──────────────────┬──────────────────────────────────────┬─────────────┬────────┬───────────────────────────┬───────────────────────────┬───────────┐
+│      EMAIL       │                  ID                  │   DOMAIN    │ REASON │          CREATED          │          EXPIRES          │ PROTECTED │
+├──────────────────┼──────────────────────────────────────┼─────────────┼────────┼───────────────────────────┼───────────────────────────┼───────────┤
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+│ user@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ example.com │ bounce │ 2026-09-10 10:30:00 UTC+2 │ 2026-09-10 10:30:00 UTC+2 │ No        │
+└──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
+=== updated api key
+
+
+┌───────────────┬─────────────────────────────────────────────────────────────┐
+│     FIELD     │                            VALUE                            │
+├───────────────┼─────────────────────────────────────────────────────────────┤
+│ Label         │ Production                                                  │
+│ ID            │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Public Key    │ pk_a_public_key_longer_than_twenty                          │
+│ Account ID    │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                        │
+│ Scopes        │ messages:send:all                                           │
+│               │ domains:read (Domain: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa) │
+│ IP Allow List │ 192.0.2.1                                                   │
+│ Updated       │ 2026-09-10 10:30:00 UTC+2                                   │
+└───────────────┴─────────────────────────────────────────────────────────────┘
+=== updated route
+
+
+┌───────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│           FIELD           │                                   VALUE                                   │
+├───────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                      │ Inbound                                                                   │
+│ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled                   │ Yes                                                                       │
+│ Recipient Filter          │ *@example.com                                                             │
+│ Include Attachments       │ No                                                                        │
+│ Include Headers           │ No                                                                        │
+│ Group by Message ID       │ No                                                                        │
+│ Strip Replies             │ No                                                                        │
+│ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Successful Calls          │ 0                                                                         │
+│ Failed Calls              │ 0                                                                         │
+│ Errors Since Last Success │ 0                                                                         │
+│ Last Called               │ 2026-09-10 10:30:00 UTC+2                                                 │
+└───────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+=== updated webhook
+
+
+┌───────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│           FIELD           │                                   VALUE                                   │
+├───────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                      │ Events                                                                    │
+│ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled                   │ Yes                                                                       │
+│ Events                    │ delivered                                                                 │
+│ Scope                     │ account                                                                   │
+│ Domains                   │ example.com                                                               │
+│ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Successful Calls          │ 2                                                                         │
+│ Failed Calls              │ 0                                                                         │
+│ Errors Since Last Success │ 0                                                                         │
+│ Last Called               │ 2026-09-10 10:30:00 UTC+2                                                 │
+└───────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+=== webhook
+
+
+┌───────────────────────────┬───────────────────────────────────────────────────────────────────────────┐
+│           FIELD           │                                   VALUE                                   │
+├───────────────────────────┼───────────────────────────────────────────────────────────────────────────┤
+│ Name                      │ Events                                                                    │
+│ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
+│ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
+│ Enabled                   │ Yes                                                                       │
+│ Events                    │ delivered                                                                 │
+│ Scope                     │ account                                                                   │
+│ Domains                   │ example.com                                                               │
+│ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Updated                   │ 2026-09-10 10:30:00 UTC+2                                                 │
+│ Successful Calls          │ 2                                                                         │
+│ Failed Calls              │ 0                                                                         │
+│ Errors Since Last Success │ 0                                                                         │
+│ Last Called               │ 2026-09-10 10:30:00 UTC+2                                                 │
+└───────────────────────────┴───────────────────────────────────────────────────────────────────────────┘
+=== webhook list
+
+
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+
+Showing 1 webhook

@@ -1,35 +1,11 @@
 package domains
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func TestCreateCommand_Flags(t *testing.T) {
-	// Test that create command has required flags
-	createCmd := NewCreateCommand()
-	flags := createCmd.Flags()
-
-	formatFlag := flags.Lookup("format")
-	assert.NotNil(t, formatFlag)
-	assert.Equal(t, "string", formatFlag.Value.Type())
-
-	noDNSHelpFlag := flags.Lookup("no-dns-help")
-	assert.NotNil(t, noDNSHelpFlag)
-	assert.Equal(t, "bool", noDNSHelpFlag.Value.Type())
-}
-
-func TestCreateCommand_Structure(t *testing.T) {
-	createCmd := NewCreateCommand()
-	assert.Equal(t, "create", createCmd.Name())
-	assert.Equal(t, "Create a new domain for email sending", createCmd.Short)
-	assert.NotEmpty(t, createCmd.Long)
-	assert.NotEmpty(t, createCmd.Example)
-}
 
 func TestValidateDomainName(t *testing.T) {
 	tests := []struct {
@@ -47,7 +23,7 @@ func TestValidateDomainName(t *testing.T) {
 			name:     "empty domain",
 			domain:   "",
 			wantErr:  true,
-			errorMsg: "domain name cannot be empty",
+			errorMsg: "domain cannot be empty",
 		},
 		{
 			name:    "subdomain",
@@ -58,25 +34,25 @@ func TestValidateDomainName(t *testing.T) {
 			name:     "invalid characters",
 			domain:   "example..com",
 			wantErr:  true,
-			errorMsg: "invalid domain name format",
+			errorMsg: "not a domain name",
 		},
 		{
 			name:     "starts with hyphen",
 			domain:   "-example.com",
 			wantErr:  true,
-			errorMsg: "invalid domain name format",
+			errorMsg: "not a domain name",
 		},
 		{
 			name:     "ends with hyphen",
 			domain:   "example.com-",
 			wantErr:  true,
-			errorMsg: "invalid domain name format",
+			errorMsg: "not a domain name",
 		},
 		{
 			name:     "too long domain",
 			domain:   generateLongDomain(254),
 			wantErr:  true,
-			errorMsg: "too long",
+			errorMsg: "not a domain name",
 		},
 		{
 			name:    "valid international domain",
@@ -87,7 +63,7 @@ func TestValidateDomainName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validation.ValidateDomainName(tt.domain)
+			err := validation.ValidateDomainName("domain", tt.domain)
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -107,73 +83,6 @@ func generateLongDomain(length int) string {
 		domain += "a"
 	}
 	return domain + ".com"
-}
-
-func TestCreateCommand_FlagParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected map[string]interface{}
-	}{
-		{
-			name: "all flags provided",
-			args: []string{
-				"--format", "cloudflare",
-				"--no-dns-help",
-			},
-			expected: map[string]interface{}{
-				"format":      "cloudflare",
-				"no-dns-help": true,
-			},
-		},
-		{
-			name: "only format flag",
-			args: []string{"--format", "bind"},
-			expected: map[string]interface{}{
-				"format":      "bind",
-				"no-dns-help": false,
-			},
-		},
-		{
-			name: "only no-dns-help flag",
-			args: []string{"--no-dns-help"},
-			expected: map[string]interface{}{
-				"format":      "", // default is empty
-				"no-dns-help": true,
-			},
-		},
-		{
-			name: "no flags",
-			args: []string{},
-			expected: map[string]interface{}{
-				"format":      "",
-				"no-dns-help": false,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewCreateCommand()
-			cmd.SetArgs(tt.args)
-
-			err := cmd.ParseFlags(tt.args)
-			require.NoError(t, err)
-
-			for flag, expected := range tt.expected {
-				switch expected := expected.(type) {
-				case bool:
-					value, err := cmd.Flags().GetBool(flag)
-					require.NoError(t, err)
-					assert.Equal(t, expected, value, "Flag %s should have correct value", flag)
-				case string:
-					value, err := cmd.Flags().GetString(flag)
-					require.NoError(t, err)
-					assert.Equal(t, expected, value, "Flag %s should have correct value", flag)
-				}
-			}
-		})
-	}
 }
 
 func TestCreateCommand_ArgumentValidation(t *testing.T) {
@@ -223,25 +132,6 @@ func TestCreateCommand_DefaultValues(t *testing.T) {
 	assert.False(t, noDNSHelp, "No DNS help should default to false")
 }
 
-func TestCreateCommand_Help(t *testing.T) {
-	cmd := NewCreateCommand()
-
-	// Capture help output
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs([]string{"--help"})
-
-	err := cmd.Execute()
-	assert.NoError(t, err)
-
-	helpOutput := buf.String()
-	assert.Contains(t, helpOutput, "Create a new domain")
-	assert.Contains(t, helpOutput, "--format")
-	assert.Contains(t, helpOutput, "--no-dns-help")
-	assert.Contains(t, helpOutput, "domain")
-}
-
 func TestCreateCommand_FormatOptions(t *testing.T) {
 	validFormats := []string{"bind", "cloudflare", "terraform"}
 
@@ -277,6 +167,6 @@ func BenchmarkCreateCommand_DomainValidation(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		domain := domains[i%len(domains)]
-		_ = validation.ValidateDomainName(domain)
+		_ = validation.ValidateDomainName("domain", domain)
 	}
 }

@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"bytes"
 	"encoding/json"
 	"testing"
 	"time"
@@ -11,14 +10,11 @@ import (
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/AhaSend/ahasend-cli/cmd"
-	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/client"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 )
 
 // Fixed UUIDs shared across the sub-account integration scenarios.
@@ -35,54 +31,7 @@ const (
 // commands rather than calling mock methods directly so the command wiring,
 // validation-before-auth ordering, and SDK JSON pass-through are all covered.
 type SubAccountsIntegrationTestSuite struct {
-	suite.Suite
-	mockClient *mocks.MockClient
-}
-
-func (suite *SubAccountsIntegrationTestSuite) SetupTest() {
-	suite.mockClient = &mocks.MockClient{}
-}
-
-func (suite *SubAccountsIntegrationTestSuite) TearDownTest() {
-	suite.mockClient = nil
-}
-
-// installResolver swaps in a test auth resolver returning the suite mock client
-// and records whether it was reached. The returned *bool lets tests assert the
-// validation-before-auth contract. The resolver is restored on test cleanup.
-func (suite *SubAccountsIntegrationTestSuite) installResolver(c client.AhaSendClient) *bool {
-	called := false
-	restore := auth.SetAuthenticatedClientResolverForTesting(func(*cobra.Command) (client.AhaSendClient, error) {
-		called = true
-		return c, nil
-	})
-	suite.T().Cleanup(restore)
-	return &called
-}
-
-// execRoot runs a fresh root command for the given output format and captures
-// stdout/stderr separately. Errors surfaced by command execution are handled by
-// the root's JSON-aware error wiring, so callers assert on output content.
-//
-// The package-private globalExitCode is reset before execution so that, after
-// execRoot returns, cmd.GlobalExitCodeForTesting() reflects only this run's
-// outcome (handleError sets it only on error, so a successful command would
-// otherwise leave a prior run's value in place). Callers asserting the
-// exit-code contract read it via cmd.GlobalExitCodeForTesting().
-func (suite *SubAccountsIntegrationTestSuite) execRoot(format string, args ...string) (string, string, error) {
-	root := cmd.NewRootCmdForTesting()
-
-	var stdout, stderr bytes.Buffer
-	root.SetOut(&stdout)
-	root.SetErr(&stderr)
-
-	full := append([]string{}, args...)
-	full = append(full, "--output", format)
-	root.SetArgs(full)
-
-	cmd.ResetGlobalExitCodeForTesting()
-	err := root.Execute()
-	return stdout.String(), stderr.String(), err
+	commandSuite
 }
 
 // Fixtures ---------------------------------------------------------------------
@@ -187,50 +136,50 @@ func (suite *SubAccountsIntegrationTestSuite) TestProvisioningWorkflow() {
 		mock.AnythingOfType("requests.CreateSubAccountRequest"),
 		mock.AnythingOfType("string")).
 		Return(subAccount, nil)
-	suite.mockClient.On("CreateSubAccountAPIKey", intSubAccountID,
+	suite.mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(intSubAccountID),
 		requests.CreateAPIKeyRequest{Label: "Production API", Scopes: []string{intScope}},
 		mock.AnythingOfType("string")).
 		Return(apiKey, nil)
-	suite.mockClient.On("GetSubAccountAPIKey", intSubAccountID, intKeyID).
+	suite.mockClient.On("GetSubAccountAPIKey", uuid.MustParse(intSubAccountID), uuid.MustParse(intKeyID)).
 		Return(fixedAPIKey(false), nil)
-	suite.mockClient.On("DeleteSubAccountAPIKey", intSubAccountID, intKeyID).
+	suite.mockClient.On("DeleteSubAccountAPIKey", uuid.MustParse(intSubAccountID), uuid.MustParse(intKeyID)).
 		Return(&common.SuccessResponse{}, nil)
-	suite.mockClient.On("DeleteSubAccount", intSubAccountID).
+	suite.mockClient.On("DeleteSubAccount", uuid.MustParse(intSubAccountID)).
 		Return(&common.SuccessResponse{}, nil)
 
-	called := suite.installResolver(suite.mockClient)
+	called := testutil.InjectClient(suite.T(), suite.mockClient)
 
 	// 1. Create the sub-account.
-	out, _, err := suite.execRoot("plain", "subaccounts", "create",
+	out, _, code := execRoot("plain", "", "subaccounts", "create",
 		"--name", "Acme Inc", "--website", "acme.example.com")
-	suite.NoError(err)
+	suite.Zero(code)
 	suite.Contains(out, "Acme Inc")
 
 	// 2. Create an API key under the sub-account; the one-time secret and the
 	//    replay-window note render for plain output.
-	out, _, err = suite.execRoot("plain", "subaccounts", "api-keys", "create",
+	out, _, code = execRoot("plain", "", "subaccounts", "api-keys", "create",
 		intSubAccountID, "--label", "Production API", "--scope", intScope)
-	suite.NoError(err)
+	suite.Zero(code)
 	suite.Contains(out, "sk_one_time_secret_value")
 	suite.Contains(out, "5-minute replay window")
 
 	// 3. Get the API key (secret never returned on read).
-	out, _, err = suite.execRoot("plain", "subaccounts", "api-keys", "get",
+	out, _, code = execRoot("plain", "", "subaccounts", "api-keys", "get",
 		intSubAccountID, intKeyID)
-	suite.NoError(err)
+	suite.Zero(code)
 	suite.Contains(out, "Production API")
 	suite.NotContains(out, "sk_one_time_secret_value")
 
 	// 4. Delete the API key.
-	out, _, err = suite.execRoot("plain", "subaccounts", "api-keys", "delete",
+	out, _, code = execRoot("plain", "", "subaccounts", "api-keys", "delete",
 		intSubAccountID, intKeyID, "--force")
-	suite.NoError(err)
-	suite.Contains(out, "Deleted")
+	suite.Zero(code)
+	suite.Contains(out, "API key '"+intKeyID+"' deleted successfully")
 
 	// 5. Delete the sub-account.
-	out, _, err = suite.execRoot("plain", "subaccounts", "delete",
+	out, _, code = execRoot("plain", "", "subaccounts", "delete",
 		intSubAccountID, "--force")
-	suite.NoError(err)
+	suite.Zero(code)
 	suite.Contains(out, "deleted successfully")
 
 	suite.True(*called, "auth resolver must be reached for each authenticated step")
@@ -252,25 +201,25 @@ func (suite *SubAccountsIntegrationTestSuite) TestMalformedIDsFailBeforeAuth() {
 		{
 			name:    "get bad sub-account ID",
 			args:    []string{"subaccounts", "api-keys", "get", "not-a-uuid", intKeyID},
-			message: "invalid sub-account ID format: not-a-uuid",
+			message: `invalid sub-account ID value "not-a-uuid": not a UUID`,
 			method:  "GetSubAccountAPIKey",
 		},
 		{
 			name:    "get bad key ID",
 			args:    []string{"subaccounts", "api-keys", "get", intSubAccountID, "not-a-uuid"},
-			message: "invalid API key ID format: not-a-uuid",
+			message: `invalid API key ID value "not-a-uuid": not a UUID`,
 			method:  "GetSubAccountAPIKey",
 		},
 		{
 			name:    "create bad sub-account ID",
 			args:    []string{"subaccounts", "api-keys", "create", "not-a-uuid", "--label", "CI", "--scope", intScope},
-			message: "invalid sub-account ID format: not-a-uuid",
+			message: `invalid sub-account ID value "not-a-uuid": not a UUID`,
 			method:  "CreateSubAccountAPIKey",
 		},
 		{
 			name:    "delete bad key ID",
 			args:    []string{"subaccounts", "api-keys", "delete", intSubAccountID, "not-a-uuid", "--force"},
-			message: "invalid API key ID format: not-a-uuid",
+			message: `invalid API key ID value "not-a-uuid": not a UUID`,
 			method:  "DeleteSubAccountAPIKey",
 		},
 	}
@@ -278,11 +227,12 @@ func (suite *SubAccountsIntegrationTestSuite) TestMalformedIDsFailBeforeAuth() {
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
 			mockClient := &mocks.MockClient{}
-			called := suite.installResolver(mockClient)
+			called := testutil.InjectClient(suite.T(), mockClient)
 
-			out, _, err := suite.execRoot("plain", tc.args...)
-			suite.NoError(err) // root handles the error internally; content is in output
-			suite.Contains(out, tc.message)
+			out, stderr, code := execRoot("plain", "", tc.args...)
+			suite.Equal(4, code)
+			suite.Empty(out)
+			suite.Contains(stderr, tc.message)
 			suite.False(*called, "auth resolver must not be reached for malformed IDs")
 			mockClient.AssertNotCalled(suite.T(), tc.method, mock.Anything, mock.Anything, mock.Anything)
 		})
@@ -307,11 +257,11 @@ func (suite *SubAccountsIntegrationTestSuite) assertNoWrapperKeys(out string) {
 // SDK PaginatedSubAccountsResponse with no CLI wrapper keys.
 func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_List() {
 	fixture := fixedSubAccountsList()
-	suite.mockClient.On("ListSubAccounts", (*int32)(nil), (*string)(nil)).Return(fixture, nil)
-	suite.installResolver(suite.mockClient)
+	suite.mockClient.On("ListSubAccounts", common.PaginationParams{}).Return(fixture, nil)
+	testutil.InjectClient(suite.T(), suite.mockClient)
 
-	out, _, err := suite.execRoot("json", "subaccounts", "list")
-	suite.NoError(err)
+	out, _, code := execRoot("json", "", "subaccounts", "list")
+	suite.Zero(code)
 
 	var got responses.PaginatedSubAccountsResponse
 	suite.Require().NoError(json.Unmarshal([]byte(out), &got))
@@ -324,11 +274,11 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_List() {
 // SDK SubAccount struct verbatim.
 func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_Single() {
 	fixture := fixedSubAccount()
-	suite.mockClient.On("GetSubAccount", intSubAccountID).Return(fixture, nil)
-	suite.installResolver(suite.mockClient)
+	suite.mockClient.On("GetSubAccount", uuid.MustParse(intSubAccountID)).Return(fixture, nil)
+	testutil.InjectClient(suite.T(), suite.mockClient)
 
-	out, _, err := suite.execRoot("json", "subaccounts", "get", intSubAccountID)
-	suite.NoError(err)
+	out, _, code := execRoot("json", "", "subaccounts", "get", intSubAccountID)
+	suite.Zero(code)
 
 	var got responses.SubAccount
 	suite.Require().NoError(json.Unmarshal([]byte(out), &got))
@@ -346,11 +296,11 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_CreateSubAccount
 		mock.AnythingOfType("requests.CreateSubAccountRequest"),
 		mock.AnythingOfType("string")).
 		Return(fixture, nil)
-	suite.installResolver(suite.mockClient)
+	testutil.InjectClient(suite.T(), suite.mockClient)
 
-	out, _, err := suite.execRoot("json", "subaccounts", "create",
+	out, _, code := execRoot("json", "", "subaccounts", "create",
 		"--name", "Acme Inc", "--website", "acme.example.com")
-	suite.NoError(err)
+	suite.Zero(code)
 
 	var got responses.SubAccount
 	suite.Require().NoError(json.Unmarshal([]byte(out), &got))
@@ -364,15 +314,15 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_CreateSubAccount
 // human-readable replay note.
 func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_Create() {
 	fixture := fixedAPIKey(true)
-	suite.mockClient.On("CreateSubAccountAPIKey", intSubAccountID,
+	suite.mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(intSubAccountID),
 		requests.CreateAPIKeyRequest{Label: "Production API", Scopes: []string{intScope}},
 		mock.AnythingOfType("string")).
 		Return(fixture, nil)
-	suite.installResolver(suite.mockClient)
+	testutil.InjectClient(suite.T(), suite.mockClient)
 
-	out, _, err := suite.execRoot("json", "subaccounts", "api-keys", "create",
+	out, _, code := execRoot("json", "", "subaccounts", "api-keys", "create",
 		intSubAccountID, "--label", "Production API", "--scope", intScope)
-	suite.NoError(err)
+	suite.Zero(code)
 
 	var got responses.APIKey
 	suite.Require().NoError(json.Unmarshal([]byte(out), &got))
@@ -387,10 +337,10 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_Create() {
 func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_Usage() {
 	fixture := fixedUsage()
 	suite.mockClient.On("GetSubAccountsUsage").Return(fixture, nil)
-	suite.installResolver(suite.mockClient)
+	testutil.InjectClient(suite.T(), suite.mockClient)
 
-	out, _, err := suite.execRoot("json", "subaccounts", "usage")
-	suite.NoError(err)
+	out, _, code := execRoot("json", "", "subaccounts", "usage")
+	suite.Zero(code)
 
 	var got responses.SubAccountUsageResponse
 	suite.Require().NoError(json.Unmarshal([]byte(out), &got))
@@ -403,29 +353,23 @@ func (suite *SubAccountsIntegrationTestSuite) TestJSONRoundTrip_Usage() {
 
 // rawCreateAPIError installs a mock whose nested API-key create fails with the
 // given raw SDK API error and runs the create command through the real Cobra
-// root path for the requested output format. It returns the captured stdout and
-// the exit code recorded by the root error path, and the wrapping mock for
-// assertions.
+// root path for the requested output format. It returns the captured stdout,
+// stderr and exit code, and the wrapping mock for assertions.
 //
-// The root's error wiring (cmd.handleError) discriminates JSON raw API errors
-// (pass-through: raw body printed verbatim, globalExitCode left at 0) from
-// human-format errors (rendered "Error:" message, nonzero globalExitCode) on a
-// single branch. execRoot resets globalExitCode before running, so the value
-// read here via cmd.GlobalExitCodeForTesting() is exactly the code this command
-// produced. The same integer is also asserted at the cmd-package level in
-// cmd/root_error_test.go.
-func (suite *SubAccountsIntegrationTestSuite) rawCreateAPIError(format string, apiErr *api.APIError) (string, int, *mocks.MockClient) {
+// The root's error wiring (cmd.handleError) prints JSON raw API errors
+// verbatim and renders an "Error:" message in the other formats; every format
+// exits nonzero.
+func (suite *SubAccountsIntegrationTestSuite) rawCreateAPIError(format string, apiErr *api.APIError) (string, string, int, *mocks.MockClient) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", intSubAccountID,
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(intSubAccountID),
 		mock.AnythingOfType("requests.CreateAPIKeyRequest"),
 		mock.AnythingOfType("string")).
 		Return(nil, apiErr)
-	suite.installResolver(mockClient)
+	testutil.InjectClient(suite.T(), mockClient)
 
-	out, _, err := suite.execRoot(format, "subaccounts", "api-keys", "create",
+	out, stderr, code := execRoot(format, "", "subaccounts", "api-keys", "create",
 		intSubAccountID, "--label", "CI", "--scope", intScope)
-	suite.NoError(err) // root swallows the error after formatting it for output
-	return out, cmd.GlobalExitCodeForTesting(), mockClient
+	return out, stderr, code, mockClient
 }
 
 // TestRawAPIError_PassThroughBehavior verifies, end-to-end through real Cobra
@@ -434,7 +378,7 @@ func (suite *SubAccountsIntegrationTestSuite) rawCreateAPIError(format string, a
 //   - JSON mode prints the raw body verbatim and adds no human-readable
 //     "Error:" wrapper.
 //   - table/plain modes render a human "Error:" message.
-//   - Every mode leaves a nonzero globalExitCode.
+//   - Every mode exits nonzero.
 func (suite *SubAccountsIntegrationTestSuite) TestRawAPIError_PassThroughBehavior() {
 	cases := []struct {
 		name       string
@@ -458,21 +402,22 @@ func (suite *SubAccountsIntegrationTestSuite) TestRawAPIError_PassThroughBehavio
 
 			// JSON mode: raw body printed verbatim, no human error wrapper, and a
 			// nonzero exit code.
-			out, jsonExit, jsonMock := suite.rawCreateAPIError("json", newErr())
+			out, _, jsonExit, jsonMock := suite.rawCreateAPIError("json", newErr())
 			suite.JSONEq(tc.raw, out)
 			suite.NotContains(out, "Error:",
 				"JSON raw API error must pass the body through, not wrap it")
 			suite.NotZero(jsonExit,
-				"JSON raw API error must leave a nonzero globalExitCode")
+				"JSON raw API error must exit nonzero")
 			jsonMock.AssertExpectations(suite.T())
 
 			// table/plain modes: human error rendered and a nonzero exit code.
 			for _, format := range []string{"table", "plain"} {
-				out, humanExit, humanMock := suite.rawCreateAPIError(format, newErr())
-				suite.Contains(out, "Error:",
+				out, stderr, humanExit, humanMock := suite.rawCreateAPIError(format, newErr())
+				suite.Empty(out)
+				suite.Contains(stderr, "Error:",
 					"%s raw API error must render a human error message", format)
 				suite.NotZero(humanExit,
-					"%s raw API error must leave a nonzero globalExitCode", format)
+					"%s raw API error must exit nonzero", format)
 				humanMock.AssertExpectations(suite.T())
 			}
 		})

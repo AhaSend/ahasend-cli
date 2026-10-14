@@ -1,12 +1,11 @@
 package smtp
 
 import (
-	"fmt"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +13,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <credential-id>",
-		Short: "Get details of a specific SMTP credential",
+		Short: "Get an SMTP credential",
 		Long: `Get detailed information about a specific SMTP credential.
 
 Shows all credential details including name, username, scope, domains,
@@ -24,8 +23,9 @@ and timestamps. Note that passwords are never displayed for security reasons.`,
 
   # Get as JSON
   ahasend smtp get 550e8400-e29b-41d4-a716-446655440000 --output json`,
-		Args: cobra.ExactArgs(1),
-		RunE: runSMTPGet,
+		Args:         cmdutil.ExactArgs(1),
+		RunE:         runSMTPGet,
+		SilenceUsage: true,
 	}
 
 	return cmd
@@ -36,6 +36,10 @@ func runSMTPGet(cmd *cobra.Command, args []string) error {
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
 	credentialID := args[0]
+	credentialUUID, err := validation.ParseUUIDField("credential ID", credentialID)
+	if err != nil {
+		return err
+	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
@@ -47,19 +51,14 @@ func runSMTPGet(cmd *cobra.Command, args []string) error {
 	}).Debug("Getting SMTP credential details")
 
 	// Get SMTP credential
-	credential, err := client.GetSMTPCredential(credentialID)
+	credential, err := client.GetSMTPCredential(credentialUUID)
 	if err != nil {
 		return err
 	}
 
-	if credential == nil {
-		return errors.NewAPIError("received nil response from API", nil)
-	}
-
 	// Use the new ResponseHandler to display SMTP credential details
 	return handler.HandleSingleSMTP(credential, printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("SMTP credential details for %s", credentialID),
+		SuccessMessage: "SMTP credential retrieved successfully",
 		EmptyMessage:   "SMTP credential not found",
-		FieldOrder:     []string{"id", "name", "username", "scope", "domains", "sandbox", "created_at", "updated_at"},
 	})
 }

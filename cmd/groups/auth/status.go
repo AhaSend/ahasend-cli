@@ -2,14 +2,16 @@ package auth
 
 import (
 	"fmt"
-	"time"
+	"slices"
 
+	"github.com/AhaSend/ahasend-cli/internal/auth"
 	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/config"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/AhaSend/ahasend-go"
 	"github.com/spf13/cobra"
 )
 
@@ -22,21 +24,31 @@ func NewStatusCommand() *cobra.Command {
 - Current active profile
 - API key validity
 - Account information
-- Available profiles`,
+- Available profiles, with --all
+
+The key is checked by reading the account. Valid is Yes when the API accepts
+the key for the profile's account, No when it refuses it (HTTP 401), as it
+does a key of another account, or refuses the key from this IP address
+(HTTP 403), and empty (null in JSON output) when the check
+could not tell, such as when the API cannot be reached. Error says why the
+check failed, and the command exits with the code of that failure. A key
+without the scope to read the account is valid; Note says so.`,
 		Example: `  # Show current authentication status
   ahasend auth status
 
   # Show status for specific profile
   ahasend auth status --profile production
 
-  # Show status for all profiles
+  # List the names of all profiles
   ahasend auth status --all`,
+		Args:         cmdutil.NoArgs,
 		RunE:         runStatus,
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().String("profile", "", "Show status for specific profile")
-	cmd.Flags().Bool("all", false, "Show status for all profiles")
+	_ = cmd.RegisterFlagCompletionFunc("profile", cmdutil.CompleteProfileNames)
+	cmd.Flags().Bool("all", false, "List the names of all profiles")
 
 	return cmd
 }
@@ -54,157 +66,92 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		"specific_profile": profileName != "",
 	})
 
-	configMgr, err := config.NewManager()
+	configMgr, err := config.LoadManager()
 	if err != nil {
-		return errors.NewConfigError("failed to initialize configuration", err)
-	}
-
-	if err := configMgr.Load(); err != nil {
-		return errors.NewConfigError("failed to load configuration", err)
+		return err
 	}
 
 	profiles := configMgr.ListProfiles()
 	logger.Get().WithField("profile_count", len(profiles)).Debug("Checking authentication status")
 
-	if len(profiles) == 0 {
-		return handler.HandleEmpty("No authentication profiles found")
+	if showAll {
+		logger.Debug("Listing all profiles")
+		names := slices.Clone(profiles)
+		slices.Sort(names)
+		return handler.HandleAuthProfiles(names)
 	}
 
-	if showAll {
-		logger.Debug("Showing status for all profiles")
-		// For --all flag, we'll show a simple message since we don't have a specific multi-profile handler
-		return handler.HandleSimpleSuccess(fmt.Sprintf("Found %d profiles: %v", len(profiles), profiles))
+	if len(profiles) == 0 && profileName == "" {
+		message := printer.NoProfilesMessage
+		if handler.GetFormat() != "json" {
+			// The message of JSON output stays the one sentence
+			message += "\nRun 'ahasend auth login' to add one."
+		}
+		return handler.HandleEmpty(message)
 	}
 
 	// Determine which profile to show
-	if profileName == "" {
-		profileName = configMgr.GetConfig().DefaultProfile
-		if profileName == "" {
-			return errors.NewValidationError("no default profile set and no profile specified", nil)
-		}
-		logger.Get().WithField("profile", profileName).Debug("Using default profile for status")
-	} else {
-		logger.Get().WithField("profile", profileName).Debug("Using specified profile for status")
+	profileName, profile, err := configMgr.ResolveProfile(profileName)
+	if err != nil {
+		return err
 	}
+	logger.Get().WithField("profile", profileName).Debug("Showing the status of the profile")
 
 	// Create AuthStatus for the specific profile
-	status, err := createAuthStatus(configMgr, profileName)
-	if err != nil {
+	auth.WarnIfUnencryptedAPIKey(cmd, profile.APIURL)
+	status, checkErr := createAuthStatus(profileName, profile)
+
+	if err := handler.HandleAuthStatus(status); err != nil {
 		return err
 	}
 
-	return handler.HandleAuthStatus(status, printer.AuthConfig{
-		SuccessMessage: fmt.Sprintf("Authentication status for profile '%s'", profileName),
-	})
-}
-
-// createAuthStatus creates an AuthStatus struct for the given profile
-func createAuthStatus(configMgr *config.Manager, profileName string) (*printer.AuthStatus, error) {
-	// Get the specific profile by name
-	profiles := configMgr.GetConfig().Profiles
-	profile, exists := profiles[profileName]
-	if !exists {
-		return nil, errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil)
-	}
-
-	// Create a copy of the profile to work with
-	profileCopy := profile
-
-	// Check if account info needs refreshing
-	if shouldRefreshAccountInfo(&profileCopy) {
-		logger.Get().WithField("profile", profileName).Debug("Refreshing account information")
-		if err := refreshAccountInfo(configMgr, profileName, &profileCopy); err != nil {
-			logger.Get().WithError(err).Debug("Failed to refresh account info, continuing with existing data")
+	// The status shows that the check failed; the exit code says why, such
+	// as 2 when the API rejected the credentials. JSON output holds the
+	// failure in its error field; other formats print it as the error line,
+	// with what to do about it.
+	if checkErr != nil {
+		message := fmt.Sprintf("credentials of profile '%s' could not be verified", profileName)
+		if handler.GetFormat() == "json" {
+			return errors.NewResultPrintedError(fmt.Sprintf("%s: %v", message, checkErr), errors.GetExitCode(checkErr))
 		}
+		return fmt.Errorf("%s: %w", message, checkErr)
 	}
-
-	// Test if the credentials are valid
-	testClient, err := client.NewClient(profile.APIKey, profile.AccountID)
-	isValid := true
-	var account *responses.Account
-
-	if err != nil {
-		logger.Get().WithError(err).Debug("Failed to create client for status check")
-		isValid = false
-	} else {
-		if err := testClient.Ping(); err != nil {
-			logger.Get().WithError(err).Debug("API key validation failed")
-			isValid = false
-		} else {
-			// Try to get account info
-			if acc, err := testClient.GetAccount(); err == nil {
-				account = acc
-			}
-		}
-	}
-
-	// Create masked API key
-	maskedAPIKey := fmt.Sprintf("%s...%s",
-		profile.APIKey[:min(10, len(profile.APIKey))],
-		profile.APIKey[max(0, len(profile.APIKey)-4):])
-
-	return &printer.AuthStatus{
-		Profile: profileName,
-		APIKey:  maskedAPIKey,
-		Account: account,
-		Valid:   isValid,
-	}, nil
-}
-
-// shouldRefreshAccountInfo checks if account information needs to be refreshed
-func shouldRefreshAccountInfo(profile *config.Profile) bool {
-	// Refresh if account name is not set
-	if profile.AccountName == "" {
-		return true
-	}
-
-	// Refresh if it's been more than 30 days since last update
-	if profile.AccountUpdated.IsZero() {
-		return true
-	}
-
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	return profile.AccountUpdated.Before(thirtyDaysAgo)
-}
-
-// refreshAccountInfo fetches fresh account information and updates the profile
-func refreshAccountInfo(configMgr *config.Manager, profileName string, profile *config.Profile) error {
-	client, err := client.NewClient(profile.APIKey, profile.AccountID)
-	if err != nil {
-		return err
-	}
-
-	account, err := client.GetAccount()
-	if err != nil {
-		logger.Get().WithError(err).Debug("Failed to refresh account information")
-		return err
-	}
-
-	// Update the profile with fresh account info
-	updatedProfile := *profile
-	updatedProfile.AccountName = account.Name
-	updatedProfile.AccountUpdated = time.Now()
-
-	// Save the updated profile
-	if err := configMgr.SetProfile(profileName, updatedProfile); err != nil {
-		logger.Get().WithError(err).Debug("Failed to save updated profile")
-		return err
-	}
-
-	*profile = updatedProfile
 	return nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// createAuthStatus checks the credentials of the named profile with the API
+// and fetches its account. It always returns the status; the error is why
+// the check failed, if it did. The credentials are invalid only when the API
+// refused them; any other failure, such as an API that cannot be reached,
+// leaves their validity unknown.
+func createAuthStatus(profileName string, profile config.Profile) (*printer.AuthStatus, error) {
+	status := &printer.AuthStatus{
+		Profile:   profileName,
+		AccountID: profile.AccountID,
 	}
-	return b
-}
 
-func max(a, b int) int {
-	if a > b {
-		return a
+	// Test if the credentials are valid
+	testClient, err := client.NewClient(profile.APIKey, profile.AccountID, profile.APIURL)
+	if err != nil {
+		logger.Get().WithError(err).Debug("Failed to create client for status check")
+		err = errors.NewConfigError("invalid profile", err)
+		status.Error = err.Error()
+		return status, err
 	}
-	return b
+	check, err := auth.CheckKey(testClient)
+	if err != nil {
+		logger.Get().WithError(err).Debug("API key validation failed")
+		if auth.IsKeyRefused(err) {
+			status.Valid = ahasend.Bool(false)
+		}
+		status.Error = err.Error()
+		return status, err
+	}
+
+	status.Valid = ahasend.Bool(true)
+	status.Account = check.Account
+	if check.Unreadable != nil {
+		status.Note = "the API key cannot read the account details: " + check.Unreadable.Error()
+	}
+	return status, nil
 }
