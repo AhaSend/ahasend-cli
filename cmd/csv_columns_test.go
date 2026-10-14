@@ -122,6 +122,19 @@ var csvViews = []csvView{
 		returns[responses.CreateSuppressionResponse]("CreateSuppression", csvListBody),
 		"email,id,domain,reason,created_at,expires_at,protected"},
 
+	// Templates
+	{[]string{"templates", "list"}, returns[responses.PaginatedTemplatesResponse]("GetTemplates", csvListBody),
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
+	{[]string{"templates", "get", rawTestID}, returns[responses.Template]("GetTemplate", csvItemBody),
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
+	{[]string{"templates", "draft", "get", rawTestID}, returns[responses.TemplateDraft]("GetTemplateDraft", csvItemBody),
+		"subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom"},
+	{[]string{"templates", "versions", "list", rawTestID}, returns[responses.TemplateVersionsResponse]("GetTemplateVersions", csvListBody),
+		"version,id,published_at,published_by"},
+	{[]string{"templates", "versions", "get", rawTestID, rawTestOtherID},
+		returns[responses.TemplateVersionDetail]("GetTemplateVersion", csvItemBody),
+		"version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom"},
+
 	// Webhooks
 	{[]string{"webhooks", "list"}, returns[responses.PaginatedWebhooksResponse]("ListWebhooks", csvListBody),
 		"name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
@@ -167,6 +180,7 @@ var viewsWithoutID = map[string]string{
 	"contacts memberships": "",
 	"lists members":        "",
 	"messages send":        "",
+	"templates draft":      "",
 }
 
 // TestTableAndPlainOutputOfEveryView runs every view of csvViews through the
@@ -221,12 +235,12 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 	}
 	for _, view := range csvViews {
 		full := reflect.TypeOf(view.call.result(t)).Elem()
-		if !strings.HasPrefix(full.Name(), "Paginated") {
+		if !strings.HasPrefix(full.Name(), "Paginated") && full.Name() != "TemplateVersionsResponse" {
 			continue
 		}
 		views = append(views, emptyView{view.args, view.call.method, reflect.New(full).Interface(), view.header})
 	}
-	require.Len(t, views, 17)
+	require.Len(t, views, 19)
 	for _, view := range views {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}

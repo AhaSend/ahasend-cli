@@ -115,4 +115,17 @@ type AhaSendClient interface {
 	UpsertListContact(listID uuid.UUID, idOrEmail string, req requests.UpsertListContactRequest) (*responses.ListContact, error)
 	DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error)
 	GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error)
+
+	// Template operations
+	GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error)
+	GetTemplate(templateID uuid.UUID) (*responses.Template, error)
+	CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
+	UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
+	DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
+	GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error)
+	DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error)
+	PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error)
+	GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error)
+	GetTemplateVersion(templateID, versionID uuid.UUID) (*responses.TemplateVersionDetail, error)
+	RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error)
 }

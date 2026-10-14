@@ -17,6 +17,7 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 - **🔐 Authentication**: Secure profile-based authentication with API key management
 - **👥 Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **👤 Contact and List Management**: Create, update, batch upsert, and safely delete contacts, and manage the lists they belong to
+- **📝 Transactional Templates**: Store, draft, publish, and restore versions of the templates `messages send --template-id` sends
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
 - **🎨 Multiple Output Formats**: JSON, table, CSV, and plain text
@@ -162,6 +163,7 @@ ahasend routes trigger <route-id>
 | `domains` | Manage sending domains, their sending type and DKIM selector |
 | `lists` | Manage contact lists and their members |
 | `messages` | Send and manage email messages, inline or from a stored template |
+| `templates` | Manage transactional templates, their drafts and published versions |
 | `webhooks` | Configure webhook endpoints |
 | `suppressions` | Manage suppression lists |
 | `stats` | View email statistics |
@@ -224,6 +226,23 @@ scopes for the contact commands, and `lists:read`, `lists:write` and
 `lists:delete` for the list commands; `contacts memberships` needs
 `lists:read`, and `lists members list --include-contacts` also needs
 `contacts:read`.
+
+### Transactional Templates
+
+Template changes go to a draft; sends use the published copy, so publish before
+sending. `messages send --template-id` sends a stored template, and copies
+`--global-substitutions` into every recipient's substitutions:
+
+```bash
+ahasend templates create --name Welcome --mjml-file welcome.mjml \
+  --from hello@example.com --publish
+ahasend templates update <template-id> --subject "Welcome aboard" --publish
+ahasend templates versions list <template-id>
+ahasend messages send --template-id <template-id> --recipients users.csv
+```
+
+The template commands need the `templates:read`, `templates:write` and
+`templates:delete` scopes. Sending a template needs only the usual send scope.
 
 ### Global Flags
 

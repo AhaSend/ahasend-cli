@@ -457,6 +457,10 @@ None found
 None found
 === no response for suppressions
 None found
+=== no response for templates
+None found
+=== no response for versions
+None found
 === no response for webhooks
 None found
 === page of 0 API keys
@@ -503,6 +507,12 @@ None found
 None found
 --after next-page
 --before previous-page
+=== page of 0 templates
+None found
+--after next-page
+--before previous-page
+=== page of 0 versions
+None found
 === page of 0 webhooks
 None found
 --after next-page
@@ -639,6 +649,28 @@ Retrieved
 Showing 1 suppression (more available)
 --after next-page
 --before previous-page
+=== page of 1 templates
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬──────────┬────────────────────────┬───────────┬───────────────────────────┐
+│  NAME   │                  ID                  │  EDITOR  │        SUBJECT         │ HAS DRAFT │          UPDATED          │
+├─────────┼──────────────────────────────────────┼──────────┼────────────────────────┼───────────┼───────────────────────────┤
+│ Welcome │ 33333333-3333-4333-8333-333333333333 │ advanced │ Hello {{ first_name }} │ Yes       │ 2026-09-10 11:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────┴────────────────────────┴───────────┴───────────────────────────┘
+
+Showing 1 template (more available)
+--after next-page
+--before previous-page
+=== page of 1 versions
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────┬──────────────────────────────────────────────┐
+│ VERSION │                  ID                  │       PUBLISHED AT        │                 PUBLISHED BY                 │
+├─────────┼──────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────┤
+│ 2       │ 44444444-4444-4444-8444-444444444444 │ 2026-09-12 10:00:00 UTC+2 │ api_key:55555555-5555-4555-8555-555555555555 │
+└─────────┴──────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────────┘
+
+Showing 1 version
 === page of 1 webhooks
 Retrieved
 
@@ -794,6 +826,30 @@ Retrieved
 Showing 2 suppressions (more available)
 --after next-page
 --before previous-page
+=== page of 2 templates
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬──────────┬────────────────────────┬───────────┬───────────────────────────┐
+│  NAME   │                  ID                  │  EDITOR  │        SUBJECT         │ HAS DRAFT │          UPDATED          │
+├─────────┼──────────────────────────────────────┼──────────┼────────────────────────┼───────────┼───────────────────────────┤
+│ Welcome │ 33333333-3333-4333-8333-333333333333 │ advanced │ Hello {{ first_name }} │ Yes       │ 2026-09-10 11:30:00 UTC+2 │
+│ Welcome │ 33333333-3333-4333-8333-333333333333 │ advanced │ Hello {{ first_name }} │ Yes       │ 2026-09-10 11:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────┴────────────────────────┴───────────┴───────────────────────────┘
+
+Showing 2 templates (more available)
+--after next-page
+--before previous-page
+=== page of 2 versions
+Retrieved
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────┬──────────────────────────────────────────────┐
+│ VERSION │                  ID                  │       PUBLISHED AT        │                 PUBLISHED BY                 │
+├─────────┼──────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────┤
+│ 2       │ 44444444-4444-4444-8444-444444444444 │ 2026-09-12 10:00:00 UTC+2 │ api_key:55555555-5555-4555-8555-555555555555 │
+│ 2       │ 44444444-4444-4444-8444-444444444444 │ 2026-09-12 10:00:00 UTC+2 │ api_key:55555555-5555-4555-8555-555555555555 │
+└─────────┴──────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────────┘
+
+Showing 2 versions
 === page of 2 webhooks
 Retrieved
 
@@ -1317,6 +1373,54 @@ Showing 1 sub-account
 └──────────────────┴────┴────────┴────────┴─────────┴─────────┴───────────┘
 
 Showing 1 suppression
+=== sparse template
+
+
+┌───────────┬─────────┐
+│   FIELD   │  VALUE  │
+├───────────┼─────────┤
+│ Name      │ Welcome │
+│ ID        │ -       │
+│ Editor    │ -       │
+│ Subject   │ -       │
+│ Preheader │ -       │
+│ From      │ -       │
+│ Reply To  │ -       │
+│ Has Draft │ No      │
+│ Variables │ -       │
+│ Created   │ -       │
+│ Updated   │ -       │
+└───────────┴─────────┘
+=== sparse template draft
+
+
+┌─────────────┬───────┐
+│    FIELD    │ VALUE │
+├─────────────┼───────┤
+│ Subject     │ Draft │
+│ Template ID │ -     │
+│ Preheader   │ -     │
+│ From        │ -     │
+│ Reply To    │ -     │
+│ Updated     │ -     │
+│ Variables   │ -     │
+└─────────────┴───────┘
+=== sparse template version
+
+
+┌──────────────┬───────┐
+│    FIELD     │ VALUE │
+├──────────────┼───────┤
+│ Version      │ 0     │
+│ ID           │ -     │
+│ Published At │ -     │
+│ Published By │ -     │
+│ Subject      │ -     │
+│ Preheader    │ -     │
+│ From         │ -     │
+│ Reply To     │ -     │
+│ Variables    │ -     │
+└──────────────┴───────┘
 === sparse updated api key
 
 
@@ -1454,6 +1558,87 @@ Allocation Note: Shared by reception count
 └──────────────────┴──────────────────────────────────────┴─────────────┴────────┴───────────────────────────┴───────────────────────────┴───────────┘
 
 Showing 1 suppression
+=== template
+
+
+┌────────────────┬────────────────────────────────────────────┐
+│     FIELD      │                   VALUE                    │
+├────────────────┼────────────────────────────────────────────┤
+│ Name           │ Welcome                                    │
+│ ID             │ 33333333-3333-4333-8333-333333333333       │
+│ Editor         │ advanced                                   │
+│ Subject        │ Hello {{ first_name }}                     │
+│ Preheader      │ Read me                                    │
+│ From           │ Example <hello@example.com>                │
+│ Reply To       │ support@example.com                        │
+│ Has Draft      │ Yes                                        │
+│ Variables      │ first_name (required), nickname (optional) │
+│ Created        │ 2026-09-10 10:30:00 UTC+2                  │
+│ Updated        │ 2026-09-10 11:30:00 UTC+2                  │
+│ MJML           │ <mjml>                                     │
+│                │ <mj-body></mj-body>                        │
+│                │ </mjml>                                    │
+│ Text           │ Hello                                      │
+│ Text Is Custom │ Yes                                        │
+└────────────────┴────────────────────────────────────────────┘
+=== template draft
+
+
+┌────────────────┬──────────────────────────────────────┐
+│     FIELD      │                VALUE                 │
+├────────────────┼──────────────────────────────────────┤
+│ Subject        │ Draft subject                        │
+│ Template ID    │ 33333333-3333-4333-8333-333333333333 │
+│ Preheader      │ Draft preheader                      │
+│ From           │ hello@example.com                    │
+│ Reply To       │ -                                    │
+│ Updated        │ 2026-09-11 10:00:00 UTC+2            │
+│ Variables      │ order_id (required)                  │
+│ HTML           │ <p>Order {{ order_id }}</p>          │
+│ Text           │ Order                                │
+│ Text Is Custom │ No                                   │
+└────────────────┴──────────────────────────────────────┘
+=== template version
+
+
+┌────────────────┬───────────────────────────────────────────┐
+│     FIELD      │                   VALUE                   │
+├────────────────┼───────────────────────────────────────────┤
+│ Version        │ 2                                         │
+│ ID             │ 44444444-4444-4444-8444-444444444444      │
+│ Published At   │ 2026-09-12 10:00:00 UTC+2                 │
+│ Published By   │ user:55555555-5555-4555-8555-555555555555 │
+│ Subject        │ Version subject                           │
+│ Preheader      │ -                                         │
+│ From           │ -                                         │
+│ Reply To       │ -                                         │
+│ Variables      │ first_name (optional)                     │
+│ Text           │ Hi                                        │
+│ Text Is Custom │ No                                        │
+└────────────────┴───────────────────────────────────────────┘
+=== template versions
+
+
+┌─────────┬──────────────────────────────────────┬───────────────────────────┬──────────────────────────────────────────────┐
+│ VERSION │                  ID                  │       PUBLISHED AT        │                 PUBLISHED BY                 │
+├─────────┼──────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────┤
+│ 2       │ 44444444-4444-4444-8444-444444444444 │ 2026-09-12 10:00:00 UTC+2 │ api_key:55555555-5555-4555-8555-555555555555 │
+│ 1       │ 66666666-6666-4666-8666-666666666666 │ 2026-09-12 09:00:00 UTC+2 │ -                                            │
+└─────────┴──────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────────┘
+
+Showing 2 versions
+=== templates list
+
+
+┌─────────┬──────────────────────────────────────┬──────────┬────────────────────────┬───────────┬───────────────────────────┐
+│  NAME   │                  ID                  │  EDITOR  │        SUBJECT         │ HAS DRAFT │          UPDATED          │
+├─────────┼──────────────────────────────────────┼──────────┼────────────────────────┼───────────┼───────────────────────────┤
+│ Welcome │ 33333333-3333-4333-8333-333333333333 │ advanced │ Hello {{ first_name }} │ Yes       │ 2026-09-10 11:30:00 UTC+2 │
+└─────────┴──────────────────────────────────────┴──────────┴────────────────────────┴───────────┴───────────────────────────┘
+
+Showing 1 template (more available)
+--after next-template
+--before previous-template
 === two bounce periods
 Bounces
 

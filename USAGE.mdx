@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, contacts and lists, domains, webhooks, suppressions, and analytics through an intuitive command structure.
+The AhaSend CLI is a comprehensive command-line interface for the AhaSend email service. It provides full functionality for managing email sending, transactional templates, contacts and lists, domains, webhooks, suppressions, and analytics through an intuitive command structure.
 
 ### Key Features
 
@@ -12,6 +12,7 @@ The AhaSend CLI is a comprehensive command-line interface for the AhaSend email 
 - **Authentication**: Secure profile-based authentication with API key management
 - **Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
 - **Contact and List Management**: Manage account-global contacts, synchronous batch upserts, and the lists contacts belong to
+- **Transactional Templates**: Store, draft, publish, and restore versions of the templates that `messages send --template-id` sends
 - **Analytics**: Comprehensive email statistics and reporting
 - **Multiple Output Formats**: JSON, table, CSV, and plain text
 - **Batch Processing**: High-performance concurrent operations with progress tracking
@@ -297,7 +298,8 @@ same rule:
   `the response is empty`, whatever its status, 204 No Content included, on
   every call but a delete, a cancel or a wipe, whose success the status
   alone tells: every other endpoint answers with a body, and showing an
-  empty one would show a result with no data. `messages send` counts the
+  empty one would show a result with no data. `templates draft discard` is
+  a DELETE that returns the template, so it is not one of the exceptions. `messages send` counts the
   recipients of such a send as of unknown outcome (see
   [`ahasend messages send`](#ahasend-messages-send)).
 - A response body larger than 32 MiB, far more than any real response, fails
@@ -345,6 +347,8 @@ page, and then the flags that fetch the next and the previous page,
 page prints only a line such as `No contacts found`, followed by the cursor
 line when the page points to another one. CSV output has no cursor line; use
 `--output json` and read `pagination.next_cursor` to page in scripts.
+`templates versions list` is not paginated: it ends with the `Showing` line
+alone.
 
 ```bash
 # Fetch the first page, then the page after it
@@ -364,6 +368,8 @@ first:
 - `subaccounts delete`, `subaccounts suspend` and
   `subaccounts api-keys delete`
 - `contacts delete`, `lists delete` and `lists members remove`
+- `templates delete`, `templates draft discard` and
+  `templates versions restore`
 - `auth logout --all`, which removes every stored API key from this machine
 
 The prompt goes to stderr and the answer is read from stdin, so stdout stays
@@ -542,23 +548,25 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
 - every flag in the [Repeatable Flags](#repeatable-flags) table, for each of
   its items too, such as the one after the comma in `--tag news,`
 - every required text flag: `--name` on the `create` commands of `webhooks`,
-  `routes`, `smtp`, `lists` and `subaccounts`; `--label` on `apikeys create`
-  and `subaccounts api-keys create`; `--url` and `--recipient` on
-  `webhooks create` and `routes create`; `--website` on `subaccounts create`;
-  `--reason` on `subaccounts suspend`; `--from`, `--subject` and the
-  `smtp send --username`; and the address of `contacts create`, which fails
-  with `email cannot be empty`. A missing one fails as
-  [Required Values](#required-values) says
+  `routes`, `smtp`, `lists`, `templates` and `subaccounts`; `--label` on
+  `apikeys create` and `subaccounts api-keys create`; `--url` and
+  `--recipient` on `webhooks create` and `routes create`; `--website` on
+  `subaccounts create`; `--reason` on `subaccounts suspend`; `--from`,
+  `--subject` and the `smtp send --username`; and the address of
+  `contacts create`, which fails with `email cannot be empty`. A missing one
+  fails as [Required Values](#required-values) says
 - `--label` on `apikeys update` and `subaccounts api-keys update`
 - `--name` and `--website` on `subaccounts update`
 - `--name`, `--url` and `--scope` on `webhooks update`, and `--name`, `--url`
   and `--recipient` on `routes update`, where the error adds
   `: a route's recipient cannot be cleared`
 - `lists members set --subscription-status`
-- `--name` on `lists update`
+- `--name` on `lists update` and `templates update`
+- `--editor` on `templates create`
 - `--status` on `contacts create`, and `--email` and `--status` on
   `contacts update`
-- `messages send --reply-to`
+- `--from` and `--reply-to` on the templates commands, and
+  `messages send --reply-to`
 - `--sending-type` and the subdomain flags, such as `--tracking-subdomain`,
   on `domains create` and `domains update`, where dots around a subdomain
   count as blank too
@@ -572,10 +580,12 @@ A [secret](#secrets), the `--password` of `smtp send`, is taken as given, so
 only an empty one fails.
 
 Where another flag clears the field, the error names it, such as
-`--ip-allow-list cannot be empty; use --clear-ip-allow-list to clear it`:
-`--clear-tags` for `lists update --tag`, `--clear-ip-allow-list` for
-`--ip-allow-list` on `apikeys update` and `subaccounts api-keys update`, and
-`--clear-events` for `--events` on `webhooks update`.
+`--from cannot be empty; use --clear-from to clear it`: `--clear-tags` for
+`lists update --tag`, `--clear-ip-allow-list` for `--ip-allow-list` on
+`apikeys update` and `subaccounts api-keys update`, `--clear-events` for
+`--events` on `webhooks update`, `--clear-from` for `--from` on
+`templates update`, and `--clear-reply-to` for `--reply-to` on
+`templates update`.
 
 #### Length Limits
 
@@ -585,20 +595,26 @@ fails with `--<flag> must be at most <limit> characters` and exit code 4:
 
 - 255 characters: `--label` on `apikeys create`, `apikeys update`,
   `subaccounts api-keys create` and `subaccounts api-keys update`; `--name`
-  on the `create` and `update` commands of `webhooks`, `routes`, `lists` and
-  `subaccounts`, and on `smtp create`; `--recipient` on
+  on the `create` and `update` commands of `webhooks`, `routes`, `lists`,
+  `templates` and `subaccounts`, and on `smtp create`; `--recipient` on
   `routes create`, `update` and `listen`; and `--reason` on
   `suppressions create`
-- 500 characters: `--reason` on `subaccounts suspend`
+- 500 characters: `--preheader` on `templates create` and
+  `templates update`, and `--reason` on `subaccounts suspend`
+- 998 characters: `--subject` on `templates create` and `templates update`
 - 1000 characters: `--description` on `lists create` and `update`
 
 Where the API cleans a value before it counts it, the CLI counts it the same
 way, and sends the value as you gave it, except on the `subaccounts`
 commands, which send `--name` and `subaccounts suspend --reason` without the
 spaces around them, as the API stores them. The spaces around these values do
-not count: the `--name` of the `lists` and `subaccounts` commands, the
-`--reason` of `subaccounts suspend` and the `--description` of the `lists`
-commands. The other flags count every character.
+not count: the `--name` of the `lists`, `templates` and `subaccounts`
+commands, the `--reason` of `subaccounts suspend`, the `--description` of the
+`lists` commands, and the `--subject` and `--preheader` of the `templates`
+commands, in which each
+CRLF line break, control character other than a tab, and line or paragraph
+separator (U+2028, U+2029) also counts as one space. The other flags count
+every character.
 
 #### Domain Names
 
@@ -629,6 +645,7 @@ lists:
 | `contacts list`, `contacts create`, `contacts update` | `--status` |
 | `contacts memberships`, `lists members list`, `lists members set` | `--subscription-status` |
 | `messages list` | `--status` |
+| `templates create` | `--editor` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--group-by` |
 | `webhooks create`, `webhooks update`, `smtp create` | `--scope` |
 | `webhooks create`, `webhooks update`, `webhooks trigger`, `webhooks listen` | `--events` |
@@ -662,6 +679,7 @@ request is sent:
 - `smtp send --from`, `--to`, `--cc` and `--bcc`
 - the address of `suppressions create`, `check` and `delete`, and
   `suppressions list --email`
+- `--from` and `--reply-to` on `templates create` and `templates update`
 - the address of `contacts create`, `contacts update --email`, and the
   `--email` of `contacts list` and `lists members list`, which the API
   matches exactly
@@ -722,10 +740,10 @@ sent exactly as they are.
 
 Flags that cannot be used together, such as `--after` and `--before`, fail
 with exit code 4 whenever both are given, even when one is empty or
-`=false`, as in `--clear-ip-allow-list=false --ip-allow-list 192.0.2.1`.
-The error begins in one form on every command, `--header <name>` and
-`--output json` included: `--after and --before cannot be used together`. A
-few go on to say why, or what to give instead, such as
+`=false`, as in `--clear-from=false --from news@example.com`. The error
+begins in one form on every command, `--header <name>` and `--output json`
+included: `--after and --before cannot be used together`. A few go on to say
+why, or what to give instead, such as
 `--format and --output json cannot be used together: JSON output prints the API's response unchanged`
 on `domains create`. A deprecated flag name cannot be
 used with the flag it stands for, or with another name of the same flag, such
@@ -818,9 +836,10 @@ own values.
   table has no room for, such as a message's content, and gives a domain's
   DNS records, which table and plain output show after its details, as a
   JSON array in a last `dns_records` column.
-- A CSV value is on one line: line breaks and tabs in it become spaces. The
-  `content` of `messages get` is the exception and keeps its text exactly,
-  line breaks included, inside the quotes CSV gives it.
+- A CSV value is on one line: line breaks and tabs in it become spaces.
+  Content columns are the exception and keep their text exactly, line breaks
+  included, inside the quotes CSV gives them: the `mjml`, `html` and `text`
+  of a template, and the `content` of `messages get`.
 - A CSV result with no rows, such as an empty list or a batch whose response
   lists no items, still writes its header row.
 - CSV output writes each value as the API sent it, so a value that starts
@@ -1932,6 +1951,246 @@ ahasend lists members remove <list-id> person@example.com --force
 The output is the API's message. When the API returns none, it is a line
 such as `Contact 'person@example.com' removed from list '<list-id>' successfully`.
 
+### Template Commands
+
+Transactional templates are stored designs that `messages send --template-id`
+sends. Changes go to the template's draft, the same draft the dashboard edits,
+and sends use the published copy, so a draft must be published before sends
+see it. Every publish is kept as a version that can be restored. The draft and
+the versions are managed through the nested `templates draft` and
+`templates versions` groups.
+
+**Scopes:** `templates:read` for `templates list`, `get`, `draft get`,
+`versions list` and `versions get`, `templates:write` for `create`, `update`,
+`publish`, `draft discard` and `versions restore`, and `templates:delete` for
+`delete`. `messages send --template-id` needs only the send scope of the
+sender's domain.
+
+`templates create` and `templates update` take these content and sender flags:
+
+- `--mjml-file <path>` sets the MJML of an advanced template, and
+  `--html-file <path>` the HTML of an html template. They cannot be combined.
+- `--text-file <path>` sets the plain text version. An empty file is rejected.
+  Without it, the text is made from the HTML, and an `update` keeps a custom
+  text; `update --regenerate-text` drops a custom text and rebuilds it from
+  the HTML.
+- `--from <email>` and `--from-name <name>` set the default sender.
+  `--from-name` needs `--from`, and `--from` cannot be empty. Both
+  `--from` and `--reply-to` are [checked](#email-addresses) addresses.
+- `--reply-to <email>` sets the default reply-to, an email only. It needs a
+  sender: `templates create --reply-to` fails with `--reply-to needs --from`
+  without `--from`, and `templates update --reply-to` needs a template that has
+  a sender. An empty `--reply-to` is an error; `templates update --clear-reply-to`
+  removes the reply-to.
+
+Single views list the template's variables, each marked required or optional,
+and show the content when the API returned it.
+
+#### `ahasend templates list`
+
+List the account's transactional templates, newest first.
+
+```bash
+# List templates
+ahasend templates list
+
+# List up to 20 templates
+ahasend templates list --limit 20
+```
+
+**Flags:**
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each template's name, ID, editor, subject, whether it has a
+draft, and when it was updated.
+
+#### `ahasend templates get`
+
+Get a template as sends use it: its published copy, with the variables a send
+must supply.
+
+```bash
+ahasend templates get <template-id>
+```
+
+#### `ahasend templates create`
+
+Create a transactional template.
+
+```bash
+# Create and publish an advanced template
+ahasend templates create --name Welcome --subject "Welcome, {{ first_name }}" \
+  --mjml-file welcome.mjml --from hello@example.com --from-name "Example" \
+  --reply-to support@example.com --publish
+
+# Create an html template with its own text version
+ahasend templates create --name Receipt --html-file receipt.html --text-file receipt.txt
+
+# Create a simple template from text only
+ahasend templates create --name Notice --editor simple --text-file notice.txt
+```
+
+**Flags:**
+- `--name`: Template name (required)
+- `--subject`: Subject, within its [length limit](#length-limits)
+- `--preheader`: Preview text, within its [length limit](#length-limits)
+- `--editor`: `advanced`, `simple` or `html`; needed when there is neither an
+  MJML nor an HTML file
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as described above
+- `--from`, `--from-name`, `--reply-to`: Default sender and reply-to, as
+  described above
+- `--publish`: Publish the draft in the same request. Without it the template
+  has a draft only, and sends fail until it is published.
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend templates update`
+
+Change a template. Only the flags you give are sent, and at least one is
+needed. Every field but the name goes to the draft; the name changes at once.
+The editor cannot change.
+
+```bash
+# Change the subject in the draft
+ahasend templates update <template-id> --subject "Welcome aboard"
+
+# Replace the design and publish it
+ahasend templates update <template-id> --mjml-file welcome.mjml --publish
+
+# Clear the subject
+ahasend templates update <template-id> --subject ""
+
+# Make the text version again from the HTML
+ahasend templates update <template-id> --regenerate-text
+
+# Remove the sender and the reply-to
+ahasend templates update <template-id> --clear-from
+
+# Publish the draft as it is
+ahasend templates update <template-id> --publish
+```
+
+**Flags:**
+- `--name`: New template name
+- `--subject`, `--preheader`: New subject or preview text, within their
+  [length limits](#length-limits); an empty value clears it
+- `--mjml-file`, `--html-file`, `--text-file`: Content files, as described above
+- `--regenerate-text`: Make the text version again from the HTML; cannot be
+  combined with `--text-file`
+- `--from`, `--from-name`: New sender; `--from` replaces the address and the
+  name together
+- `--clear-from`: Remove the sender and the reply-to; cannot be combined with
+  `--from`
+- `--reply-to`: New default reply-to; an empty value is an error, and so is
+  combining it with `--clear-from`, which leaves the template without the
+  sender a reply-to needs
+- `--clear-reply-to`: Remove the reply-to; cannot be combined with `--reply-to`
+- `--publish`: Publish the whole draft, including dashboard changes; on its
+  own it only publishes
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend templates delete`
+
+Delete a template. Sends of the template fail from then on. The command asks
+for [confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Delete a template
+ahasend templates delete <template-id>
+
+# Delete a template without the prompt
+ahasend templates delete <template-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+#### `ahasend templates publish`
+
+Publish a template's draft, including dashboard changes, and keep it as a new
+version. Sends use the published copy from then on.
+
+```bash
+# Publish a template's draft
+ahasend templates publish <template-id>
+
+# Publish with an idempotency key for safe retries
+ahasend templates publish <template-id> --idempotency-key publish-welcome
+```
+
+**Flags:**
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend templates draft get`
+
+Show a template's unpublished draft. A template with no draft returns a not
+found error.
+
+```bash
+ahasend templates draft get <template-id>
+```
+
+#### `ahasend templates draft discard`
+
+Discard a template's draft and print the template. A template with no draft is
+printed as it is. The command asks for [confirmation](#confirmation-prompts)
+unless `--force` is given.
+
+```bash
+# Discard a template's draft
+ahasend templates draft discard <template-id>
+
+# Discard a template's draft without the prompt
+ahasend templates draft discard <template-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+#### `ahasend templates versions list`
+
+List a template's published versions, newest first, without their content. A
+template keeps its 50 most recent versions, so the list is not paginated.
+
+```bash
+ahasend templates versions list <template-id>
+```
+
+Table output shows each version's number, ID, publish time, and publisher as
+`type:id` when it is known.
+
+#### `ahasend templates versions get`
+
+Show one published version with its content.
+
+```bash
+ahasend templates versions get <template-id> <version-id>
+```
+
+#### `ahasend templates versions restore`
+
+Restore a published version into the template's draft. The command asks for
+[confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Restore a version into the draft
+ahasend templates versions restore <template-id> <version-id>
+
+# Restore a version and publish it without the prompt
+ahasend templates versions restore <template-id> <version-id> --publish --force
+```
+
+**Flags:**
+- `--publish`: Publish the draft once the version is restored. A version that
+  the publish checks refuse is refused before the restore, and the draft is
+  left as it was.
+- `--force`, `-f`: Skip the confirmation prompt
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+<Warning>
+Restoring replaces the template's whole draft, including unpublished changes
+made in the dashboard. Publish or copy those changes first if you need them.
+</Warning>
+
 ### Message Commands
 
 #### `ahasend messages send`
@@ -2032,8 +2291,8 @@ ahasend messages send \
 
 ##### Stored Template Sending
 
-`--template-id` sends a stored transactional template instead of inline
-content:
+`--template-id` sends a stored transactional template (see
+[Template Commands](#template-commands)) instead of inline content:
 
 ```bash
 ahasend messages send \
@@ -3719,8 +3978,9 @@ API keys require specific scopes to define permissions. Choose scopes based on t
 - `campaigns:delete` - Delete draft campaigns
 - `campaigns:send` - Send, unschedule and test campaigns
 
-The [contact](#contact-commands) and [list](#list-commands) sections say
-which command needs which of these scopes, and
+The [contact](#contact-commands), [list](#list-commands) and
+[template](#template-commands) sections say which command needs which of
+these scopes, and
 [Sub-Account API Keys](#sub-account-api-keys) lists the sub-account scopes.
 
 **Other Scopes:**
@@ -4104,8 +4364,8 @@ Besides commands and flags, the shell completes:
 
 - the values of every flag that takes one of a fixed set, such as
   `--output`, `--status`, `--group-by`, `--scope`, `--events`,
-  `--sandbox-result`, `--sending-type`, `--subscription-status` and
-  `domains create --format`: the values the flag accepts
+  `--sandbox-result`, `--sending-type`, `--subscription-status`, `--editor`
+  and `domains create --format`: the values the flag accepts
 - the profile names in `~/.ahasend/config.yaml` for `--profile` and the
   profile argument of `auth switch` and `auth logout`; completing them reads
   that file only, and completes nothing, silently, when there is none
@@ -4488,7 +4748,7 @@ with HTTP 429 exits with code 8.
 These requests are sent once and never retried:
 
 - every DELETE request: the `delete` commands, `messages cancel`,
-  `suppressions wipe` and `lists members remove`.
+  `suppressions wipe`, `templates draft discard` and `lists members remove`.
   A delete whose answer was lost would otherwise be sent again and fail with
   HTTP 404 although the first one succeeded.
 - `webhooks trigger`, `routes trigger`, and the request of `webhooks listen`

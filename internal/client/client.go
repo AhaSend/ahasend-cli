@@ -710,6 +710,63 @@ func (c *Client) GetContactLists(idOrEmail string, params requests.GetContactLis
 	return recordBody(c.ListsAPI.GetContactLists(c.auth, c.accountUUID, idOrEmail, params))
 }
 
+// Template operations
+
+// GetTemplates retrieves a page of transactional templates
+func (c *Client) GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error) {
+	return recordBody(c.TemplatesAPI.GetTemplates(c.auth, c.accountUUID, params))
+}
+
+// GetTemplate retrieves a transactional template
+func (c *Client) GetTemplate(templateID uuid.UUID) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.GetTemplate(c.auth, c.accountUUID, templateID))
+}
+
+// CreateTemplate creates a transactional template
+func (c *Client) CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.CreateTemplate(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateTemplate partially updates a transactional template
+func (c *Client) UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.UpdateTemplate(c.auth, c.accountUUID, templateID, req, opts...))
+}
+
+// DeleteTemplate deletes a transactional template
+func (c *Client) DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
+	return recordDone(c.TemplatesAPI.DeleteTemplate(c.auth, c.accountUUID, templateID, noRetries))
+}
+
+// GetTemplateDraft retrieves a template's unpublished draft
+func (c *Client) GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error) {
+	return recordBody(c.TemplatesAPI.GetTemplateDraft(c.auth, c.accountUUID, templateID))
+}
+
+// DiscardTemplateDraft discards a template's draft
+func (c *Client) DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.DiscardTemplateDraft(c.auth, c.accountUUID, templateID, noRetries))
+}
+
+// PublishTemplate publishes a template's draft as a new version
+func (c *Client) PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.PublishTemplate(c.auth, c.accountUUID, templateID, opts...))
+}
+
+// GetTemplateVersions retrieves a template's published versions
+func (c *Client) GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error) {
+	return recordBody(c.TemplatesAPI.GetTemplateVersions(c.auth, c.accountUUID, templateID))
+}
+
+// GetTemplateVersion retrieves one published version of a template
+func (c *Client) GetTemplateVersion(templateID, versionID uuid.UUID) (*responses.TemplateVersionDetail, error) {
+	return recordBody(c.TemplatesAPI.GetTemplateVersion(c.auth, c.accountUUID, templateID, versionID))
+}
+
+// RestoreTemplateVersion restores a published version into a template's draft
+func (c *Client) RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.RestoreTemplateVersion(c.auth, c.accountUUID, templateID, versionID, req, opts...))
+}
+
 // TriggerWebhook triggers webhook events for development testing
 func (c *Client) TriggerWebhook(webhookID uuid.UUID, events []string) (*common.SuccessResponse, error) {
 	endpoint := fmt.Sprintf("/v2/accounts/%s/webhooks/%s/trigger", c.accountUUID, webhookID)

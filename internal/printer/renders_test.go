@@ -48,6 +48,9 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 	contact := contactFixture()
 	list := listFixture()
 	member := listMemberFixture()
+	template := templateFixture()
+	version := templateVersionDetailFixture()
+	draft := templateDraftFixture()
 
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
@@ -112,6 +115,13 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 		"list":           func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
 		"members list":   func(h ResponseHandler) error { return h.HandleListMemberList(embeddedMembersFixture(), ListConfig{}) },
 		"member":         func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"templates list": func(h ResponseHandler) error { return h.HandleTemplateList(templatesPageFixture(), ListConfig{}) },
+		"template":       func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
+		"template versions": func(h ResponseHandler) error {
+			return h.HandleTemplateVersionList(templateVersionsFixture(), ListConfig{})
+		},
+		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
+		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
 	})
 }
 
@@ -210,6 +220,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 	contact := responses.Contact{Email: "user@example.com"}
 	list := responses.ContactList{Name: "Newsletter"}
 	member := responses.ListContact{Email: "member@example.com"}
+	template := responses.Template{Name: "Welcome"}
+	version := responses.TemplateVersionDetail{}
+	draft := responses.TemplateDraft{Subject: "Draft"}
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
 			return h.HandleDomainList(&responses.PaginatedDomainsResponse{Data: []responses.Domain{domain}}, ListConfig{})
@@ -278,6 +291,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 		"members list": func(h ResponseHandler) error {
 			return h.HandleListMemberList(&responses.PaginatedListContactsResponse{Data: []responses.ListContact{member}}, ListConfig{})
 		},
+		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
+		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
+		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
 	})
 }
 

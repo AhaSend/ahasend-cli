@@ -18,6 +18,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/cmd/groups/stats"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/subaccounts"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/suppressions"
+	"github.com/AhaSend/ahasend-cli/cmd/groups/templates"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/webhooks"
 	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
@@ -282,6 +283,7 @@ func addCommands(root *cobra.Command) {
 	root.AddCommand(stats.NewCommand())
 	root.AddCommand(subaccounts.NewCommand())
 	root.AddCommand(suppressions.NewCommand())
+	root.AddCommand(templates.NewCommand())
 	root.AddCommand(webhooks.NewCommand())
 }
 

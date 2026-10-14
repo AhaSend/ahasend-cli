@@ -83,22 +83,27 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	message.SentAt = &sent
 	message.DeliveryAttempts = []responses.DeliveryEvent{{Time: styleTime, Status: "delivered", Log: "250 OK"}}
 	credential, subAccount := styleSMTP(), styleSubAccount()
+	draft, version := templateDraftFixture(), templateVersionDetailFixture()
 	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
+	template := templateFixture()
 	views := map[string]func(ResponseHandler) error{
-		"api key":         func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
-		"created api key": func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
-		"updated api key": func(h ResponseHandler) error { return h.HandleUpdateAPIKey(&key, ResultConfig{}) },
-		"message":         func(h ResponseHandler) error { return h.HandleSingleMessage(&message, SingleConfig{}) },
-		"domain":          func(h ResponseHandler) error { return h.HandleSingleDomain(&domain, SingleConfig{}) },
-		"webhook":         func(h ResponseHandler) error { return h.HandleSingleWebhook(&webhook, SingleConfig{}) },
-		"route":           func(h ResponseHandler) error { return h.HandleSingleRoute(&route, SingleConfig{}) },
-		"created route":   func(h ResponseHandler) error { return h.HandleCreateRoute(&route, ResultConfig{}) },
-		"created webhook": func(h ResponseHandler) error { return h.HandleCreateWebhook(&webhook, ResultConfig{}) },
-		"smtp credential": func(h ResponseHandler) error { return h.HandleSingleSMTP(&credential, SingleConfig{}) },
-		"sub-account":     func(h ResponseHandler) error { return h.HandleSingleSubAccount(&subAccount, SingleConfig{}) },
-		"contact":         func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
-		"list":            func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
-		"list member":     func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"api key":          func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
+		"created api key":  func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
+		"updated api key":  func(h ResponseHandler) error { return h.HandleUpdateAPIKey(&key, ResultConfig{}) },
+		"message":          func(h ResponseHandler) error { return h.HandleSingleMessage(&message, SingleConfig{}) },
+		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
+		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
+		"domain":           func(h ResponseHandler) error { return h.HandleSingleDomain(&domain, SingleConfig{}) },
+		"webhook":          func(h ResponseHandler) error { return h.HandleSingleWebhook(&webhook, SingleConfig{}) },
+		"route":            func(h ResponseHandler) error { return h.HandleSingleRoute(&route, SingleConfig{}) },
+		"created route":    func(h ResponseHandler) error { return h.HandleCreateRoute(&route, ResultConfig{}) },
+		"created webhook":  func(h ResponseHandler) error { return h.HandleCreateWebhook(&webhook, ResultConfig{}) },
+		"smtp credential":  func(h ResponseHandler) error { return h.HandleSingleSMTP(&credential, SingleConfig{}) },
+		"sub-account":      func(h ResponseHandler) error { return h.HandleSingleSubAccount(&subAccount, SingleConfig{}) },
+		"contact":          func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
+		"list":             func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
+		"list member":      func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 	}
 	for name, render := range views {
 		t.Run(name, func(t *testing.T) {

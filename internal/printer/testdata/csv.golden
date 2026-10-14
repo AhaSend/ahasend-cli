@@ -90,6 +90,8 @@ there"
 === no response for routes
 === no response for sub-accounts
 === no response for suppressions
+=== no response for templates
+=== no response for versions
 === no response for webhooks
 === page of 0 API keys
 label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
@@ -113,6 +115,10 @@ name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_repl
 name,id,status,website,monthly_credit,domain_count,member_count,created_at
 === page of 0 suppressions
 email,id,domain,reason,created_at,expires_at,protected
+=== page of 0 templates
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+=== page of 0 versions
+version,id,published_at,published_by
 === page of 0 webhooks
 name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 === page of 1 API keys
@@ -148,6 +154,12 @@ Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T0
 === page of 1 suppressions
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== page of 1 templates
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+=== page of 1 versions
+version,id,published_at,published_by
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 === page of 1 webhooks
 name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
@@ -195,6 +207,14 @@ Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T0
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== page of 2 templates
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+=== page of 2 versions
+version,id,published_at,published_by
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 === page of 2 webhooks
 name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
@@ -305,6 +325,15 @@ Acme,,,,0,0,0,
 === sparse suppression list
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,,,,,,false
+=== sparse template
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+Welcome,,,,,,,false,,,,,,,
+=== sparse template draft
+subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom
+Draft,,,,,,,,,,
+=== sparse template version
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
+0,,,,,,,,,,,,
 === sparse updated api key
 label,id,public_key,account_id,scopes,ip_allow_list,updated_at
 Production,,,,,,
@@ -340,6 +369,24 @@ user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09
 === suppression list
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== template
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,Example <hello@example.com>,support@example.com,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"<mjml>
+<mj-body></mj-body>
+</mjml>",,Hello,true
+=== template draft
+subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom
+Draft subject,33333333-3333-4333-8333-333333333333,Draft preheader,hello@example.com,,2026-09-11T08:00:00Z,order_id (required),,<p>Order {{ order_id }}</p>,Order,false
+=== template version
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,first_name (optional),,,Hi,false
+=== template versions
+version,id,published_at,published_by
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
+1,66666666-6666-4666-8666-666666666666,2026-09-12T07:00:00Z,
+=== templates list
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
 === two bounce periods
 from_timestamp,to_timestamp,classification,count,percentage
 2026-09-10T08:30:00Z,,,0,

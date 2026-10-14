@@ -14,9 +14,12 @@ import (
 // marketing command groups.
 func TestRootExposesMarketingCommandGroups(t *testing.T) {
 	groups := map[string][]string{
-		"contacts":      {"list", "get", "create", "update", "delete", "batch", "memberships"},
-		"lists":         {"list", "get", "create", "update", "delete", "members"},
-		"lists members": {"list", "add", "set", "remove"},
+		"contacts":           {"list", "get", "create", "update", "delete", "batch", "memberships"},
+		"lists":              {"list", "get", "create", "update", "delete", "members"},
+		"lists members":      {"list", "add", "set", "remove"},
+		"templates":          {"list", "get", "create", "update", "delete", "publish", "draft", "versions"},
+		"templates draft":    {"get", "discard"},
+		"templates versions": {"list", "get", "restore"},
 	}
 
 	for path, subcommands := range groups {
@@ -64,6 +67,7 @@ func TestSubaccountsUnsuspendLongLinesFit(t *testing.T) {
 func TestRequiredFlagsSayTheyAreRequired(t *testing.T) {
 	flags := map[string][]string{
 		"lists create":        {"name"},
+		"templates create":    {"name"},
 		"contacts batch":      {"file"},
 		"webhooks create":     {"name", "url"},
 		"routes create":       {"name", "url", "recipient"},
@@ -94,6 +98,19 @@ func TestRequiredRepeatableFlagsHaveOneCombinedMarker(t *testing.T) {
 			command, _, err := NewRootCmdForTesting().Find(strings.Fields(path))
 			require.NoError(t, err)
 			assert.True(t, strings.HasSuffix(command.Flags().Lookup(name).Usage, "(required; can be used multiple times)"))
+		})
+	}
+}
+
+func TestClearFromHelpSaysWhatItRemoves(t *testing.T) {
+	usages := map[string]string{
+		"templates update": "Remove the sender and the reply-to",
+	}
+	for path, usage := range usages {
+		t.Run(path, func(t *testing.T) {
+			command, _, err := NewRootCmdForTesting().Find(strings.Fields(path))
+			require.NoError(t, err)
+			assert.Equal(t, usage, command.Flags().Lookup("clear-from").Usage)
 		})
 	}
 }
@@ -180,7 +197,7 @@ func assertExamplesHaveCaptions(t *testing.T, command *cobra.Command) {
 
 func TestMarketingCommandsDoNotSayUUIDInLongHelp(t *testing.T) {
 	root := NewRootCmdForTesting()
-	for _, name := range []string{"contacts", "lists"} {
+	for _, name := range []string{"contacts", "lists", "templates"} {
 		group, _, err := root.Find([]string{name})
 		require.NoError(t, err)
 		walkCommands(group, func(command *cobra.Command) {

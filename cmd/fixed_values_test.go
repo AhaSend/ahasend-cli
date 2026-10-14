@@ -37,6 +37,8 @@ func TestFixedValuesAcceptAnyCaseAndSendTheAPISpelling(t *testing.T) {
 			returns[responses.PaginatedContactsResponse]("GetContacts", csvListBody), "DISABLED", `"disabled"`},
 		{[]string{"contacts", "memberships", "a@example.com", "--subscription-status", "CONFIRMED"},
 			returns[responses.PaginatedListContactsResponse]("GetContactLists", csvListBody), "CONFIRMED", `"confirmed"`},
+		{[]string{"templates", "create", "--name", "Fall", "--editor", "ADVANCED"},
+			returns[responses.Template]("CreateTemplate", csvItemBody), "ADVANCED", `"advanced"`},
 		{[]string{"lists", "members", "list", rawTestID, "--subscription-status", "UNSUBSCRIBED"},
 			returns[responses.PaginatedListContactsResponse]("GetListContacts", csvListBody), "UNSUBSCRIBED", `"unsubscribed"`},
 		{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status", "UNCONFIRMED"},

@@ -274,6 +274,9 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 	memberships := embeddedMembersFixture()
 	memberships.Data = repeat(responses.ListContact{ListID: styleID, List: &responses.EmbeddedContactList{Name: "Newsletter"}}, count)
 	memberships.Pagination = responses.ContactPagination(paged)
+	templates := templatesPageFixture()
+	templates.Data = repeat(templates.Data[0], count)
+	templates.Pagination = paged
 
 	return map[string]func(ResponseHandler) error{
 		"domains": func(h ResponseHandler) error {
@@ -308,6 +311,12 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 		"memberships": func(h ResponseHandler) error {
 			return h.HandleContactMembershipList(memberships, ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found", ItemName: "memberships"})
 		},
+		"templates": func(h ResponseHandler) error { return h.HandleTemplateList(templates, config) },
+		"versions": func(h ResponseHandler) error {
+			versions := templateVersionsFixture()
+			versions.Data = repeat(versions.Data[0], count)
+			return h.HandleTemplateVersionList(versions, config)
+		},
 	}
 }
 
@@ -327,6 +336,11 @@ func TestEveryListEndsWithTheShowingLineAndThePageFlags(t *testing.T) {
 					output := renderWith(t, format, render)
 					if count == 1 {
 						itemName = strings.TrimSuffix(itemName, "s")
+					}
+					if itemName == "versions" || itemName == "version" {
+						// The API returns every version of a template on one page.
+						assert.True(t, strings.HasSuffix(output, "\nShowing "+formatInt(count)+" "+itemName+"\n"), output)
+						return
 					}
 					assert.True(t, strings.HasSuffix(output, "\nShowing "+formatInt(count)+" "+itemName+
 						" (more available)\n--after next-page\n--before previous-page\n"), output)
@@ -351,6 +365,8 @@ var listTableHeads = map[string][]string{
 	"lists":            {"NAME", "ID"},
 	"members":          {"EMAIL", "CONTACT ID"},
 	"memberships":      {"LIST", "LIST ID"},
+	"templates":        {"NAME", "ID"},
+	"versions":         {"VERSION", "ID"},
 }
 
 // listView is the fields of each item of a list view: every field, which
@@ -376,6 +392,8 @@ var listViews = map[string]listView{
 	"lists":                {listFields, listTableColumns, listHeaders},
 	"members":              {listMemberFields, listMemberTableColumns, listMemberHeaders},
 	"memberships":          {contactMembershipFields, contactMembershipTableColumns, listMemberHeaders},
+	"templates":            {templateListFields, templateTableColumns, templateHeaders},
+	"versions":             {templateVersionFields, templateVersionTableColumns, templateVersionHeaders},
 }
 
 // TestListTableColumnsAreFieldsOfThePlainAndCSVList checks that the table of
@@ -439,6 +457,8 @@ var listPlainHeads = map[string][]string{
 	"lists":            {"Name", "ID"},
 	"members":          {"Email", "Contact ID"},
 	"memberships":      {"List", "List ID"},
+	"templates":        {"Name", "ID"},
+	"versions":         {"Version", "ID"},
 }
 
 // plainItems returns the label of each field line of each item of a plain
@@ -488,6 +508,8 @@ var listCSVHeads = map[string][]string{
 	"lists":            {"name", "id"},
 	"members":          {"email", "contact_id"},
 	"memberships":      {"list_name", "list_id"},
+	"templates":        {"name", "id"},
+	"versions":         {"version", "id"},
 }
 
 func TestCSVListsPutTheNameThenTheIDAndNoObjectColumn(t *testing.T) {

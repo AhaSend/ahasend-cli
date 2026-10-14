@@ -44,6 +44,7 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 	sendingTypes := []string{"transactional", "marketing"}
 	contactStatuses := []string{"enabled", "disabled", "blocked"}
 	filters := []string{"unconfirmed", "confirmed", "unsubscribed", "complained"}
+	editors := []string{"advanced", "simple", "html"}
 	events := []string{"reception", "delivered", "transient_error", "failed", "bounced", "suppressed", "opened",
 		"clicked", "suppression_created", "dns_error", "message.reception", "message.delivered",
 		"message.transient_error", "message.failed", "message.bounced", "message.suppressed", "message.opened",
@@ -76,6 +77,7 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 		{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status"},
 			[]string{"confirmed", "unconfirmed", "unsubscribed"}},
 		{[]string{"stats", "bounces", "--group-by"}, []string{"hour", "day", "week", "month"}},
+		{[]string{"templates", "create", "--editor"}, editors},
 	}
 	for _, test := range tests {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
@@ -152,6 +154,7 @@ func TestOnlyFileFlagsCompleteFileNames(t *testing.T) {
 		{"messages", "send", "--attach"},
 		{"messages", "send", "--text-template"},
 		{"smtp", "send", "--html-file"},
+		{"templates", "create", "--mjml-file"},
 		{"contacts", "batch", "--file"},
 		{"domains", "create", "example.com", "--dkim-private-key-file"},
 	} {

@@ -323,6 +323,20 @@ func writeLabelLines(w io.Writer, indent string, rows [][]string) error {
 	return nil
 }
 
+// writeIndentedList writes a "label:" line followed by each item on its own
+// indented line.
+func writeIndentedList(w io.Writer, label string, items []string) error {
+	if _, err := fmt.Fprintf(w, "%s:\n", label); err != nil {
+		return err
+	}
+	for _, item := range items {
+		if _, err := fmt.Fprintf(w, "  %s\n", item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // stableJSON encodes free-form values, such as contact attributes, as compact
 // JSON with sorted keys. A nil value prints as empty rather than "null".
 func stableJSON(value any) (string, error) {

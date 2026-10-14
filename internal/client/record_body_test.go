@@ -215,6 +215,7 @@ func TestClient_EmptySuccessBodyIsUnreadable(t *testing.T) {
 		{"api key create", http.StatusCreated, func(c *Client) (any, error) {
 			return c.CreateAPIKey(requests.CreateAPIKeyRequest{Label: "x", Scopes: []string{"messages:send:all"}})
 		}},
+		{"template draft discard", http.StatusOK, func(c *Client) (any, error) { return c.DiscardTemplateDraft(uuid.New()) }},
 		{"message send", http.StatusAccepted, func(c *Client) (any, error) {
 			return c.SendMessageWithIdempotencyKey(requests.CreateMessageRequest{}, "key")
 		}},

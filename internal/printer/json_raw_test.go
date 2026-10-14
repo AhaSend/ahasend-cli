@@ -158,6 +158,21 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"batch list members", func(h ResponseHandler) error {
 			return h.HandleBatchListMembers(recorded[responses.BatchAddListContactsResponse](), SingleConfig{})
 		}},
+		{"template list", func(h ResponseHandler) error {
+			return h.HandleTemplateList(recorded[responses.PaginatedTemplatesResponse](), ListConfig{})
+		}},
+		{"single template", func(h ResponseHandler) error {
+			return h.HandleSingleTemplate(recorded[responses.Template](), SingleConfig{})
+		}},
+		{"template draft", func(h ResponseHandler) error {
+			return h.HandleTemplateDraft(recorded[responses.TemplateDraft](), SingleConfig{})
+		}},
+		{"template version list", func(h ResponseHandler) error {
+			return h.HandleTemplateVersionList(recorded[responses.TemplateVersionsResponse](), ListConfig{})
+		}},
+		{"single template version", func(h ResponseHandler) error {
+			return h.HandleSingleTemplateVersion(recorded[responses.TemplateVersionDetail](), SingleConfig{})
+		}},
 	}
 
 	for _, tt := range tests {

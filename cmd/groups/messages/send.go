@@ -87,10 +87,10 @@ SCHEDULING:
     that fails before anything is sent.
 
 TEMPLATE MODE:
-  --template-id: Send a stored transactional template. The template
-    supplies the content, so the content options above cannot be used.
-    --from and --subject are optional and default to the template's sender
-    and subject.
+  --template-id: Send a stored transactional template (see "ahasend
+    templates"). The template supplies the content, so the content options
+    above cannot be used. --from and --subject are optional and default to
+    the template's sender and subject.
   Global substitutions are copied into every recipient's substitutions; a
   recipient's own value for the same key wins.
 

@@ -365,3 +365,49 @@ func (m *MockClient) DeleteListContact(listID uuid.UUID, idOrEmail string) (*com
 func (m *MockClient) GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error) {
 	return result[responses.PaginatedListContactsResponse](m.Called(idOrEmail, params))
 }
+
+// Template operations methods
+
+func (m *MockClient) GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error) {
+	return result[responses.PaginatedTemplatesResponse](m.Called(params))
+}
+
+func (m *MockClient) GetTemplate(templateID uuid.UUID) (*responses.Template, error) {
+	return result[responses.Template](m.Called(templateID))
+}
+
+func (m *MockClient) CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return result[responses.Template](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return result[responses.Template](m.Called(withOptions([]interface{}{templateID, req}, opts)...))
+}
+
+func (m *MockClient) DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(templateID))
+}
+
+func (m *MockClient) GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error) {
+	return result[responses.TemplateDraft](m.Called(templateID))
+}
+
+func (m *MockClient) DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error) {
+	return result[responses.Template](m.Called(templateID))
+}
+
+func (m *MockClient) PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error) {
+	return result[responses.Template](m.Called(withOptions([]interface{}{templateID}, opts)...))
+}
+
+func (m *MockClient) GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error) {
+	return result[responses.TemplateVersionsResponse](m.Called(templateID))
+}
+
+func (m *MockClient) GetTemplateVersion(templateID, versionID uuid.UUID) (*responses.TemplateVersionDetail, error) {
+	return result[responses.TemplateVersionDetail](m.Called(templateID, versionID))
+}
+
+func (m *MockClient) RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error) {
+	return result[responses.Template](m.Called(withOptions([]interface{}{templateID, versionID, req}, opts)...))
+}

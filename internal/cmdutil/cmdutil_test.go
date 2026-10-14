@@ -14,6 +14,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/prompt"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/api"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -559,6 +560,124 @@ func TestIdempotencyKeyFor_SendsASingleRequestsKeyAsGiven(t *testing.T) {
 	assert.Equal(t, "key-0", IdempotencyKeyFor("key", 0, 2))
 }
 
+// Content ---------------------------------------------------------------------
+
+func TestReadContent_NoFlagsIsNil(t *testing.T) {
+	content, err := ReadContent(parsed(t, AddCreateContentFlags))
+	require.NoError(t, err)
+	assert.Nil(t, content)
+}
+
+func TestReadContent_ReadsFiles(t *testing.T) {
+	mjml := testutil.WriteTempFile(t, "content", "<mjml></mjml>")
+	text := testutil.WriteTempFile(t, "content", "Hello")
+	content, err := ReadContent(parsed(t, AddCreateContentFlags, "--mjml-file", mjml, "--text-file", text))
+	require.NoError(t, err)
+	require.NotNil(t, content)
+	assert.Equal(t, "<mjml></mjml>", *content.MJML)
+	assert.Nil(t, content.HTML)
+	assert.Equal(t, "Hello", *content.Text)
+}
+
+func TestReadContent_ReadsHTML(t *testing.T) {
+	html := testutil.WriteTempFile(t, "content", "<p>Hi</p>")
+	content, err := ReadContent(parsed(t, AddCreateContentFlags, "--html-file", html))
+	require.NoError(t, err)
+	require.NotNil(t, content)
+	assert.Equal(t, "<p>Hi</p>", *content.HTML)
+}
+
+func TestReadContent_MJMLAndHTMLRejected(t *testing.T) {
+	path := testutil.WriteTempFile(t, "content", "x")
+	_, err := ReadContent(parsed(t, AddCreateContentFlags, "--mjml-file", path, "--html-file", path))
+	assertValidationError(t, err, "--mjml-file and --html-file cannot be used together")
+}
+
+func TestReadContent_EmptyTextFileRejected(t *testing.T) {
+	_, err := ReadContent(parsed(t, AddCreateContentFlags, "--text-file", testutil.WriteTempFile(t, "content", "")))
+	assertValidationError(t, err, "--text-file is empty")
+}
+
+func TestReadContent_MissingFileRejected(t *testing.T) {
+	_, err := ReadContent(parsed(t, AddCreateContentFlags, "--html-file", filepath.Join(t.TempDir(), "missing")))
+	assertValidationError(t, err, "failed to read --html-file")
+}
+
+func TestReadContent_RegenerateTextSendsEmptyText(t *testing.T) {
+	content, err := ReadContent(parsed(t, AddUpdateContentFlags, "--regenerate-text"))
+	require.NoError(t, err)
+	require.NotNil(t, content)
+	require.NotNil(t, content.Text)
+	assert.Equal(t, "", *content.Text)
+}
+
+func TestReadContent_RegenerateTextWithTextFileRejected(t *testing.T) {
+	_, err := ReadContent(parsed(t, AddUpdateContentFlags, "--regenerate-text", "--text-file", testutil.WriteTempFile(t, "content", "Hi")))
+	assertValidationError(t, err, "--regenerate-text and --text-file cannot be used together")
+}
+
+func TestContentFlags_EditorOnCreateOnly(t *testing.T) {
+	create := parsed(t, AddCreateContentFlags)
+	assert.NotNil(t, create.Flags().Lookup("editor"))
+	assert.Nil(t, create.Flags().Lookup("regenerate-text"))
+
+	update := parsed(t, AddUpdateContentFlags)
+	assert.Nil(t, update.Flags().Lookup("editor"))
+	assert.NotNil(t, update.Flags().Lookup("regenerate-text"))
+}
+
+// Sender ----------------------------------------------------------------------
+
+func addUpdateSenderFlags(cmd *cobra.Command) {
+	AddUpdateSenderFlags(cmd, "Remove the sender")
+}
+
+func TestReadSender_NoFlagsIsNil(t *testing.T) {
+	sender, err := ReadSender(parsed(t, addUpdateSenderFlags))
+	require.NoError(t, err)
+	assert.Nil(t, sender)
+}
+
+func TestReadSender_FromAndName(t *testing.T) {
+	sender, err := ReadSender(parsed(t, AddSenderFlags, "--from", "a@example.com", "--from-name", "Acme"))
+	require.NoError(t, err)
+	name := "Acme"
+	assert.Equal(t, &common.SenderAddress{Email: "a@example.com", Name: &name}, sender)
+}
+
+func TestReadSender_FromWithoutName(t *testing.T) {
+	sender, err := ReadSender(parsed(t, AddSenderFlags, "--from", "a@example.com"))
+	require.NoError(t, err)
+	assert.Equal(t, &common.SenderAddress{Email: "a@example.com"}, sender)
+}
+
+func TestReadSender_NameWithoutFromRejected(t *testing.T) {
+	_, err := ReadSender(parsed(t, AddSenderFlags, "--from-name", "Acme"))
+	assertValidationError(t, err, "--from-name needs --from")
+}
+
+func TestReadSender_EmptyFromRejected(t *testing.T) {
+	_, err := ReadSender(parsed(t, AddSenderFlags, "--from", ""))
+	assertValidationError(t, err, "--from cannot be empty")
+	assert.NotContains(t, err.Error(), "use --")
+}
+
+func TestReadSender_EmptyFromPointsToClearFrom(t *testing.T) {
+	_, err := ReadSender(parsed(t, addUpdateSenderFlags, "--from", ""))
+	assertValidationError(t, err, "--from cannot be empty; use --clear-from to clear it")
+}
+
+func TestReadSender_ClearFromSendsEmptyAddress(t *testing.T) {
+	sender, err := ReadSender(parsed(t, addUpdateSenderFlags, "--clear-from"))
+	require.NoError(t, err)
+	assert.Equal(t, &common.SenderAddress{}, sender)
+}
+
+func TestReadSender_ClearFromWithFromRejected(t *testing.T) {
+	_, err := ReadSender(parsed(t, addUpdateSenderFlags, "--clear-from", "--from", "a@example.com"))
+	assertValidationError(t, err, "--clear-from and --from cannot be used together")
+}
+
 // Batch files -----------------------------------------------------------------
 
 type testDataItem struct {
@@ -869,7 +988,6 @@ func TestReadOneOf_ReturnsTheListedSpelling(t *testing.T) {
 }
 
 func TestReadFilterOneOf_ReturnsTheListedSpelling(t *testing.T) {
-	editors := []string{"advanced", "simple", "html"}
 	cmd := parsed(t, func(cmd *cobra.Command) { AddOneOfFlag(cmd, "editor", "", "Editor: %s", editors) }, "--editor", "Simple")
 	value, err := ReadFilterOneOf(cmd, "editor")
 	require.NoError(t, err)
@@ -975,6 +1093,21 @@ func TestCheckMaxLength_CountsCharacters(t *testing.T) {
 	assert.NoError(t, CheckMaxLength("name", &atLimit, MaxNameLength))
 	assert.NoError(t, CheckMaxLength("name", nil, MaxNameLength))
 	assertValidationError(t, CheckMaxLength("name", &overLimit, MaxNameLength), "--name must be at most 255 characters")
+}
+
+func TestCleanTemplateTextCleansAsTheAPIDoes(t *testing.T) {
+	tests := map[string]string{
+		"  Hello  ":           "Hello",
+		"a\r\nb":              "a b",
+		"a\nb\rc":             "a b c",
+		"a\tb":                "a\tb",
+		"a\u2028b\u2029c":     "a b c",
+		"a\x00b\x7fc\u0085d":  "a b c d",
+		"\r\n\tWelcome\t\r\n": "Welcome",
+	}
+	for value, want := range tests {
+		assert.Equal(t, want, cleanTemplateText(value), "%q", value)
+	}
 }
 
 func TestShellQuote(t *testing.T) {

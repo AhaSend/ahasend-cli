@@ -1,6 +1,7 @@
 // Package cmdutil holds the flag helpers that commands share: cursor
 // pagination, partial-update readers, repeatable flags, required flags that
-// can be asked for, and idempotency keys.
+// can be asked for, idempotency keys, and the content and sender flags of
+// templates.
 //
 // Readers return errors from the errors package, so a bad flag fails as a
 // validation error before the command authenticates.
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/AhaSend/ahasend-cli/internal/errors"
@@ -108,6 +110,21 @@ func JoinFilter(values []string) *string {
 	}
 	joined := strings.Join(values, ",")
 	return &joined
+}
+
+// ReadClearable returns the value of the string flag name, or nil when it was
+// not set, and whether the bool flag clearFlag, such as --clear-from, was
+// given. A command without clearFlag, such as a create command, has nothing
+// to clear. An empty value is a validation error, which points to clearFlag
+// when the command has it.
+func ReadClearable(cmd *cobra.Command, name, clearFlag string) (*string, bool, error) {
+	if cmd.Flags().Lookup(clearFlag) == nil {
+		value, err := ReadNonEmpty(cmd, name, "")
+		return value, false, err
+	}
+	cleared, _ := cmd.Flags().GetBool(clearFlag)
+	value, err := ReadNonEmpty(cmd, name, clearFlag)
+	return value, cleared, err
 }
 
 // AddRepeatableFlag adds a flag that can be used multiple times. Like every
@@ -285,12 +302,46 @@ func CheckMaxLength(name string, value *string, max int) error {
 
 // CheckMaxCleanedLength is CheckMaxLength for a value the API cleans before
 // it counts its characters: it counts value once clean has cleaned it as the
-// API does, such as strings.TrimSpace for a name the API trims. The value is
-// still sent as given, for the API to clean.
+// API does, such as strings.TrimSpace for a name the API trims, or
+// cleanTemplateText. The value is still sent as given, for the API to clean.
 func CheckMaxCleanedLength(name string, value *string, max int, clean func(string) string) error {
 	if value == nil {
 		return nil
 	}
 	cleaned := clean(*value)
 	return CheckMaxLength(name, &cleaned, max)
+}
+
+// The most characters the API accepts in the subject and the preheader
+// (preview text) of a template, once cleaned.
+const (
+	maxSubjectLength   = 998
+	maxPreheaderLength = 500
+)
+
+// CheckSubjectAndPreheader checks that --subject and --preheader, when set,
+// fit maxSubjectLength and maxPreheaderLength, counted as the API counts them,
+// once cleanTemplateText cleaned them.
+func CheckSubjectAndPreheader(cmd *cobra.Command) error {
+	if err := CheckMaxCleanedLength("subject", ChangedString(cmd, "subject"),
+		maxSubjectLength, cleanTemplateText); err != nil {
+		return err
+	}
+	return CheckMaxCleanedLength("preheader", ChangedString(cmd, "preheader"),
+		maxPreheaderLength, cleanTemplateText)
+}
+
+// cleanTemplateText cleans a subject or a preview text as the API does before
+// it counts its characters: each CRLF line break, each control character
+// other than a tab, and each line or paragraph separator (U+2028, U+2029)
+// becomes one space, then the spaces around the text are trimmed.
+func cleanTemplateText(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", " ")
+	value = strings.Map(func(r rune) rune {
+		if r != '\t' && (unicode.IsControl(r) || r == '\u2028' || r == '\u2029') {
+			return ' '
+		}
+		return r
+	}, value)
+	return strings.TrimSpace(value)
 }

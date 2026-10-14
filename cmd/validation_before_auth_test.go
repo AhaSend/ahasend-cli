@@ -101,8 +101,11 @@ var localValidationErrors = []struct {
 	{[]string{"contacts", "list", "--from-time", "2026-02-01T00:00:00Z", "--to-time", "2026-01-01T00:00:00Z"},
 		"--from-time must be before --to-time"},
 	// A flag set to false still conflicts with the flag it cannot go with.
-	{[]string{"apikeys", "update", rawTestID, "--clear-ip-allow-list=false", "--ip-allow-list", "192.0.2.1"},
-		"--clear-ip-allow-list and --ip-allow-list cannot be used together"},
+	{[]string{"templates", "update", rawTestID, "--clear-from=false", "--from", "a@example.com"},
+		"--clear-from and --from cannot be used together"},
+	// A reply-to needs a sender, which --clear-from removes.
+	{[]string{"templates", "update", rawTestID, "--clear-from", "--reply-to", "r@example.com"},
+		"--clear-from and --reply-to cannot be used together"},
 	{append(sendArgs("--text", "Hi"), "--text-file", "body.txt"), "--text and --text-file cannot be used together"},
 	{append(sendArgs("--html", "<p>Hi</p>"), "--html-file", "body.html"), "--html and --html-file cannot be used together"},
 	{append(sendArgs("--amp", "<p>Hi</p>"), "--amp-file", "body.amp"), "--amp and --amp-file cannot be used together"},
@@ -165,6 +168,7 @@ var enumValidationErrors = []struct {
 	{[]string{"contacts", "list", "--status", "active"}, "--status must be one of: enabled, disabled, blocked"},
 	{[]string{"contacts", "memberships", "a@example.com", "--subscription-status", "bounced"},
 		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
+	{[]string{"templates", "create", "--name", "Fall", "--editor", "visual"}, "--editor must be one of: advanced, simple, html"},
 	{[]string{"lists", "members", "list", rawTestID, "--subscription-status", "bounced"},
 		"--subscription-status must be one of: unconfirmed, confirmed, unsubscribed, complained"},
 	{[]string{"lists", "members", "set", rawTestID, "a@example.com", "--subscription-status", "complained"},
@@ -263,6 +267,10 @@ var idempotentCommands = map[string][]string{
 	"subaccounts api-keys create": {rawTestID, "--label", "ci", "--scope", "messages:send:all"},
 	"subaccounts create":          {"--name", "Acme", "--website", "acme.example.com"},
 	"suppressions create":         {"user@example.com", "--expires", "30d"},
+	"templates create":            {"--name", "Welcome", "--editor", "simple"},
+	"templates publish":           {rawTestID},
+	"templates update":            {rawTestID, "--name", "Welcome"},
+	"templates versions restore":  {rawTestID, rawTestID, "--force"},
 	"webhooks create":             {"--name", "Events", "--url", "https://example.com/hook", "--events", "delivered"},
 }
 
@@ -360,6 +368,8 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{"smtp", "create", "--name", long},
 		{"lists", "create", "--name", long},
 		{"lists", "update", rawTestID, "--name", long},
+		{"templates", "create", "--editor", "simple", "--name", long},
+		{"templates", "update", rawTestID, "--name", long},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
@@ -376,12 +386,14 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 }
 
 // TestLengthsAreCountedAsTheAPICountsThem runs every command that sends a
-// name or a description the API cleans before it counts it, with a value at
-// the limit once cleaned and longer as given: the spaces around a name or a
-// description do not count. The command sends the value.
+// name, description, subject or preview text the API cleans before it counts
+// it, with a value at the limit once cleaned and longer as given: the spaces
+// around a name or a description, and in a subject or a preview text a CRLF,
+// which becomes one space, do not count. The command sends the value.
 func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 	name := "  " + strings.Repeat("é", 255) + "\t\n"
 	description := " " + strings.Repeat("é", 1000) + " "
+	text := func(max int) string { return " " + strings.Repeat("é", max-2) + "\r\né\n" }
 	tests := [][]string{
 		{"subaccounts", "create", "--website", "acme.example.com", "--name", name},
 		{"subaccounts", "update", rawTestID, "--name", name},
@@ -389,11 +401,18 @@ func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 		{"lists", "update", rawTestID, "--name", name},
 		{"lists", "create", "--name", "News", "--description", description},
 		{"lists", "update", rawTestID, "--description", description},
+		{"templates", "create", "--editor", "simple", "--name", name},
+		{"templates", "update", rawTestID, "--name", name},
+		{"templates", "create", "--editor", "simple", "--name", "Fall", "--subject", text(998)},
+		{"templates", "update", rawTestID, "--subject", text(998)},
+		{"templates", "create", "--editor", "simple", "--name", "Fall", "--preheader", text(500)},
+		{"templates", "update", rawTestID, "--preheader", text(500)},
 	}
 	for _, args := range tests {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
-			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount", "CreateList", "UpdateList"} {
+			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount", "CreateList", "UpdateList",
+				"CreateTemplate", "UpdateTemplate"} {
 				expectAnyArgs(mockClient, method, nil, rawAPIError(400))
 			}
 			called := testutil.InjectClient(t, mockClient)
@@ -414,6 +433,10 @@ func TestEveryTextLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		args []string
 		max  int
 	}{
+		{[]string{"templates", "create", "--editor", "simple", "--name", "Fall", "--subject"}, 998},
+		{[]string{"templates", "update", rawTestID, "--subject"}, 998},
+		{[]string{"templates", "create", "--editor", "simple", "--name", "Fall", "--preheader"}, 500},
+		{[]string{"templates", "update", rawTestID, "--preheader"}, 500},
 		{[]string{"lists", "create", "--name", "News", "--description"}, 1000},
 		{[]string{"lists", "update", rawTestID, "--description"}, 1000},
 		{[]string{"suppressions", "create", "a@example.com", "--expires", "30d", "--reason"}, 255},
@@ -456,6 +479,8 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 		{[]string{"routes", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
 		{[]string{"routes", "update", rawTestID, "--recipient", blank}, "--recipient cannot be empty: a route's recipient cannot be cleared"},
 		{[]string{"smtp", "create", "--name", blank}, "--name cannot be empty"},
+		{[]string{"templates", "create", "--editor", "simple", "--name", blank}, "--name cannot be empty"},
+		{[]string{"templates", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
 		{[]string{"subaccounts", "create", "--website", "acme.example.com", "--name", blank}, "--name cannot be empty"},
 		{[]string{"subaccounts", "create", "--name", "Acme", "--website", blank}, "--website cannot be empty"},
 		{[]string{"subaccounts", "update", rawTestID, "--website", blank}, "--website cannot be empty"},
@@ -484,6 +509,10 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 func TestEveryEmailAddressIsCheckedBeforeAuthenticating(t *testing.T) {
 	const notBare = "Jane <jane@example.com>"
 	tests := [][]string{
+		{"templates", "create", "--editor", "simple", "--name", "Fall", "--from", notBare},
+		{"templates", "update", rawTestID, "--from", notBare},
+		{"templates", "create", "--editor", "simple", "--name", "Fall", "--from", "a@example.com", "--reply-to", notBare},
+		{"templates", "update", rawTestID, "--reply-to", notBare},
 		{"contacts", "update", "a@example.com", "--email", notBare},
 		{"contacts", "list", "--email", notBare},
 		{"lists", "members", "list", rawTestID, "--email", notBare},

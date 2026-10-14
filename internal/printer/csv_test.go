@@ -168,10 +168,16 @@ func TestCSVTimesKeepTheOffsetTheAPISent(t *testing.T) {
 }
 
 // TestCSVPutsEveryValueOnOneLine checks that a line break in a value the API
-// sent does not start a new CSV row.
+// sent, outside a template's content, does not start a new CSV row.
 func TestCSVPutsEveryValueOnOneLine(t *testing.T) {
 	const broken = "first\nsecond"
 	renders := map[string]func(ResponseHandler) error{
+		"template draft": func(h ResponseHandler) error {
+			return h.HandleTemplateDraft(&responses.TemplateDraft{Subject: broken}, SingleConfig{})
+		},
+		"template version": func(h ResponseHandler) error {
+			return h.HandleSingleTemplateVersion(&responses.TemplateVersionDetail{Subject: broken}, SingleConfig{})
+		},
 		"contacts batch": func(h ResponseHandler) error {
 			return h.HandleBatchContacts(&responses.BatchUpsertContactsResponse{
 				Data: []responses.BatchContactResult{{Email: "user@example.com", Outcome: "failed", Reason: broken}},
@@ -221,7 +227,8 @@ func TestCSVOfAnEmptyResultIsTheHeader(t *testing.T) {
 }
 
 // TestCSVKeepsMessageContentExactly checks that a message's content keeps
-// its line breaks and tabs, while its subject goes on one line.
+// its line breaks and tabs, like a template's, while its subject goes on one
+// line.
 func TestCSVKeepsMessageContentExactly(t *testing.T) {
 	content := "Subject: Hi\r\n\r\n\tHello\nthere"
 	message := &responses.Message{Subject: "first\nsecond", Content: &content}
