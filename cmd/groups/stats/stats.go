@@ -9,11 +9,12 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "View email statistics and reporting",
-		Long: `View comprehensive email statistics and reports including deliverability,
-bounce analysis, and delivery time performance metrics.
+		Long: `View email statistics and reports including deliverability, bounce
+analysis, and delivery time performance metrics.
 
-Statistics can be filtered by time range, domain, and grouped by various periods
-(hour, day, week, month). Data can be exported to CSV format for further analysis.
+Statistics can be filtered by time range, domain and tag, and grouped by
+periods (hour, day, week, month). Data can be exported to CSV format for
+further analysis.
 
 Common workflow:
   1. View deliverability stats: ahasend stats deliverability

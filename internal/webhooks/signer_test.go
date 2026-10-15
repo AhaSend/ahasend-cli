@@ -2,8 +2,11 @@ package webhooks
 
 import (
 	"encoding/base64"
+	"errors"
+	"io"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/google/uuid"
@@ -243,7 +246,8 @@ func TestGenerateRandomString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateRandomString(tt.length)
+			result, err := generateRandomString(tt.length)
+			require.NoError(t, err)
 			assert.Equal(t, tt.length, len(result))
 
 			// Check all characters are valid
@@ -255,13 +259,50 @@ func TestGenerateRandomString(t *testing.T) {
 			if tt.length > 10 {
 				results := make(map[string]bool)
 				for i := 0; i < 10; i++ {
-					r := generateRandomString(tt.length)
+					r, err := generateRandomString(tt.length)
+					require.NoError(t, err)
 					assert.False(t, results[r], "Duplicate random string generated")
 					results[r] = true
 				}
 			}
 		})
 	}
+}
+
+// TestGenerateWebhookSecretDrawsFromTheCryptographicSource checks that the
+// secret comes from randomSource: a source of zeros picks the first letter
+// every time.
+func TestGenerateWebhookSecretDrawsFromTheCryptographicSource(t *testing.T) {
+	useRandomSource(t, zeroReader{})
+
+	secret, err := GenerateWebhookSecret()
+
+	require.NoError(t, err)
+	assert.Equal(t, "aha-whsec-"+strings.Repeat("a", 64), secret)
+}
+
+func TestGenerateWebhookSecretReturnsTheSourceError(t *testing.T) {
+	useRandomSource(t, iotest.ErrReader(errors.New("no entropy")))
+
+	_, err := GenerateWebhookSecret()
+
+	require.Error(t, err)
+	assert.Equal(t, "failed to read random data: no entropy", err.Error())
+}
+
+// useRandomSource makes secrets draw from source until the test ends.
+func useRandomSource(t *testing.T, source io.Reader) {
+	previous := randomSource
+	randomSource = source
+	t.Cleanup(func() { randomSource = previous })
+}
+
+// zeroReader reads zeros forever.
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
 }
 
 // Helper function to check if a character is valid in the random string

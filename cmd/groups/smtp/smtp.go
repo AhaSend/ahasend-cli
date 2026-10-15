@@ -25,20 +25,7 @@ Use SMTP credentials to:
 - Send emails from email clients (Outlook, Thunderbird, etc.)
 - Integrate with applications that only support SMTP
 - Use AhaSend from programming languages without SDK support
-- Send transactional emails from servers or IoT devices
-
-Examples:
-  # List all SMTP credentials
-  ahasend smtp list
-
-  # Create a new SMTP credential
-  ahasend smtp create --name "Production Server"
-
-  # Get details of a specific credential
-  ahasend smtp get <credential-id>
-
-  # Test SMTP sending
-  ahasend smtp send --from sender@example.com --to recipient@example.com`,
+- Send transactional emails from servers or IoT devices`,
 		Example: `  # List SMTP credentials
   ahasend smtp list
 
@@ -48,8 +35,17 @@ Examples:
   # Create domain-specific credential
   ahasend smtp create --name "Notifications" --scope scoped --domains "notifications.example.com"
 
+  # Get details of a specific credential
+  ahasend smtp get <credential-id>
+
   # Test SMTP connection
-  ahasend smtp send --test --server send.ahasend.com:587`,
+  ahasend smtp send --test --server send.ahasend.com:587
+
+  # Test SMTP sending, with the password from an environment variable
+  printf '%s\n' "$SMTP_PASSWORD" | ahasend smtp send \
+    --from sender@example.com --to recipient@example.com \
+    --subject "SMTP test" --text "Hello" \
+    --username smtp-user --password-stdin`,
 	}
 
 	// Add subcommands

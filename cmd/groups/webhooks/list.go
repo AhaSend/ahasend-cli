@@ -2,9 +2,9 @@ package webhooks
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
 )
 
@@ -12,8 +12,8 @@ import (
 func NewListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all webhooks",
-		Long: `List all webhooks in your AhaSend account with their configuration,
+		Short: "List webhooks",
+		Long: `List the webhooks in your AhaSend account with their configuration,
 event types, and status information.
 
 The list shows webhook names, URLs, enabled status, and configured event types
@@ -29,13 +29,14 @@ to help you manage your webhook endpoints effectively.`,
 
   # List only enabled webhooks
   ahasend webhooks list --enabled`,
+		Args:         cmdutil.NoArgs,
 		RunE:         runWebhooksList,
 		SilenceUsage: true,
 	}
 
-	cmd.Flags().Int32("limit", 0, "Maximum number of webhooks to return")
-	cmd.Flags().String("cursor", "", "Pagination cursor for next page")
-	cmd.Flags().Bool("enabled", false, "Show only enabled webhooks")
+	cmdutil.AddPaginationFlags(cmd)
+	cmdutil.AddLegacyCursorAlias(cmd)
+	cmd.Flags().Bool("enabled", false, "Filter by enabled (--enabled) or disabled (--enabled=false) state")
 
 	return cmd
 }
@@ -44,60 +45,40 @@ func runWebhooksList(cmd *cobra.Command, args []string) error {
 	// Get response handler instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
+	pagination, err := cmdutil.ReadPaginationParams(cmd)
+	if err != nil {
+		return err
+	}
+	// The API filters by enabled status, so every output format, JSON
+	// included, shows the page the API returned.
+	enabled := cmdutil.ChangedBool(cmd, "enabled")
+
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Get flags
-	limit, _ := cmd.Flags().GetInt32("limit")
-	cursor, _ := cmd.Flags().GetString("cursor")
-	enabledOnly, _ := cmd.Flags().GetBool("enabled")
-
-	// Handle pagination
-	var limitPtr *int32
-	var cursorPtr *string
-
-	if limit > 0 {
-		limitPtr = &limit
-	}
-	if cursor != "" {
-		cursorPtr = &cursor
-	}
-
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
-		"limit":        limit,
-		"cursor":       cursor,
-		"enabled_only": enabledOnly,
+		"enabled": enabled,
 	}).Debug("Executing webhooks list command")
 
 	// Fetch webhooks
-	response, err := client.ListWebhooks(limitPtr, cursorPtr)
+	response, err := client.ListWebhooks(pagination, enabled)
 	if err != nil {
 		return err
 	}
 
-	// Filter by enabled status if specified (client-side filtering)
-	if enabledOnly && response != nil && response.Data != nil {
-		var filteredWebhooks []responses.Webhook
-		for _, webhook := range response.Data {
-			if webhook.Enabled {
-				filteredWebhooks = append(filteredWebhooks, webhook)
-			}
-		}
-		// Update response with filtered data
-		response.Data = filteredWebhooks
-	}
-
 	// Use the new ResponseHandler to display webhooks list
 	emptyMessage := "No webhooks found"
-	if enabledOnly {
+	if enabled != nil && *enabled {
 		emptyMessage = "No enabled webhooks found"
+	} else if enabled != nil {
+		emptyMessage = "No disabled webhooks found"
 	}
 
 	return handler.HandleWebhookList(response, printer.ListConfig{
-		EmptyMessage: emptyMessage,
-		FieldOrder:   []string{"id", "name", "url", "enabled", "event_types", "scope", "domains", "created_at", "updated_at"},
+		SuccessMessage: "Webhooks retrieved successfully",
+		EmptyMessage:   emptyMessage,
 	})
 }

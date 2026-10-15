@@ -2,9 +2,9 @@ package subaccounts
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ import (
 func NewListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all sub-accounts",
+		Short: "List sub-accounts",
 		Long: `List all sub-accounts under your AhaSend parent account with their status,
 domain and member counts, and monthly credit.
 
@@ -25,12 +25,13 @@ The list can be paginated for large numbers of sub-accounts.`,
 
   # List sub-accounts with pagination
   ahasend subaccounts list --limit 10`,
+		Args:         cmdutil.NoArgs,
 		RunE:         runSubAccountsList,
 		SilenceUsage: true,
 	}
 
-	cmd.Flags().Int32("limit", 0, "Maximum number of sub-accounts to return")
-	cmd.Flags().String("cursor", "", "Pagination cursor for next page")
+	cmdutil.AddPaginationFlags(cmd)
+	cmdutil.AddLegacyCursorAlias(cmd)
 
 	return cmd
 }
@@ -39,12 +40,9 @@ func runSubAccountsList(cmd *cobra.Command, args []string) error {
 	// Get response handler instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
-	// Get flags
-	limit, _ := cmd.Flags().GetInt32("limit")
-	cursor, _ := cmd.Flags().GetString("cursor")
-
 	// Validate before auth
-	if err := validation.ValidatePageLimit(limit); err != nil {
+	pagination, err := cmdutil.ReadPaginationParams(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -54,25 +52,11 @@ func runSubAccountsList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Handle pagination: pass nil pointers when unset
-	var limitPtr *int32
-	var cursorPtr *string
-
-	if limit > 0 {
-		limitPtr = &limit
-	}
-	if cursor != "" {
-		cursorPtr = &cursor
-	}
-
 	// Log command execution
-	logger.Get().WithFields(map[string]interface{}{
-		"limit":  limit,
-		"cursor": cursor,
-	}).Debug("Executing subaccounts list command")
+	logger.Get().Debug("Executing subaccounts list command")
 
 	// Fetch sub-accounts
-	response, err := client.ListSubAccounts(limitPtr, cursorPtr)
+	response, err := client.ListSubAccounts(pagination)
 	if err != nil {
 		return err
 	}
@@ -84,8 +68,6 @@ func runSubAccountsList(cmd *cobra.Command, args []string) error {
 	config := printer.ListConfig{
 		SuccessMessage: "Sub-accounts retrieved successfully",
 		EmptyMessage:   "No sub-accounts found",
-		ShowPagination: true,
-		FieldOrder:     []string{"id", "name", "status", "domain_count", "member_count", "monthly_credit", "created_at"},
 	}
 
 	return handler.HandleSubAccountList(response, config)

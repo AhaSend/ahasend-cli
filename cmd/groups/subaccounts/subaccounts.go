@@ -33,6 +33,7 @@ Common workflow:
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewSuspendCommand())
 	cmd.AddCommand(NewUnsuspendCommand())
+	cmd.AddCommand(NewUnpauseDomainCommand())
 
 	// Add the nested sub-account API-key subgroup
 	cmd.AddCommand(apikeys.NewCommand())

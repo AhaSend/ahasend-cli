@@ -1,170 +1,113 @@
 package suppressions
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
+
+// suppressionBackupHint tells how to back up the suppressions before a wipe.
+// One list call returns one page, so the hint pages through all of them.
+const suppressionBackupHint = `Back up first. One list call saves one page of up to 100 suppressions:
+  ahasend suppressions list --limit 100 --output json > backup-1.json
+Repeat it with --after set to the page's next_cursor, saving each page,
+until a page has no next_cursor. Add --domain to back up one domain.`
+
+const suppressionWipeWarning = `WARNING: Wiping suppressions permanently deletes every one except protected
+ones (unsubscribes and spam complaints), which the API keeps, so email can be
+sent to every other previously suppressed address again. This cannot be
+undone.
+
+` + suppressionBackupHint
 
 // NewWipeCommand creates the suppressions wipe command
 func NewWipeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wipe",
 		Short: "Delete all suppressions from your account",
-		Long: `Delete all suppressions from your account.
+		Long: `Delete all suppressions from your account, or from one domain with
+--domain.
 
-⚠️  DANGER: This command permanently deletes ALL suppressions in your account.
-This includes bounce suppressions, complaint suppressions, and manual suppressions.
-After running this command, you will be able to send emails to all previously
-suppressed addresses.
+DANGER: This permanently deletes every suppression except protected ones
+(recipients who unsubscribed or reported a message as spam), which the API
+keeps. Afterwards email can be sent to every other previously suppressed
+address, which may hurt your sender reputation. This cannot be undone.
 
-This action:
-- Cannot be undone
-- Affects all domains in your account
-- Removes all suppression types (bounce, complaint, unsubscribe, manual, abuse)
-- May result in sending emails to invalid addresses
-- May impact your sender reputation
+` + suppressionBackupHint + `
 
-RECOMMENDED WORKFLOW:
-1. Create a backup: ahasend suppressions list --output json > backup.json
-2. Review the backup file
-3. Run wipe command with confirmation
-4. Monitor your sending carefully after wipe
-
-Use --force flag for automation (NOT recommended for production).`,
+Wipe asks for confirmation unless --force is set.`,
 		Example: `  # Wipe all suppressions (with confirmation)
   ahasend suppressions wipe
 
-  # Create backup before wiping
-  ahasend suppressions list --output json > suppressions-backup.json
-  ahasend suppressions wipe
+  # Back up the first page of suppressions before wiping them
+  ahasend suppressions list --limit 100 --output json > backup-1.json
+
+  # Back up the next page, and so on until a page has no next_cursor
+  ahasend suppressions list --limit 100 --after <next_cursor> --output json > backup-2.json
+
+  # Wipe the suppressions of one domain
+  ahasend suppressions wipe --domain example.com
 
   # Force wipe without confirmation (dangerous)
   ahasend suppressions wipe --force
 
   # Wipe with JSON output for automation
   ahasend suppressions wipe --force --output json`,
-		Args: cobra.NoArgs,
-		RunE: runSuppressionsWipe,
+		Args:         cmdutil.NoArgs,
+		RunE:         runSuppressionsWipe,
+		SilenceUsage: true,
 	}
 
-	// Add flags
-	cmd.Flags().Bool("force", false, "Skip all confirmation prompts (DANGEROUS)")
+	prompt.AddForceFlag(cmd)
 	cmd.Flags().String("domain", "", "Domain to wipe suppressions for")
 	return cmd
 }
 
 func runSuppressionsWipe(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
+	domain, err := cmdutil.ReadNonEmpty(cmd, "domain", "")
+	if err != nil {
+		return err
+	}
+	if err := validation.ValidateOptionalDomainName("--domain", domain); err != nil {
+		return err
+	}
+
+	target := "all suppressions"
+	if domain != nil {
+		target = fmt.Sprintf("all suppressions for domain %s", *domain)
+	}
+	question := fmt.Sprintf("%s\n\nAre you sure you want to wipe %s?", suppressionWipeWarning, target)
+	if err := prompt.Confirm(cmd, question); err != nil {
+		return err
+	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Get flag values
-	force, _ := cmd.Flags().GetBool("force")
-	domain, _ := cmd.Flags().GetString("domain")
-	var domainPtr *string
-	if domain != "" {
-		domainPtr = &domain
-	}
-
-	// Show safety warning and get confirmation (unless --force is used)
-	if !force {
-		confirmed, err := confirmWipe()
-		if err != nil {
-			return err
-		}
-		if !confirmed {
-			return handler.HandleSimpleSuccess("Suppression wipe cancelled")
-		}
-	}
-
 	logger.Get().WithFields(map[string]interface{}{
-		"force":  force,
+		"domain": cmd.Flag("domain").Value.String(),
 		"action": "wipe_all_suppressions",
 	}).Info("Wiping all suppressions")
 
-	// Wipe all suppressions
-	_, err = client.WipeSuppressions(domainPtr)
+	response, err := client.WipeSuppressions(domain)
 	if err != nil {
 		return err
 	}
 
-	// Use the new ResponseHandler to display wipe success
-	successMsg := "All suppressions have been successfully deleted"
-	if domain != "" {
-		successMsg = fmt.Sprintf("All suppressions for domain %s have been successfully deleted", domain)
+	successMsg := "All suppressions deleted successfully"
+	if domain != nil {
+		successMsg = fmt.Sprintf("All suppressions for domain '%s' deleted successfully", *domain)
 	}
 
-	return handler.HandleDeleteSuppression(true, printer.DeleteConfig{
+	return printer.GetResponseHandlerFromCommand(cmd).HandleSuccessResponse(response, printer.ResultConfig{
 		SuccessMessage: successMsg,
-		ItemName:       "suppressions",
 	})
-}
-
-func confirmWipe() (bool, error) {
-	fmt.Println("🚨 DANGER: PERMANENT SUPPRESSION WIPE 🚨")
-	fmt.Println()
-	fmt.Println("This will permanently delete ALL suppressions from your account.")
-	fmt.Println()
-	fmt.Println("Consequences:")
-	fmt.Println("• All bounce suppressions will be removed")
-	fmt.Println("• All complaint suppressions will be removed")
-	fmt.Println("• All unsubscribe suppressions will be removed")
-	fmt.Println("• All manual suppressions will be removed")
-	fmt.Println("• You may send to invalid addresses and harm your reputation")
-	fmt.Println("• This action cannot be undone")
-	fmt.Println()
-	fmt.Println("RECOMMENDED: Create a backup first:")
-	fmt.Println("  ahasend suppressions list --output json > backup.json")
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// Double confirmation for safety
-	fmt.Print("Do you want to create a backup first? (Y/n): ")
-	backupResponse, err := reader.ReadString('\n')
-	if err != nil {
-		return false, fmt.Errorf("failed to read backup confirmation: %w", err)
-	}
-
-	backupResponse = strings.ToLower(strings.TrimSpace(backupResponse))
-	if backupResponse != "n" && backupResponse != "no" {
-		fmt.Println()
-		fmt.Println("Please create a backup first using:")
-		fmt.Println("  ahasend suppressions list --output json > backup.json")
-		fmt.Println()
-		fmt.Println("Then run this command again when ready.")
-		return false, nil
-	}
-
-	fmt.Println()
-	fmt.Print("Are you absolutely sure you want to delete ALL suppressions? (yes/NO): ")
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false, fmt.Errorf("failed to read confirmation: %w", err)
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response != "yes" {
-		return false, nil
-	}
-
-	fmt.Print("This action cannot be undone. Type 'DELETE ALL' to confirm: ")
-	finalResponse, err := reader.ReadString('\n')
-	if err != nil {
-		return false, fmt.Errorf("failed to read final confirmation: %w", err)
-	}
-
-	finalResponse = strings.TrimSpace(finalResponse)
-	return finalResponse == "DELETE ALL", nil
 }

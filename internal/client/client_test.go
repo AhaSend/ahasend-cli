@@ -1,9 +1,15 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +21,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/AhaSend/ahasend-cli/internal/version"
 )
 
 func TestNewClient_Success(t *testing.T) {
@@ -26,12 +34,11 @@ func TestNewClient_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, client)
 	assert.Equal(t, accountID, client.GetAccountID())
-	assert.NotNil(t, client.GetAuthContext())
-	assert.NotNil(t, client.rateLimiter)
+	assert.Equal(t, uuid.MustParse(accountID), client.accountUUID)
 	assert.NotNil(t, client.APIClient)
 
 	// Verify the auth context contains the API key
-	authValue := client.GetAuthContext().Value(api.ContextAccessToken)
+	authValue := client.auth.Value(api.ContextAccessToken)
 	assert.Equal(t, apiKey, authValue)
 
 	// Verify configuration is set up correctly
@@ -46,8 +53,8 @@ func TestNewClient_Success(t *testing.T) {
 
 	// Verify HTTP client configuration
 	assert.NotNil(t, client.config.HTTPClient)
-	assert.Equal(t, 30*time.Second, client.config.HTTPClient.Timeout)
-	assert.Contains(t, client.config.UserAgent, "ahasend-cli/1.0.0")
+	assert.Equal(t, 10*time.Minute, client.config.HTTPClient.Timeout)
+	assert.True(t, strings.HasPrefix(client.config.UserAgent, "ahasend-cli/"+version.Version+" "), client.config.UserAgent)
 }
 
 func TestNewClient_ValidationErrors(t *testing.T) {
@@ -75,6 +82,12 @@ func TestNewClient_ValidationErrors(t *testing.T) {
 			accountID: "",
 			wantError: "API key is required",
 		},
+		{
+			name:      "account ID that is not a UUID",
+			apiKey:    "test-api-key",
+			accountID: "invalid-uuid",
+			wantError: "invalid account ID format",
+		},
 	}
 
 	for _, tt := range tests {
@@ -88,6 +101,21 @@ func TestNewClient_ValidationErrors(t *testing.T) {
 	}
 }
 
+// TestNewClientRejectsAnAPIURLItCannotSendTo checks that an API URL with a
+// path, which the SDK has no place for, or a scheme other than HTTP is
+// refused instead of being sent somewhere else.
+func TestNewClientRejectsAnAPIURLItCannotSendTo(t *testing.T) {
+	for _, apiURL := range []string{"http://127.0.0.1:1/prefix", "ftp://127.0.0.1:1", "htp://127.0.0.1:1"} {
+		t.Run(apiURL, func(t *testing.T) {
+			client, err := NewClient("test-api-key", uuid.New().String(), apiURL)
+
+			assert.Nil(t, client)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid API URL: must")
+		})
+	}
+}
+
 func TestClient_GetAccountID(t *testing.T) {
 	accountID := uuid.New().String()
 	client, err := NewClient("test-api-key", accountID)
@@ -95,192 +123,6 @@ func TestClient_GetAccountID(t *testing.T) {
 
 	result := client.GetAccountID()
 	assert.Equal(t, accountID, result)
-}
-
-func TestClient_GetAuthContext(t *testing.T) {
-	apiKey := "test-api-key"
-	accountID := uuid.New().String()
-	client, err := NewClient(apiKey, accountID)
-	require.NoError(t, err)
-
-	ctx := client.GetAuthContext()
-	assert.NotNil(t, ctx)
-
-	// Verify the context contains the API key
-	authValue := ctx.Value(api.ContextAccessToken)
-	assert.Equal(t, apiKey, authValue)
-}
-
-func TestClient_ValidateConfiguration_WithValidAccountID(t *testing.T) {
-	apiKey := "test-api-key"
-	accountID := uuid.New().String()
-	client, err := NewClient(apiKey, accountID)
-	require.NoError(t, err)
-
-	// We can't easily test the actual ping without a real server or complex mocking
-	// But we can test that the validation method exists and handles basic validation
-	// The ping will fail against the real API without valid credentials, but that's expected
-	err = client.ValidateConfiguration()
-	// We expect this to fail against the real API, but not due to empty account ID
-	if err != nil {
-		// Should not be an account ID validation error
-		assert.NotContains(t, err.Error(), "account ID is required")
-	}
-}
-
-func TestClient_ValidateConfiguration_EmptyAccountID(t *testing.T) {
-	// Create client with valid parameters first
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	// Manually clear the account ID to test validation
-	client.accountID = ""
-
-	err = client.ValidateConfiguration()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "account ID is required")
-}
-
-func TestClient_SendMessageWithIdempotencyKey_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	req := requests.CreateMessageRequest{
-		From: common.SenderAddress{Email: "test@example.com"},
-		Recipients: []common.Recipient{
-			{Email: "recipient@example.com"},
-		},
-		Subject: "Test Subject",
-	}
-
-	response, err := client.SendMessageWithIdempotencyKey(req, "test-key")
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_SendMessage_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	req := requests.CreateMessageRequest{
-		From: common.SenderAddress{Email: "test@example.com"},
-		Recipients: []common.Recipient{
-			{Email: "recipient@example.com"},
-		},
-		Subject: "Test Subject",
-	}
-
-	response, err := client.SendMessage(req)
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_CancelMessage_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	response, err := client.CancelMessage("invalid-uuid", "msg-123")
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_ListDomains_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	response, err := client.ListDomains(nil, nil)
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_CreateDomain_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	response, err := client.CreateDomain("example.com")
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_GetDomain_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	response, err := client.GetDomain("example.com")
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_DeleteDomain_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	_, err = client.DeleteDomain("example.com")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_GetMessages_InvalidAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	params := requests.GetMessagesParams{
-		PaginationParams: common.PaginationParams{
-			Limit: int32Ptr(10),
-		},
-	}
-
-	response, err := client.GetMessages(params)
-
-	assert.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "invalid account ID format")
-}
-
-func TestClient_CreateWebhookVerifier_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	secret := "test-webhook-secret"
-	verifier, err := client.CreateWebhookVerifier(secret)
-
-	// The actual behavior depends on the SDK implementation
-	// This test primarily ensures the method can be called without panics
-	if err != nil {
-		// If there's an error, it should be related to the secret format or SDK initialization
-		assert.NotNil(t, err)
-	} else {
-		assert.NotNil(t, verifier)
-	}
-}
-
-func TestClient_RateLimiter_Integration(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	// Test rate limiter is properly initialized
-	assert.NotNil(t, client.rateLimiter)
-
-	// Test rate limiter allows requests
-	allowed := client.rateLimiter.Allow()
-	assert.True(t, allowed, "First request should be allowed")
-
-	// Test wait time calculation
-	waitTime := client.rateLimiter.GetWaitTime()
-	assert.True(t, waitTime >= 0, "Wait time should be non-negative")
 }
 
 func TestGetMessagesParams_ParameterBuilding(t *testing.T) {
@@ -364,333 +206,6 @@ func BenchmarkClient_GetAccountID(b *testing.B) {
 	}
 }
 
-func BenchmarkClient_GetAuthContext(b *testing.B) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = client.GetAuthContext()
-	}
-}
-
-func BenchmarkRateLimiter_Allow(b *testing.B) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = client.rateLimiter.Allow()
-	}
-}
-
-// Helper functions for tests
-func int32Ptr(v int32) *int32 {
-	return &v
-}
-
-func stringPtr(v string) *string {
-	return &v
-}
-
-// TestClient_ErrorScenarios tests various error conditions
-func TestClient_ErrorScenarios(t *testing.T) {
-	tests := []struct {
-		name          string
-		setupClient   func() (*Client, error)
-		operation     func(*Client) error
-		expectedError string
-	}{
-		{
-			name: "validate configuration with empty account ID",
-			setupClient: func() (*Client, error) {
-				client, err := NewClient("test-api-key", uuid.New().String())
-				if err != nil {
-					return nil, err
-				}
-				client.accountID = ""
-				return client, nil
-			},
-			operation: func(c *Client) error {
-				return c.ValidateConfiguration()
-			},
-			expectedError: "account ID is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := tt.setupClient()
-			require.NoError(t, err)
-
-			err = tt.operation(client)
-			assert.Error(t, err)
-			if tt.expectedError != "" {
-				assert.Contains(t, err.Error(), tt.expectedError)
-			}
-		})
-	}
-}
-
-func TestClient_SubAccountWrappers_InvalidParentAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", "invalid-uuid")
-	require.NoError(t, err)
-
-	validSubAccountID := uuid.New().String()
-	validKeyID := uuid.New().String()
-	createSubAccountReq := requests.CreateSubAccountRequest{
-		Name:    "Acme Subsidiary",
-		Website: "acme.example.com",
-	}
-	updateSubAccountReq := requests.UpdateSubAccountRequest{
-		Name: ahasend.String("Updated Subsidiary"),
-	}
-	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
-	createAPIKeyReq := requests.CreateAPIKeyRequest{
-		Label:  "Bootstrap key",
-		Scopes: []string{"messages:send:all"},
-	}
-	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
-		Label: ahasend.String("Updated bootstrap key"),
-	}
-
-	tests := []struct {
-		name string
-		call func(*Client) (any, error)
-	}{
-		{
-			name: "ListSubAccounts",
-			call: func(c *Client) (any, error) {
-				return c.ListSubAccounts(nil, nil)
-			},
-		},
-		{
-			name: "CreateSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.CreateSubAccount(createSubAccountReq, "sub-create-key")
-			},
-		},
-		{
-			name: "GetSubAccountsUsage",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccountsUsage()
-			},
-		},
-		{
-			name: "GetSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccount(validSubAccountID)
-			},
-		},
-		{
-			name: "UpdateSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccount(validSubAccountID, updateSubAccountReq)
-			},
-		},
-		{
-			name: "DeleteSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccount(validSubAccountID)
-			},
-		},
-		{
-			name: "SuspendSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.SuspendSubAccount(validSubAccountID, suspendReq)
-			},
-		},
-		{
-			name: "UnsuspendSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.UnsuspendSubAccount(validSubAccountID)
-			},
-		},
-		{
-			name: "ListSubAccountAPIKeys",
-			call: func(c *Client) (any, error) {
-				return c.ListSubAccountAPIKeys(validSubAccountID, nil, nil)
-			},
-		},
-		{
-			name: "CreateSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.CreateSubAccountAPIKey(validSubAccountID, createAPIKeyReq, "key-create-key")
-			},
-		},
-		{
-			name: "GetSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccountAPIKey(validSubAccountID, validKeyID)
-			},
-		},
-		{
-			name: "UpdateSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccountAPIKey(validSubAccountID, validKeyID, updateAPIKeyReq)
-			},
-		},
-		{
-			name: "DeleteSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccountAPIKey(validSubAccountID, validKeyID)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			response, err := tt.call(client)
-
-			assert.Error(t, err)
-			assert.Nil(t, response)
-			assert.Contains(t, err.Error(), "invalid account ID format")
-		})
-	}
-}
-
-func TestClient_SubAccountWrappers_InvalidSubAccountID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	validKeyID := uuid.New().String()
-	updateSubAccountReq := requests.UpdateSubAccountRequest{
-		Name: ahasend.String("Updated Subsidiary"),
-	}
-	suspendReq := requests.SuspendSubAccountRequest{Reason: "Customer requested temporary pause"}
-	createAPIKeyReq := requests.CreateAPIKeyRequest{
-		Label:  "Bootstrap key",
-		Scopes: []string{"messages:send:all"},
-	}
-	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
-		Label: ahasend.String("Updated bootstrap key"),
-	}
-
-	tests := []struct {
-		name string
-		call func(*Client) (any, error)
-	}{
-		{
-			name: "GetSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccount("invalid-uuid")
-			},
-		},
-		{
-			name: "UpdateSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccount("invalid-uuid", updateSubAccountReq)
-			},
-		},
-		{
-			name: "DeleteSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccount("invalid-uuid")
-			},
-		},
-		{
-			name: "SuspendSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.SuspendSubAccount("invalid-uuid", suspendReq)
-			},
-		},
-		{
-			name: "UnsuspendSubAccount",
-			call: func(c *Client) (any, error) {
-				return c.UnsuspendSubAccount("invalid-uuid")
-			},
-		},
-		{
-			name: "ListSubAccountAPIKeys",
-			call: func(c *Client) (any, error) {
-				return c.ListSubAccountAPIKeys("invalid-uuid", nil, nil)
-			},
-		},
-		{
-			name: "CreateSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.CreateSubAccountAPIKey("invalid-uuid", createAPIKeyReq, "key-create-key")
-			},
-		},
-		{
-			name: "GetSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccountAPIKey("invalid-uuid", validKeyID)
-			},
-		},
-		{
-			name: "UpdateSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccountAPIKey("invalid-uuid", validKeyID, updateAPIKeyReq)
-			},
-		},
-		{
-			name: "DeleteSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccountAPIKey("invalid-uuid", validKeyID)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			response, err := tt.call(client)
-
-			assert.Error(t, err)
-			assert.Nil(t, response)
-			assert.Contains(t, err.Error(), "invalid sub-account ID format")
-		})
-	}
-}
-
-func TestClient_SubAccountAPIKeyWrappers_InvalidAPIKeyID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	validSubAccountID := uuid.New().String()
-	updateAPIKeyReq := requests.UpdateAPIKeyRequest{
-		Label: ahasend.String("Updated bootstrap key"),
-	}
-
-	tests := []struct {
-		name string
-		call func(*Client) (any, error)
-	}{
-		{
-			name: "GetSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.GetSubAccountAPIKey(validSubAccountID, "invalid-uuid")
-			},
-		},
-		{
-			name: "UpdateSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccountAPIKey(validSubAccountID, "invalid-uuid", updateAPIKeyReq)
-			},
-		},
-		{
-			name: "DeleteSubAccountAPIKey",
-			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccountAPIKey(validSubAccountID, "invalid-uuid")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			response, err := tt.call(client)
-
-			assert.Error(t, err)
-			assert.Nil(t, response)
-			assert.Contains(t, err.Error(), "invalid API key ID format")
-		})
-	}
-}
-
 func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 	accountID := uuid.MustParse("9d0cf9d0-4f5e-4674-bcf1-8ec39968b6e1")
 	subAccountID := uuid.MustParse("2f3c5d2a-9ef8-4c91-a5f4-79990c8c1d3a")
@@ -717,13 +232,13 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodGet,
 			wantPath:   subAccountsPath,
 			wantQuery: map[string]string{
-				"limit":  "25",
-				"cursor": "sub-cursor",
+				"limit": "25",
+				"after": "sub-cursor",
 			},
 			call: func(c *Client) (any, error) {
 				limit := int32(25)
-				cursor := "sub-cursor"
-				return c.ListSubAccounts(&limit, &cursor)
+				after := "sub-cursor"
+				return c.ListSubAccounts(common.PaginationParams{Limit: &limit, After: &after})
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, &responses.PaginatedSubAccountsResponse{
@@ -751,7 +266,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 					Name:          "Acme Subsidiary",
 					Website:       "acme.example.com",
 					MonthlyCredit: ahasend.Int64(50000),
-				}, "sub-create-key")
+				}, api.WithIdempotencyKey("sub-create-key"))
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusCreated, clientTestSubAccount(accountID, subAccountID, "active"))
@@ -791,7 +306,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodGet,
 			wantPath:   subAccountPath,
 			call: func(c *Client) (any, error) {
-				return c.GetSubAccount(subAccountID.String())
+				return c.GetSubAccount(subAccountID)
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "active"))
@@ -806,7 +321,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodPut,
 			wantPath:   subAccountPath,
 			call: func(c *Client) (any, error) {
-				return c.UpdateSubAccount(subAccountID.String(), requests.UpdateSubAccountRequest{
+				return c.UpdateSubAccount(subAccountID, requests.UpdateSubAccountRequest{
 					Name: ahasend.String("Updated Subsidiary"),
 				})
 			},
@@ -827,7 +342,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodDelete,
 			wantPath:   subAccountPath,
 			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccount(subAccountID.String())
+				return c.DeleteSubAccount(subAccountID)
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, &common.SuccessResponse{Message: "sub account deleted"})
@@ -842,7 +357,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodPost,
 			wantPath:   subAccountPath + "/suspend",
 			call: func(c *Client) (any, error) {
-				return c.SuspendSubAccount(subAccountID.String(), requests.SuspendSubAccountRequest{
+				return c.SuspendSubAccount(subAccountID, requests.SuspendSubAccountRequest{
 					Reason: "Customer requested temporary pause",
 				})
 			},
@@ -862,7 +377,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodPost,
 			wantPath:   subAccountPath + "/unsuspend",
 			call: func(c *Client) (any, error) {
-				return c.UnsuspendSubAccount(subAccountID.String())
+				return c.UnsuspendSubAccount(subAccountID)
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, clientTestSubAccount(accountID, subAccountID, "active"))
@@ -878,12 +393,12 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantPath:   apiKeysPath,
 			wantQuery: map[string]string{
 				"limit":  "10",
-				"cursor": "key-cursor",
+				"before": "key-cursor",
 			},
 			call: func(c *Client) (any, error) {
 				limit := int32(10)
-				cursor := "key-cursor"
-				return c.ListSubAccountAPIKeys(subAccountID.String(), &limit, &cursor)
+				before := "key-cursor"
+				return c.ListSubAccountAPIKeys(subAccountID, common.PaginationParams{Limit: &limit, Before: &before})
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, &responses.PaginatedAPIKeysResponse{
@@ -907,10 +422,10 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantPath:        apiKeysPath,
 			wantIdempotency: "key-create-key",
 			call: func(c *Client) (any, error) {
-				return c.CreateSubAccountAPIKey(subAccountID.String(), requests.CreateAPIKeyRequest{
+				return c.CreateSubAccountAPIKey(subAccountID, requests.CreateAPIKeyRequest{
 					Label:  "Bootstrap key",
 					Scopes: []string{"messages:send:all", "domains:read"},
-				}, "key-create-key")
+				}, api.WithIdempotencyKey("key-create-key"))
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusCreated, clientTestAPIKey(subAccountID, keyID, &secretKey))
@@ -932,7 +447,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodGet,
 			wantPath:   apiKeyPath,
 			call: func(c *Client) (any, error) {
-				return c.GetSubAccountAPIKey(subAccountID.String(), keyID.String())
+				return c.GetSubAccountAPIKey(subAccountID, keyID)
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, clientTestAPIKey(subAccountID, keyID, nil))
@@ -949,7 +464,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantPath:   apiKeyPath,
 			call: func(c *Client) (any, error) {
 				scopes := []string{"messages:send:all"}
-				return c.UpdateSubAccountAPIKey(subAccountID.String(), keyID.String(), requests.UpdateAPIKeyRequest{
+				return c.UpdateSubAccountAPIKey(subAccountID, keyID, requests.UpdateAPIKeyRequest{
 					Label:  ahasend.String("Updated bootstrap key"),
 					Scopes: &scopes,
 				})
@@ -971,7 +486,7 @@ func TestClient_SubAccountWrappers_CallThrough(t *testing.T) {
 			wantMethod: http.MethodDelete,
 			wantPath:   apiKeyPath,
 			call: func(c *Client) (any, error) {
-				return c.DeleteSubAccountAPIKey(subAccountID.String(), keyID.String())
+				return c.DeleteSubAccountAPIKey(subAccountID, keyID)
 			},
 			writeResponse: func(t *testing.T, w http.ResponseWriter) {
 				writeClientTestJSON(t, w, http.StatusOK, &common.SuccessResponse{Message: "sub account api key deleted"})
@@ -1104,137 +619,370 @@ func clientTestAPIKey(accountID, keyID uuid.UUID, secretKey *string) responses.A
 
 // Webhook Tests
 
-func TestClient_ListWebhooks_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	// The actual behavior depends on the SDK implementation
-	// This test primarily ensures the method can be called without panics
-	_, err = client.ListWebhooks(nil, nil)
-
-	// We expect this to fail against the real API, but not due to implementation issues
-	if err != nil {
-		// Should be an API-related error, not a panic or nil pointer
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
-	}
-}
-
-func TestClient_ListWebhooks_WithPagination(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
+func TestClient_PingAndWebhookMethodsCallTheirEndpoints(t *testing.T) {
+	accountID := uuid.New()
+	webhookID := uuid.New()
 	limit := int32(10)
 	cursor := "test-cursor"
+	webhookPath := "/v2/accounts/" + accountID.String() + "/webhooks"
 
-	_, err = client.ListWebhooks(&limit, &cursor)
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+		call   func(*Client) error
+	}{
+		{"ping", http.MethodGet, "/v2/ping", `{"message":"OK"}`,
+			func(c *Client) error { _, err := c.Ping(); return err }},
+		{"list webhooks", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
+			func(c *Client) error { _, err := c.ListWebhooks(common.PaginationParams{}, nil); return err }},
+		{"list webhooks with pagination", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
+			func(c *Client) error {
+				_, err := c.ListWebhooks(common.PaginationParams{Limit: &limit, After: &cursor}, nil)
+				return err
+			}},
+		{"create webhook", http.MethodPost, webhookPath, `{"object":"webhook"}`,
+			func(c *Client) error {
+				_, err := c.CreateWebhook(requests.CreateWebhookRequest{
+					Name: "Test Webhook", URL: "https://example.com/webhook", Enabled: ahasend.Bool(true),
+				})
+				return err
+			}},
+		{"get webhook", http.MethodGet, webhookPath + "/" + webhookID.String(), `{"object":"webhook"}`,
+			func(c *Client) error { _, err := c.GetWebhook(webhookID); return err }},
+		{"update webhook", http.MethodPut, webhookPath + "/" + webhookID.String(), `{"object":"webhook"}`,
+			func(c *Client) error {
+				_, err := c.UpdateWebhook(webhookID, requests.UpdateWebhookRequest{Name: ahasend.String("Updated")})
+				return err
+			}},
+		{"delete webhook", http.MethodDelete, webhookPath + "/" + webhookID.String(), `{"message":"OK"}`,
+			func(c *Client) error { _, err := c.DeleteWebhook(webhookID); return err }},
+	}
 
-	// We expect this to fail against the real API, but not due to parameter handling
-	if err != nil {
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requested := false
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				requested = true
+				assert.Equal(t, tt.method, r.Method)
+				assert.Equal(t, tt.path, r.URL.Path)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.body))
+			})
+			defer cleanup()
+
+			require.NoError(t, tt.call(client))
+			assert.True(t, requested)
+		})
 	}
 }
 
-func TestClient_CreateWebhook_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
+func TestClient_ListWebhooksSendsTheEnabledFilter(t *testing.T) {
+	accountID := uuid.New()
+	var query string
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query().Get("enabled")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{}, ahasend.Bool(true))
+
 	require.NoError(t, err)
+	assert.Equal(t, "true", query)
+}
 
-	// Create a valid webhook request
-	req := requests.CreateWebhookRequest{
-		Name:    "Test Webhook",
-		URL:     "https://example.com/webhook",
-		Enabled: ahasend.Bool(true),
+// TestSendRequestsAreSentOnce checks that the send methods leave retries to
+// their caller: a failed send is one request, not one plus the SDK's own
+// retries.
+func TestSendRequestsAreSentOnce(t *testing.T) {
+	t.Cleanup(ShortenRetryDelaysForTesting())
+	accountID := uuid.New().String()
+	recipients := []common.Recipient{{Email: "user@example.com"}}
+	sends := map[string]func(*Client) error{
+		"inline": func(c *Client) error {
+			_, err := c.SendMessageWithIdempotencyKey(requests.CreateMessageRequest{
+				From: common.SenderAddress{Email: "sender@example.com"}, Recipients: recipients,
+				Subject: "Hi", TextContent: ahasend.String("Hi"),
+			}, "key")
+			return err
+		},
+		"template": func(c *Client) error {
+			_, err := c.SendTemplateMessageWithIdempotencyKey(requests.CreateTemplateMessageRequest{
+				TemplateID: uuid.New(), Recipients: recipients,
+			}, "key")
+			return err
+		},
 	}
+	for name, send := range sends {
+		t.Run(name, func(t *testing.T) {
+			var requests atomic.Int32
+			client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				writeClientTestJSON(t, w, http.StatusServiceUnavailable, map[string]string{"message": "unavailable"})
+			})
+			defer cleanup()
 
-	_, err = client.CreateWebhook(req)
-
-	// We expect this to fail against the real API, but not due to implementation issues
-	if err != nil {
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
+			require.Error(t, send(client))
+			assert.Equal(t, int32(1), requests.Load())
+		})
 	}
 }
 
-func TestClient_GetWebhook_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
+// TestCampaignTestIsSentOnce checks that a campaign test the API refuses with
+// 429, as it does once the daily test sends are used, is one request: no
+// retry can pass the limit.
+func TestCampaignTestIsSentOnce(t *testing.T) {
+	t.Cleanup(ShortenRetryDelaysForTesting())
+	var sent atomic.Int32
+	client, cleanup := newClientTestServer(t, uuid.New().String(), func(w http.ResponseWriter, _ *http.Request) {
+		sent.Add(1)
+		writeClientTestJSON(t, w, http.StatusTooManyRequests, map[string]string{"message": "daily test send limit reached"})
+	})
+	defer cleanup()
 
-	webhookID := uuid.New().String()
+	_, err := client.TestCampaign(uuid.New(), requests.TestCampaignRequest{To: []string{"me@example.com"}})
 
-	_, err = client.GetWebhook(webhookID)
+	require.Error(t, err)
+	assert.Equal(t, int32(1), sent.Load())
+}
 
-	// We expect this to fail against the real API, but not due to implementation issues
-	if err != nil {
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
+// TestALongRetryAfterIsNotWaitedFor checks that a request the API asks to
+// retry after more than the 30-second retry cap fails at once with the API's
+// error, instead of being retried before the API would accept it.
+func TestALongRetryAfterIsNotWaitedFor(t *testing.T) {
+	t.Cleanup(ShortenRetryDelaysForTesting())
+	var sent atomic.Int32
+	client, cleanup := newClientTestServer(t, uuid.New().String(), func(w http.ResponseWriter, _ *http.Request) {
+		sent.Add(1)
+		w.Header().Set("Retry-After", "31")
+		writeClientTestJSON(t, w, http.StatusTooManyRequests, map[string]string{"message": "rate limit exceeded"})
+	})
+	defer cleanup()
+
+	_, err := client.GetAccount()
+
+	var apiErr *api.APIError
+	require.True(t, errors.As(err, &apiErr), "expected an API error, got %v", err)
+	assert.Equal(t, 31, apiErr.RetryAfter)
+	assert.Equal(t, int32(1), sent.Load())
+}
+
+// TestDeleteRequestsAreSentOnce checks that every DELETE request is sent
+// once: repeated after a lost answer, it would fail with 404 although the
+// first one succeeded. An update, which is safe to repeat, keeps the SDK's
+// retries.
+func TestDeleteRequestsAreSentOnce(t *testing.T) {
+	t.Cleanup(ShortenRetryDelaysForTesting())
+	accountID := uuid.New().String()
+	id := uuid.New()
+	domain := "example.com"
+	deletes := map[string]func(*Client) error{
+		"cancel message":           func(c *Client) error { _, err := c.CancelMessage(id.String()); return err },
+		"delete domain":            func(c *Client) error { _, err := c.DeleteDomain(domain); return err },
+		"delete webhook":           func(c *Client) error { _, err := c.DeleteWebhook(id); return err },
+		"delete route":             func(c *Client) error { _, err := c.DeleteRoute(id); return err },
+		"delete suppression":       func(c *Client) error { _, err := c.DeleteSuppression("a@example.com", &domain); return err },
+		"wipe suppressions":        func(c *Client) error { _, err := c.WipeSuppressions(nil); return err },
+		"delete smtp credential":   func(c *Client) error { _, err := c.DeleteSMTPCredential(id); return err },
+		"delete sub-account":       func(c *Client) error { _, err := c.DeleteSubAccount(id); return err },
+		"delete sub-account key":   func(c *Client) error { _, err := c.DeleteSubAccountAPIKey(id, id); return err },
+		"delete api key":           func(c *Client) error { _, err := c.DeleteAPIKey(id); return err },
+		"delete contact":           func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
+		"delete list":              func(c *Client) error { _, err := c.DeleteList(id); return err },
+		"remove list member":       func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
+		"delete template":          func(c *Client) error { _, err := c.DeleteTemplate(id); return err },
+		"discard template draft":   func(c *Client) error { _, err := c.DiscardTemplateDraft(id); return err },
+		"delete campaign":          func(c *Client) error { _, err := c.DeleteCampaign(id); return err },
+		"delete campaign template": func(c *Client) error { _, err := c.DeleteCampaignTemplate(id); return err },
+	}
+	for name, call := range deletes {
+		t.Run(name, func(t *testing.T) {
+			var sent atomic.Int32
+			client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, r *http.Request) {
+				sent.Add(1)
+				assert.Equal(t, http.MethodDelete, r.Method)
+				writeClientTestJSON(t, w, http.StatusServiceUnavailable, map[string]string{"message": "unavailable"})
+			})
+			defer cleanup()
+
+			require.Error(t, call(client))
+			assert.Equal(t, int32(1), sent.Load())
+		})
+	}
+
+	t.Run("update", func(t *testing.T) {
+		var sent atomic.Int32
+		client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, _ *http.Request) {
+			sent.Add(1)
+			writeClientTestJSON(t, w, http.StatusServiceUnavailable, map[string]string{"message": "unavailable"})
+		})
+		defer cleanup()
+
+		_, err := client.UpdateWebhook(id, requests.UpdateWebhookRequest{Name: ahasend.String("Updated")})
+
+		require.Error(t, err)
+		assert.Equal(t, int32(4), sent.Load(), "an update is sent once and retried 3 times")
+	})
+}
+
+// TestMessageIDsReachTheAPIEscapedInThePath checks that a Message-ID such as
+// <uuid@example.com> is sent as one escaped path segment.
+func TestMessageIDsReachTheAPIEscapedInThePath(t *testing.T) {
+	accountID := uuid.New().String()
+	const messageID = "<8b1f2e8c-5d6a-4c3b-9e7f-1a2b3c4d5e6f@example.com>"
+	calls := map[string]func(*Client) error{
+		"/messages/%3C8b1f2e8c-5d6a-4c3b-9e7f-1a2b3c4d5e6f@example.com%3E": func(c *Client) error {
+			_, err := c.GetMessage(messageID)
+			return err
+		},
+		"/messages/%3C8b1f2e8c-5d6a-4c3b-9e7f-1a2b3c4d5e6f@example.com%3E/cancel": func(c *Client) error {
+			_, err := c.CancelMessage(messageID)
+			return err
+		},
+	}
+	for suffix, call := range calls {
+		t.Run(suffix, func(t *testing.T) {
+			var path string
+			client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, r *http.Request) {
+				path = r.URL.EscapedPath()
+				writeClientTestJSON(t, w, http.StatusOK, map[string]string{"message": "OK"})
+			})
+			defer cleanup()
+
+			_ = call(client)
+
+			assert.Equal(t, "/v2/accounts/"+accountID+suffix, path)
+		})
 	}
 }
 
-func TestClient_GetWebhook_InvalidID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
+// TestSendFailuresAfterTheRequestWasWrittenAreRequestWrittenErrors checks
+// that a send that got no answer after its request was written fails with a
+// RequestWrittenError, and one that never reached the API or got an answer
+// fails with its own error.
+func TestSendFailuresAfterTheRequestWasWrittenAreRequestWrittenErrors(t *testing.T) {
+	previous := responseHeaderTimeout
+	responseHeaderTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { responseHeaderTimeout = previous })
+	accountID := uuid.New().String()
+	tests := map[string]struct {
+		handler http.HandlerFunc
+		written bool
+	}{
+		"connection closed before the answer": {func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.ReadAll(r.Body)
+			conn, _, err := http.NewResponseController(w).Hijack()
+			require.NoError(t, err)
+			_ = conn.Close()
+		}, true},
+		"timeout waiting for the answer": {func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.ReadAll(r.Body)
+			select {
+			case <-r.Context().Done():
+			case <-time.After(5 * time.Second):
+			}
+		}, true},
+		"gateway timeout": {func(w http.ResponseWriter, _ *http.Request) {
+			writeClientTestJSON(t, w, http.StatusGatewayTimeout, map[string]string{"message": "timeout"})
+		}, false},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, cleanup := newClientTestServer(t, accountID, test.handler)
+			defer cleanup()
 
-	_, err = client.GetWebhook("invalid-uuid")
+			_, err := client.SendMessageWithIdempotencyKey(requests.CreateMessageRequest{
+				From: common.SenderAddress{Email: "sender@example.com"}, Recipients: []common.Recipient{{Email: "user@example.com"}},
+				Subject: "Hi", TextContent: ahasend.String("Hi"),
+			}, "key")
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid webhook ID format")
-}
-
-func TestClient_UpdateWebhook_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	webhookID := uuid.New().String()
-	req := requests.UpdateWebhookRequest{
-		Name:    ahasend.String("Updated Webhook"),
-		Enabled: ahasend.Bool(false),
+			require.Error(t, err)
+			var written *RequestWrittenError
+			assert.Equal(t, test.written, errors.As(err, &written), "%v", err)
+		})
 	}
 
-	_, err = client.UpdateWebhook(webhookID, req)
+	t.Run("connection refused", func(t *testing.T) {
+		client, err := NewClient("test-api-key", accountID, "http://127.0.0.1:1")
+		require.NoError(t, err)
 
-	// We expect this to fail against the real API, but not due to implementation issues
-	if err != nil {
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
-	}
+		_, err = client.SendTemplateMessageWithIdempotencyKey(requests.CreateTemplateMessageRequest{
+			TemplateID: uuid.New(), Recipients: []common.Recipient{{Email: "user@example.com"}},
+		}, "key")
+
+		require.Error(t, err)
+		var written *RequestWrittenError
+		assert.False(t, errors.As(err, &written), "%v", err)
+	})
 }
 
-func TestClient_UpdateWebhook_InvalidID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	req := requests.UpdateWebhookRequest{
-		Name: ahasend.String("Updated Webhook"),
-	}
-
-	_, err = client.UpdateWebhook("invalid-uuid", req)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid webhook ID format")
+// slowConn is a connection whose writes go at about bytesPerSecond, as on a
+// slow uplink.
+type slowConn struct {
+	net.Conn
+	bytesPerSecond int
 }
 
-func TestClient_DeleteWebhook_Success(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
-
-	webhookID := uuid.New().String()
-
-	err = client.DeleteWebhook(webhookID)
-
-	// We expect this to fail against the real API, but not due to implementation issues
-	if err != nil {
-		assert.NotContains(t, err.Error(), "panic")
-		assert.NotContains(t, err.Error(), "nil pointer")
-	}
+func (c slowConn) Write(p []byte) (int, error) {
+	time.Sleep(time.Duration(len(p)) * time.Second / time.Duration(c.bytesPerSecond))
+	return c.Conn.Write(p)
 }
 
-func TestClient_DeleteWebhook_InvalidID(t *testing.T) {
-	client, err := NewClient("test-api-key", uuid.New().String())
-	require.NoError(t, err)
+// TestASlowUploadIsNotCutShortByTheWaitForTheAnswer checks that the limit of
+// the wait for the API's answer starts once the request is written, so an
+// upload that takes longer than it succeeds, and a late answer still fails
+// as a RequestWrittenError.
+func TestASlowUploadIsNotCutShortByTheWaitForTheAnswer(t *testing.T) {
+	previous := responseHeaderTimeout
+	responseHeaderTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { responseHeaderTimeout = previous })
+	dial := dialAPI
+	dialAPI = func(ctx context.Context, network, address string) (net.Conn, error) {
+		conn, err := dial(ctx, network, address)
+		if err != nil {
+			return nil, err
+		}
+		// 512 KB takes about a second
+		return slowConn{Conn: conn, bytesPerSecond: 512 * 1024}, nil
+	}
+	t.Cleanup(func() { dialAPI = dial })
+	accountID := uuid.New().String()
+	request := requests.CreateMessageRequest{
+		From: common.SenderAddress{Email: "sender@example.com"}, Recipients: []common.Recipient{{Email: "user@example.com"}},
+		Subject: "Hi", TextContent: ahasend.String(strings.Repeat("a", 512*1024)),
+	}
 
-	err = client.DeleteWebhook("invalid-uuid")
+	t.Run("an answer after the upload", func(t *testing.T) {
+		client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.ReadAll(r.Body)
+			writeClientTestJSON(t, w, http.StatusOK, map[string]any{"object": "list", "data": []any{}})
+		})
+		defer cleanup()
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid webhook ID format")
+		started := time.Now()
+		_, err := client.SendMessageWithIdempotencyKey(request, "key")
+
+		require.NoError(t, err)
+		assert.Greater(t, time.Since(started), responseHeaderTimeout, "the upload took longer than the wait for the answer")
+	})
+
+	t.Run("no answer after the upload", func(t *testing.T) {
+		client, cleanup := newClientTestServer(t, accountID, func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.ReadAll(r.Body)
+			select {
+			case <-r.Context().Done():
+			case <-time.After(5 * time.Second):
+			}
+		})
+		defer cleanup()
+
+		_, err := client.SendMessageWithIdempotencyKey(request, "key")
+
+		require.Error(t, err)
+		var written *RequestWrittenError
+		assert.True(t, errors.As(err, &written), "%v", err)
+	})
 }

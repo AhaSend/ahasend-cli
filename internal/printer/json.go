@@ -3,12 +3,13 @@ package printer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 
+	"github.com/AhaSend/ahasend-cli/internal/apiresponse"
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-go/api"
-	"github.com/AhaSend/ahasend-go/models/responses"
 )
 
 // jsonHandler handles JSON output formatting with complete type safety
@@ -21,416 +22,73 @@ func (h *jsonHandler) GetFormat() string {
 	return "json"
 }
 
-// Error handling
+// HandleError prints err to stdout, as the API's error body or the CLI's
+// error object, and returns it. When stdout cannot be written, the error goes
+// to stderr instead, and the returned error says why it could not be printed.
 func (h *jsonHandler) HandleError(err error) error {
 	if err == nil {
 		return nil
 	}
+	if printErr := h.printError(err); printErr != nil {
+		fmt.Fprintf(h.errWriter, "Error: %v\n", err)
+		return fmt.Errorf("failed to print the error as JSON: %w (original error: %v)", printErr, err)
+	}
+	return err
+}
 
+// printError prints err to stdout.
+func (h *jsonHandler) printError(err error) error {
+	// A successful response the CLI could not read is printed as the API
+	// sent it, and stderr says what failed.
+	var unreadable *clierrors.UnreadableResponseError
+	if errors.As(err, &unreadable) {
+		if printErr := h.printRaw(unreadable.Body); printErr != nil {
+			return printErr
+		}
+		fmt.Fprintf(h.errWriter, "Error: %v\n", err)
+		return nil
+	}
+
+	// Print an API error's body unchanged when it is JSON
+	if body, ok := apiErrorBody(err); ok {
+		return h.printRaw(body)
+	}
+	return h.printJSON(errorObject(err))
+}
+
+// apiErrorBody returns the body of the API error, or of the unreadable
+// response, in err's chain when that body is JSON.
+func apiErrorBody(err error) ([]byte, bool) {
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) && json.Valid(apiErr.Raw) {
+		return apiErr.Raw, true
+	}
+	var unreadable *clierrors.UnreadableResponseError
+	if errors.As(err, &unreadable) && json.Valid(unreadable.Body) {
+		return unreadable.Body, true
+	}
+	return nil, false
+}
+
+// errorObject is the JSON object printed for an error that carries no JSON
+// API body. For an API error it adds the status and the request ID.
+func errorObject(err error) map[string]interface{} {
 	errorOutput := map[string]interface{}{
 		"error":   true,
 		"message": err.Error(),
 	}
 
-	// Handle SDK APIError objects by returning their raw JSON response
-	if apiErr, ok := err.(*api.APIError); ok {
-		if len(apiErr.Raw) > 0 {
-			// Try to format the raw JSON response
-			var rawData interface{}
-			if json.Unmarshal(apiErr.Raw, &rawData) == nil {
-				// In JSON mode we faithfully output the raw API response. The
-				// error is still returned so the command exits nonzero.
-				if printErr := h.printJSON(rawData); printErr != nil {
-					return fmt.Errorf("failed to print error as JSON: %w (original error: %v)", printErr, err)
-				}
-				return err
-			}
-		}
-		// If no raw response, return the APIError fields as JSON
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) {
 		errorOutput = map[string]interface{}{
 			"error":       true,
 			"message":     apiErr.Message,
-			"code":        apiErr.Code,
 			"status_code": apiErr.StatusCode,
 			"request_id":  apiErr.RequestID,
 		}
 	}
 
-	// Add additional fields for structured errors
-	if cliErr, ok := err.(interface{ Code() string }); ok {
-		errorOutput["code"] = cliErr.Code()
-	}
-
-	if cliErr, ok := err.(interface{ Details() map[string]interface{} }); ok {
-		errorOutput["details"] = cliErr.Details()
-	}
-
-	// Print the error as JSON
-	if printErr := h.printJSON(errorOutput); printErr != nil {
-		// If we can't print the JSON error, return both errors
-		return fmt.Errorf("failed to print error as JSON: %w (original error: %v)", printErr, err)
-	}
-
-	return err
-}
-
-// Domain responses
-func (h *jsonHandler) HandleDomainList(response *responses.PaginatedDomainsResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleDomain(domain *responses.Domain, config SingleConfig) error {
-	if domain == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(domain)
-}
-
-// Message responses
-func (h *jsonHandler) HandleMessageList(response *responses.PaginatedMessagesResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleMessage(message *responses.Message, config SingleConfig) error {
-	if message == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(message)
-}
-
-func (h *jsonHandler) HandleCreateMessage(response *responses.CreateMessageResponse, config CreateConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No response received")
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleCancelMessage(response *CancelMessageResponse, config SimpleConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No response received")
-	}
-	return h.printJSON(response)
-}
-
-// Webhook responses
-func (h *jsonHandler) HandleWebhookList(response *responses.PaginatedWebhooksResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleWebhook(webhook *responses.Webhook, config SingleConfig) error {
-	if webhook == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(webhook)
-}
-
-func (h *jsonHandler) HandleCreateWebhook(webhook *responses.Webhook, config CreateConfig) error {
-	if webhook == nil {
-		return h.HandleEmpty("No webhook created")
-	}
-	return h.printJSON(webhook)
-}
-
-func (h *jsonHandler) HandleUpdateWebhook(webhook *responses.Webhook, config UpdateConfig) error {
-	if webhook == nil {
-		return h.HandleEmpty("No webhook updated")
-	}
-	return h.printJSON(webhook)
-}
-
-func (h *jsonHandler) HandleDeleteWebhook(success bool, config DeleteConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleTriggerWebhook(webhookID string, events []string, config TriggerConfig) error {
-	result := map[string]interface{}{
-		"success":    true,
-		"webhook_id": webhookID,
-		"events":     events,
-		"message":    config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-// Route responses
-func (h *jsonHandler) HandleRouteList(response *responses.PaginatedRoutesResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleRoute(route *responses.Route, config SingleConfig) error {
-	if route == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(route)
-}
-
-func (h *jsonHandler) HandleCreateRoute(route *responses.Route, config CreateConfig) error {
-	if route == nil {
-		return h.HandleEmpty("No route created")
-	}
-	return h.printJSON(route)
-}
-
-func (h *jsonHandler) HandleUpdateRoute(route *responses.Route, config UpdateConfig) error {
-	if route == nil {
-		return h.HandleEmpty("No route updated")
-	}
-	return h.printJSON(route)
-}
-
-func (h *jsonHandler) HandleDeleteRoute(success bool, config DeleteConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleTriggerRoute(routeID string, config TriggerConfig) error {
-	result := map[string]interface{}{
-		"success":  true,
-		"route_id": routeID,
-		"event":    "message.routing",
-		"message":  config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-// Suppression responses
-func (h *jsonHandler) HandleSuppressionList(response *responses.PaginatedSuppressionsResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleSuppression(suppression *responses.Suppression, config SingleConfig) error {
-	if suppression == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(suppression)
-}
-
-func (h *jsonHandler) HandleCreateSuppression(response *responses.CreateSuppressionResponse, config CreateConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No response received")
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleDeleteSuppression(success bool, config DeleteConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleWipeSuppression(count int, config WipeConfig) error {
-	result := map[string]interface{}{
-		"success": true,
-		"message": config.SuccessMessage,
-		"count":   count,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleCheckSuppression(suppression *responses.Suppression, found bool, config CheckConfig) error {
-	result := map[string]interface{}{
-		"found": found,
-	}
-
-	if found {
-		result["message"] = config.FoundMessage
-		result["suppression"] = suppression
-	} else {
-		result["message"] = config.NotFoundMessage
-	}
-
-	return h.printJSON(result)
-}
-
-// SMTP responses
-func (h *jsonHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentialsResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleSMTP(credential *responses.SMTPCredential, config SingleConfig) error {
-	if credential == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(credential)
-}
-
-func (h *jsonHandler) HandleCreateSMTP(credential *responses.SMTPCredential, config CreateConfig) error {
-	if credential == nil {
-		return h.HandleEmpty("No credential created")
-	}
-	return h.printJSON(credential)
-}
-
-func (h *jsonHandler) HandleDeleteSMTP(success bool, config DeleteConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleSMTPSend(result *SMTPSendResult, config SMTPSendConfig) error {
-	if result == nil {
-		return h.HandleEmpty("No send result available")
-	}
-	return h.printJSON(result)
-}
-
-// API Key responses
-func (h *jsonHandler) HandleAPIKeyList(response *responses.PaginatedAPIKeysResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleAPIKey(key *responses.APIKey, config SingleConfig) error {
-	if key == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(key)
-}
-
-func (h *jsonHandler) HandleCreateAPIKey(key *responses.APIKey, config CreateConfig) error {
-	if key == nil {
-		return h.HandleEmpty("No API key created")
-	}
-	return h.printJSON(key)
-}
-
-func (h *jsonHandler) HandleUpdateAPIKey(key *responses.APIKey, config UpdateConfig) error {
-	if key == nil {
-		return h.HandleEmpty("No API key updated")
-	}
-	return h.printJSON(key)
-}
-
-func (h *jsonHandler) HandleDeleteAPIKey(success bool, config DeleteConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-// Sub-account responses
-func (h *jsonHandler) HandleSubAccountList(response *responses.PaginatedSubAccountsResponse, config ListConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleSingleSubAccount(subAccount *responses.SubAccount, config SingleConfig) error {
-	if subAccount == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(subAccount)
-}
-
-func (h *jsonHandler) HandleCreateSubAccount(subAccount *responses.SubAccount, config CreateConfig) error {
-	if subAccount == nil {
-		return h.HandleEmpty("No sub-account created")
-	}
-	return h.printJSON(subAccount)
-}
-
-func (h *jsonHandler) HandleSubAccountUsage(response *responses.SubAccountUsageResponse, config SingleConfig) error {
-	if response == nil {
-		return h.HandleEmpty(config.EmptyMessage)
-	}
-	return h.printJSON(response)
-}
-
-// Statistics responses
-func (h *jsonHandler) HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No statistics available")
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No statistics available")
-	}
-	return h.printJSON(response)
-}
-
-func (h *jsonHandler) HandleDeliveryTimeStats(response *responses.DeliveryTimeStatisticsResponse, config StatsConfig) error {
-	if response == nil {
-		return h.HandleEmpty("No statistics available")
-	}
-	return h.printJSON(response)
-}
-
-// Auth responses
-func (h *jsonHandler) HandleAuthLogin(success bool, profile string, config AuthConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-		"profile": profile,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleAuthLogout(success bool, config AuthConfig) error {
-	result := map[string]interface{}{
-		"success": success,
-		"message": config.SuccessMessage,
-	}
-	return h.printJSON(result)
-}
-
-func (h *jsonHandler) HandleAuthStatus(status *AuthStatus, config AuthConfig) error {
-	if status == nil {
-		return h.HandleEmpty("No authentication status available")
-	}
-	return h.printJSON(status)
-}
-
-func (h *jsonHandler) HandleAuthSwitch(newProfile string, config AuthConfig) error {
-	result := map[string]interface{}{
-		"success": true,
-		"message": config.SuccessMessage,
-		"profile": newProfile,
-	}
-	return h.printJSON(result)
-}
-
-// Simple success and empty responses
-func (h *jsonHandler) HandleSimpleSuccess(message string) error {
-	result := map[string]interface{}{
-		"message": message,
-	}
-	return h.printJSON(result)
+	return errorOutput
 }
 
 func (h *jsonHandler) HandleEmpty(message string) error {
@@ -441,141 +99,55 @@ func (h *jsonHandler) HandleEmpty(message string) error {
 	return h.printJSON(result)
 }
 
-// printJSON is the core JSON formatting method
-func (h *jsonHandler) printJSON(data interface{}) error {
-	// Clean data by removing empty additionalproperties fields
-	cleanedData := h.removeEmptyAdditionalProperties(data)
-
-	buf := bytes.NewBuffer([]byte{})
-	encoder := json.NewEncoder(buf)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(cleanedData); err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
+// printJSON prints value, an object the CLI built or an API response with no
+// recorded body, as indented JSON.
+func (h *jsonHandler) printJSON(value any) error {
+	encoded, err := encodeJSON(value, "  ")
+	if err != nil {
+		return err
 	}
-
-	_, err := h.writer.Write(buf.Bytes())
+	_, err = h.writer.Write(append(encoded, '\n'))
 	return err
 }
 
-// removeEmptyAdditionalProperties recursively removes empty additionalproperties fields
-func (h *jsonHandler) removeEmptyAdditionalProperties(data interface{}) interface{} {
-	if data == nil {
+// printAPIResponse prints the body the API returned for value, or value's
+// JSON encoding when no body was recorded. It prints nothing when the API
+// sent no body: value is nil, or the recorded body is empty.
+func (h *jsonHandler) printAPIResponse(value any) error {
+	if isNilPointer(value) {
 		return nil
 	}
-
-	v := reflect.ValueOf(data)
-	switch v.Kind() {
-	case reflect.Ptr:
-		if v.IsNil() {
-			return nil
-		}
-		return h.removeEmptyAdditionalProperties(v.Elem().Interface())
-
-	case reflect.Slice:
-		result := make([]interface{}, 0, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			cleanedItem := h.removeEmptyAdditionalProperties(v.Index(i).Interface())
-			result = append(result, cleanedItem)
-		}
-		return result
-
-	case reflect.Map:
-		if v.Type().Key().Kind() == reflect.String {
-			result := make(map[string]interface{})
-			for _, key := range v.MapKeys() {
-				keyStr := key.String()
-				value := v.MapIndex(key).Interface()
-
-				// Skip empty additionalproperties fields
-				if keyStr == "additionalproperties" || keyStr == "AdditionalProperties" {
-					if h.isEmptyValue(value) {
-						continue // Skip this field
-					}
-				}
-
-				cleanedValue := h.removeEmptyAdditionalProperties(value)
-				result[keyStr] = cleanedValue
-			}
-			return result
-		}
-		return data
-
-	case reflect.Struct:
-		// Special handling for time.Time - don't process it as a regular struct
-		if v.Type().String() == "time.Time" {
-			return data
-		}
-		return h.cleanStruct(v)
-
-	default:
-		return data
+	if body, ok := apiresponse.Body(value); ok {
+		return h.printRaw(body)
 	}
+	return h.printJSON(value)
 }
 
-// cleanStruct cleans a struct by removing empty additionalproperties fields
-func (h *jsonHandler) cleanStruct(v reflect.Value) interface{} {
-	result := make(map[string]interface{})
-	t := v.Type()
-
-	for i := 0; i < v.NumField(); i++ {
-		field := t.Field(i)
-		fieldValue := v.Field(i)
-
-		// Skip unexported fields
-		if !fieldValue.CanInterface() {
-			continue
-		}
-
-		// Get field name (use json tag if available)
-		fieldName := field.Name
-		if jsonTag := field.Tag.Get("json"); jsonTag != "" && jsonTag != "-" {
-			if commaIdx := strings.Index(jsonTag, ","); commaIdx != -1 {
-				fieldName = jsonTag[:commaIdx]
-			} else {
-				fieldName = jsonTag
-			}
-		}
-
-		// Skip json:"-" fields
-		if jsonTag := field.Tag.Get("json"); jsonTag == "-" {
-			continue
-		}
-
-		// Skip empty additionalproperties fields
-		if fieldName == "additionalproperties" || fieldName == "AdditionalProperties" {
-			if h.isEmptyValue(fieldValue.Interface()) {
-				continue // Skip this field
-			}
-		}
-
-		cleanedValue := h.removeEmptyAdditionalProperties(fieldValue.Interface())
-		result[fieldName] = cleanedValue
-	}
-
-	return result
-}
-
-// isEmptyValue checks if a value should be considered "empty" for additionalproperties
-func (h *jsonHandler) isEmptyValue(value interface{}) bool {
+// isNilPointer reports whether value is nil or a nil pointer.
+func isNilPointer(value any) bool {
 	if value == nil {
 		return true
 	}
-
 	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Ptr:
-		return v.IsNil() || h.isEmptyValue(v.Elem().Interface())
-	case reflect.Slice, reflect.Array:
-		return v.Len() == 0
-	case reflect.Map:
-		return v.Len() == 0
-	case reflect.String:
-		return v.String() == ""
-	case reflect.Interface:
-		return v.IsNil()
-	default:
-		return false
+	return v.Kind() == reflect.Pointer && v.IsNil()
+}
+
+// printRaw prints an API body with two-space indentation. Every token is the
+// API's own: key order, unknown keys, number literals and string escapes. A
+// body that is not valid JSON is written unchanged, followed by a newline
+// when it does not end with one; an empty body prints nothing.
+func (h *jsonHandler) printRaw(body []byte) error {
+	var buffer bytes.Buffer
+	if err := json.Indent(&buffer, bytes.TrimRight(body, " \t\r\n"), "", "  "); err != nil {
+		buffer.Reset()
+		buffer.Write(body)
+		if len(body) > 0 && !bytes.HasSuffix(body, []byte("\n")) {
+			buffer.WriteByte('\n')
+		}
+		_, writeErr := h.writer.Write(buffer.Bytes())
+		return writeErr
 	}
+	buffer.WriteByte('\n')
+	_, err := h.writer.Write(buffer.Bytes())
+	return err
 }

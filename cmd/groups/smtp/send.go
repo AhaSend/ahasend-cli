@@ -1,16 +1,18 @@
 package smtp
 
 import (
-	"bufio"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 	"gopkg.in/gomail.v2"
@@ -23,17 +25,18 @@ func NewSendCommand() *cobra.Command {
 		Short: "Send an email via SMTP protocol",
 		Long: `Send an email using SMTP protocol with AhaSend's SMTP server.
 
-This command allows you to test SMTP sending directly from the CLI using
-the same options as the regular 'messages send' command but via SMTP protocol.
+This command tests SMTP sending directly from the CLI with options like the
+regular 'messages send' command.
 
-INTERACTIVE MODE:
-When called without any arguments, the command will interactively prompt for
-all required information: sender email, recipient, subject, content, and
-SMTP credentials.
+--from, a recipient (--to, --cc or --bcc), --subject, content (--text,
+--html, --text-file or --html-file), --username and --password are required.
+When one is missing and stdin is a terminal, the command asks for it;
+--non-interactive never asks.
 
-You can use existing SMTP credentials or provide credentials directly.
-The command supports all standard email features including attachments,
-HTML content, and custom headers.
+Other users of this machine can see --password in the process list, and
+the shell may keep it in its history. --password-stdin reads the password
+from the first line of stdin instead, without its line break; the command
+then asks for nothing, since stdin holds the password.
 
 Special headers can be used to control AhaSend features:
 - AhaSend-Track-Opens: true/false
@@ -41,11 +44,31 @@ Special headers can be used to control AhaSend features:
 - AhaSend-Tags: comma-separated tags
 - AhaSend-Sandbox: true/false
 - AhaSend-Sandbox-Result: deliver/bounce/defer/fail/suppress
+The flags --track-opens, --track-clicks, --tag, --sandbox and --sandbox-result
+set them; --header cannot set one whose flag is given.
 
-In test mode, the command validates the SMTP connection and message building
-without actually sending the email. It performs all SMTP steps up to DATA
-command and then closes the connection.`,
-		Example: `  # Interactive mode - prompts for all required information
+--header cannot set the headers the command builds itself: From, Sender,
+To, Cc, Bcc and Subject, which the flags set and the SMTP envelope is built
+from, and Mime-Version, Content-Type and Content-Transfer-Encoding. It may
+set Date and Message-ID. Header names ignore case, and each may be given
+once.
+
+When the server refuses any recipient, nothing is sent, and the error names
+the recipient.
+
+The command starts TLS: at once on port 465, otherwise with STARTTLS when
+the server offers it. It never sends --username, --password or the message
+over a connection without TLS, except to localhost, 127.0.0.1 or ::1: when
+the server offers no STARTTLS, it fails before logging in. It also fails
+when the server offers no AUTH. The connection, TLS and the login must end
+within 30 seconds, and sending the message within 5 minutes.
+
+--test checks the connection without sending: it connects to --server, says
+EHLO, starts TLS when the server offers it, logs in when --username and
+--password are given, and quits. It needs only --server, and --username and
+--password together to test the login; it sends no message, so the message
+flags have no effect.`,
+		Example: `  # Send an email, asking for every required value
   ahasend smtp send
 
   # Send simple text email via SMTP
@@ -70,14 +93,8 @@ command and then closes the connection.`,
     --text "Please find the attachment" \
     --attach document.pdf
 
-  # Test SMTP connection and message validation
-  ahasend smtp send --test \
-    --from test@example.com \
-    --to recipient@example.com \
-    --subject "Test Message" \
-    --text "This is a test" \
-    --username smtp-user \
-    --password smtp-pass
+  # Test the connection and the login without sending
+  ahasend smtp send --test --username smtp-user --password smtp-pass
 
   # Send in sandbox mode simulating a bounce
   ahasend smtp send \
@@ -90,417 +107,432 @@ command and then closes the connection.`,
     --username smtp-user \
     --password smtp-pass
 
-  # Use custom SMTP server
-  ahasend smtp send \
+  # Use custom SMTP server, with the password from an environment variable
+  printf '%s\n' "$SMTP_PASSWORD" | ahasend smtp send \
     --server mail.example.com:587 \
     --username user \
-    --password pass \
+    --password-stdin \
     --from sender@example.com \
     --to recipient@example.com \
-    --subject "Custom Server Test"`,
-		RunE: runSMTPSend,
+    --subject "Custom Server Test" \
+    --text "Sent through a custom SMTP server"`,
+		Args:         cmdutil.NoArgs,
+		RunE:         runSMTPSend,
+		SilenceUsage: true,
 	}
 
 	// Email content flags
-	cmd.Flags().String("from", "", "From email address")
-	cmd.Flags().StringSlice("to", []string{}, "Recipient email addresses (can be used multiple times)")
-	cmd.Flags().StringSlice("cc", []string{}, "CC recipients")
-	cmd.Flags().StringSlice("bcc", []string{}, "BCC recipients")
-	cmd.Flags().String("subject", "", "Email subject")
-	cmd.Flags().String("text", "", "Plain text content")
-	cmd.Flags().String("html", "", "HTML content")
-	cmd.Flags().String("text-file", "", "Read text content from file")
-	cmd.Flags().String("html-file", "", "Read HTML content from file")
-	cmd.Flags().StringSlice("attach", []string{}, "File attachments (can be used multiple times)")
+	cmd.Flags().String("from", "", cmdutil.FromUsage+" (required)")
+	cmdutil.AddRepeatableFlag(cmd, "to", cmdutil.ToUsage)
+	cmdutil.AddRepeatableFlag(cmd, "cc", "CC recipient (can be used multiple times)")
+	cmdutil.AddRepeatableFlag(cmd, "bcc", "BCC recipient (can be used multiple times)")
+	cmd.Flags().String("subject", "", cmdutil.SubjectUsage+" (required)")
+	cmd.Flags().String("text", "", cmdutil.TextUsage)
+	cmd.Flags().String("html", "", cmdutil.HTMLUsage)
+	cmd.Flags().String("text-file", "", cmdutil.TextFileUsage)
+	cmd.Flags().String("html-file", "", cmdutil.HTMLFileUsage)
+	cmdutil.AddRepeatableFlag(cmd, "attach", cmdutil.AttachUsage+" (can be used multiple times)")
+	for _, name := range []string{"text-file", "html-file", "attach"} {
+		cmdutil.MarkFileFlag(cmd, name)
+	}
 
 	// SMTP server flags
 	cmd.Flags().String("server", "send.ahasend.com:587", "SMTP server address")
-	cmd.Flags().String("username", "", "SMTP username (uses credential from account if not provided)")
-	cmd.Flags().String("password", "", "SMTP password")
-	cmd.Flags().String("credential-id", "", "Use specific SMTP credential by ID")
+	cmd.Flags().String("username", "", "SMTP username (required, except by --test)")
+	cmd.Flags().String("password", "", "SMTP password (required, except by --test); other users of this machine can see it in the process list, so prefer --password-stdin")
+	prompt.AddStdinFlag(cmd, "password-stdin", "Read the SMTP password from the first line of stdin, in place of --password; the command then asks for nothing")
+	cmd.Flags().String("credential-id", "", "")
+	cmdutil.MarkNoEffect(cmd, "credential-id", "use --username and --password")
 
 	// Special headers for AhaSend features
-	cmd.Flags().Bool("track-opens", false, "Enable open tracking")
-	cmd.Flags().Bool("track-clicks", false, "Enable click tracking")
-	cmd.Flags().StringSlice("tags", []string{}, "Message tags")
-	cmd.Flags().Bool("sandbox", false, "Send in sandbox mode")
-	cmd.Flags().String("sandbox-result", "deliver", "Sandbox result simulation: deliver, bounce, defer, fail, or suppress (only used with --sandbox)")
-	cmd.Flags().StringSlice("header", []string{}, "Custom headers (format: 'Name: value')")
+	cmd.Flags().Bool("track-opens", false, cmdutil.TrackOpensUsage)
+	cmd.Flags().Bool("track-clicks", false, cmdutil.TrackClicksUsage)
+	cmdutil.AddRepeatableFlag(cmd, "tag", cmdutil.TagUsage)
+	cmdutil.AddFlagAlias(cmd, "tags", "tag")
+	cmd.Flags().Bool("sandbox", false, cmdutil.SandboxUsage)
+	cmdutil.AddOneOfFlag(cmd, "sandbox-result", "deliver", cmdutil.SandboxResultUsage, cmdutil.SandboxResults)
+	cmdutil.AddRepeatableFlag(cmd, "header", cmdutil.HeaderUsage+
+		"; not From, Sender, To, Cc, Bcc, Subject or the MIME headers (can be used multiple times)")
 
 	// Test mode
-	cmd.Flags().Bool("test", false, "Test SMTP connection and message building (don't send email)")
+	cmd.Flags().Bool("test", false, "Connect to --server, and log in when --username and --password are given, then quit without sending")
+	prompt.AddNonInteractiveFlag(cmd)
 
 	return cmd
-}
-
-// Interactive prompt functions
-func promptSMTPFromEmail() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter sender email address: ")
-	email, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(email), nil
-}
-
-func promptSMTPToEmail() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter recipient email address: ")
-	email, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(email), nil
-}
-
-func promptSMTPSubject() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter email subject: ")
-	subject, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(subject), nil
-}
-
-func promptSMTPContent() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter email content (plain text): ")
-	content, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(content), nil
-}
-
-func promptSMTPCredentials() (username, password string, err error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Enter SMTP username: ")
-	username, err = reader.ReadString('\n')
-	if err != nil {
-		return "", "", err
-	}
-	username = strings.TrimSpace(username)
-
-	fmt.Print("Enter SMTP password: ")
-	password, err = reader.ReadString('\n')
-	if err != nil {
-		return "", "", err
-	}
-	password = strings.TrimSpace(password)
-
-	return username, password, nil
 }
 
 func runSMTPSend(cmd *cobra.Command, args []string) error {
 	// Get printer instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
-	// Get flag values
-	from, _ := cmd.Flags().GetString("from")
-	to, _ := cmd.Flags().GetStringSlice("to")
-	cc, _ := cmd.Flags().GetStringSlice("cc")
-	bcc, _ := cmd.Flags().GetStringSlice("bcc")
-	subject, _ := cmd.Flags().GetString("subject")
-	text, _ := cmd.Flags().GetString("text")
-	html, _ := cmd.Flags().GetString("html")
-	textFile, _ := cmd.Flags().GetString("text-file")
-	htmlFile, _ := cmd.Flags().GetString("html-file")
-	attachments, _ := cmd.Flags().GetStringSlice("attach")
-
-	server, _ := cmd.Flags().GetString("server")
-	username, _ := cmd.Flags().GetString("username")
-	password, _ := cmd.Flags().GetString("password")
-	credentialID, _ := cmd.Flags().GetString("credential-id")
-
-	trackOpens, _ := cmd.Flags().GetBool("track-opens")
-	trackClicks, _ := cmd.Flags().GetBool("track-clicks")
-	tags, _ := cmd.Flags().GetStringSlice("tags")
-	sandbox, _ := cmd.Flags().GetBool("sandbox")
-	sandboxResult, _ := cmd.Flags().GetString("sandbox-result")
-	headers, _ := cmd.Flags().GetStringSlice("header")
-
-	testMode, _ := cmd.Flags().GetBool("test")
-
-	var err error
-
-	// Interactive prompts for missing required fields
-	if from == "" {
-		from, err = promptSMTPFromEmail()
-		if err != nil {
-			return errors.NewValidationError("failed to get sender email", err)
-		}
-	}
-
-	// Validate sender email
-	if err := validation.ValidateEmail(from); err != nil {
+	send, err := readSMTPSend(cmd)
+	if err != nil {
 		return err
 	}
-
-	// Interactive prompt for recipients if none provided
-	if len(to) == 0 && len(cc) == 0 && len(bcc) == 0 {
-		toEmail, err := promptSMTPToEmail()
-		if err != nil {
-			return errors.NewValidationError("failed to get recipient email", err)
-		}
-		to = []string{toEmail}
-	}
-
-	// Interactive prompt for subject if not provided
-	if subject == "" {
-		subject, err = promptSMTPSubject()
-		if err != nil {
-			return errors.NewValidationError("failed to get email subject", err)
-		}
-	}
-
-	// Interactive prompt for content if none provided
-	if text == "" && html == "" && textFile == "" && htmlFile == "" {
-		text, err = promptSMTPContent()
-		if err != nil {
-			return errors.NewValidationError("failed to get email content", err)
-		}
-	}
-
-	// Interactive prompt for credentials if not provided (except in test mode without actual sending)
-	if (username == "" || password == "") && !testMode {
-		if credentialID != "" {
-			return errors.NewValidationError("cannot retrieve password for existing credential; please provide username and password directly", nil)
-		}
-		username, password, err = promptSMTPCredentials()
-		if err != nil {
-			return errors.NewValidationError("failed to get SMTP credentials", err)
-		}
-	}
-
-	// Validate credentials are provided when needed
-	if (username == "" || password == "") && !testMode {
-		return errors.NewValidationError("--username and --password are required", nil)
-	}
-
-	// Load text content from file if specified
-	if textFile != "" {
-		content, err := os.ReadFile(textFile)
-		if err != nil {
-			return fmt.Errorf("failed to read text file: %w", err)
-		}
-		text = string(content)
-	}
-
-	// Load HTML content from file if specified
-	if htmlFile != "" {
-		content, err := os.ReadFile(htmlFile)
-		if err != nil {
-			return fmt.Errorf("failed to read HTML file: %w", err)
-		}
-		html = string(content)
-	}
-
-	// Final validation checks (should not fail if interactive prompts worked correctly)
-	if from == "" {
-		return errors.NewValidationError("sender email is required", nil)
-	}
-	if len(to) == 0 && len(cc) == 0 && len(bcc) == 0 {
-		return errors.NewValidationError("at least one recipient is required", nil)
-	}
-	if subject == "" {
-		return errors.NewValidationError("email subject is required", nil)
-	}
-	if text == "" && html == "" {
-		return errors.NewValidationError("email content is required", nil)
-	}
-
-	// Validate sandbox result if sandbox mode is enabled
-	if sandbox && sandboxResult != "" {
-		validResults := []string{"deliver", "bounce", "defer", "fail", "suppress"}
-		isValid := false
-		for _, valid := range validResults {
-			if sandboxResult == valid {
-				isValid = true
-				break
-			}
-		}
-		if !isValid {
-			return errors.NewValidationError(
-				fmt.Sprintf("invalid sandbox-result '%s', must be one of: deliver, bounce, defer, fail, suppress", sandboxResult), nil)
-		}
+	if send.testMode {
+		return testSMTPConnection(cmd, handler, send.host, send.port)
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
-		"server":    server,
-		"from":      from,
-		"to":        to,
-		"test_mode": testMode,
+		"server": send.server,
+		"from":   send.message.from,
+		"to":     send.message.to,
 	}).Debug("Sending email via SMTP with gomail")
 
-	// Parse server address
-	host, portStr, err := net.SplitHostPort(server)
-	if err != nil {
-		// If no port specified, default to 587
-		host = server
-		portStr = "587"
-	}
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return fmt.Errorf("invalid port number: %s", portStr)
-	}
-
-	// Build the email message
-	message := buildGomailMessage(
-		from, to, cc, bcc,
-		subject, text, html,
-		attachments, headers,
-		trackOpens, trackClicks, tags, sandbox, sandboxResult,
-	)
-
-	if message == nil {
-		return errors.NewAPIError("failed to build email message", nil)
-	}
-
-	// Create dialer
-	dialer := gomail.NewDialer(host, port, username, password)
-
-	// Configure TLS settings based on port
-	if port == 465 {
-		// Use SSL/TLS for port 465
-		dialer.SSL = true
-	} else {
-		// Use STARTTLS for other ports (usually 587)
-		dialer.TLSConfig = nil // Use default TLS config
-	}
-
-	// Test mode - validate connection and message without sending
-	if testMode {
-		return testSMTPWithGomail(dialer, message, handler, cmd)
-	}
-
 	// Send the email
-	if err := dialer.DialAndSend(message); err != nil {
-		return errors.NewAPIError(fmt.Sprintf("SMTP send failed: %v", err), nil)
+	session, err := connectSMTP(send.host, send.port)
+	if err == nil {
+		if err = session.logIn(send.username, send.password); err != nil {
+			session.close()
+		} else {
+			err = session.send(buildGomailMessage(send.message))
+		}
+	}
+	// A connection that failed after the message was sent is a network
+	// failure, and the message may have been accepted, so it is not "failed".
+	var unknown *unknownOutcomeError
+	if stderrors.As(err, &unknown) {
+		return errors.NewNetworkError(unknown.Error(), nil)
+	}
+	if err != nil {
+		return &smtpError{action: "SMTP send failed", err: sessionFailure(err)}
 	}
 
-	// Print success message using printer
-	return printSendSuccess(handler, from, to, cc, bcc, subject, server, len(attachments))
+	return handler.HandleSMTPSend(&printer.SMTPSendResult{Success: true}, printer.ResultConfig{
+		SuccessMessage: "Email sent successfully via SMTP",
+	})
 }
 
-func buildGomailMessage(
-	from string, to, cc, bcc []string,
-	subject, textContent, htmlContent string,
-	attachments []string, customHeaders []string,
-	trackOpens, trackClicks bool, tags []string, sandbox bool, sandboxResult string,
-) *gomail.Message {
+// smtpSend is the input of smtp send: the server, the login and the
+// message. With --test it holds only the server.
+type smtpSend struct {
+	server             string
+	host               string
+	port               int
+	testMode           bool
+	username, password string
+	message            smtpMessage
+}
+
+// smtpMessage is the message smtp send sends, with the AhaSend options it
+// sets as headers.
+type smtpMessage struct {
+	from          string
+	to, cc, bcc   []string
+	subject       string
+	text, html    string
+	attachments   []cmdutil.Attachment
+	headers       map[string]string
+	trackOpens    *bool
+	trackClicks   *bool
+	tags          []string
+	sandbox       bool
+	sandboxResult string
+}
+
+// readSMTPSend reads and checks the flags of smtp send, reads the content
+// and attachment files, and asks for the missing required values when
+// stdin is a terminal. With --test it stops once the server is read.
+func readSMTPSend(cmd *cobra.Command) (*smtpSend, error) {
+	for _, pair := range [][2]string{{"text", "text-file"}, {"html", "html-file"}, {"password", "password-stdin"}} {
+		if err := cmdutil.RejectTogether(cmd, pair[0], pair[1]); err != nil {
+			return nil, err
+		}
+	}
+	repeatable := map[string][]string{}
+	for _, name := range []string{"to", "cc", "bcc", "tag"} {
+		values, err := cmdutil.ReadRepeatable(cmd, name, "")
+		if err != nil {
+			return nil, err
+		}
+		repeatable[name] = values
+	}
+	message := smtpMessage{to: repeatable["to"], cc: repeatable["cc"], bcc: repeatable["bcc"], tags: repeatable["tag"]}
+	attachPaths, err := cmdutil.ReadAttachPaths(cmd)
+	if err != nil {
+		return nil, err
+	}
+	if message.headers, err = cmdutil.ReadHeaders(cmd, "header"); err != nil {
+		return nil, err
+	}
+	if message.sandboxResult, err = cmdutil.ReadSandboxResult(cmd); err != nil {
+		return nil, err
+	}
+
+	message.text, _ = cmd.Flags().GetString("text")
+	message.html, _ = cmd.Flags().GetString("html")
+	textFile, _ := cmd.Flags().GetString("text-file")
+	htmlFile, _ := cmd.Flags().GetString("html-file")
+
+	send := &smtpSend{}
+	send.server, _ = cmd.Flags().GetString("server")
+
+	message.trackOpens = cmdutil.ChangedBool(cmd, "track-opens")
+	message.trackClicks = cmdutil.ChangedBool(cmd, "track-clicks")
+	message.sandbox, _ = cmd.Flags().GetBool("sandbox")
+	send.testMode, _ = cmd.Flags().GetBool("test")
+	if err := checkFlagHeaders(cmd, message.headers, message.sandbox); err != nil {
+		return nil, err
+	}
+
+	if send.host, send.port, err = parseServer(send.server); err != nil {
+		return nil, err
+	}
+	if send.testMode {
+		return send, nil
+	}
+	if textFile != "" {
+		if message.text, err = cmdutil.ReadFlagFile("text-file", textFile); err != nil {
+			return nil, err
+		}
+	}
+	if htmlFile != "" {
+		if message.html, err = cmdutil.ReadFlagFile("html-file", htmlFile); err != nil {
+			return nil, err
+		}
+	}
+	if message.attachments, err = cmdutil.ReadAttachments(attachPaths); err != nil {
+		return nil, err
+	}
+
+	// Ask for missing required values when stdin is a terminal
+	if message.from, err = cmdutil.ReadOrAsk(cmd, "from", "Sender email address"); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateEmail("--from", message.from); err != nil {
+		return nil, err
+	}
+	if message.to == nil && message.cc == nil && message.bcc == nil {
+		recipient, err := cmdutil.AskIfEmpty(cmd, "", "Recipient email address",
+			"at least one of --to, --cc or --bcc must be provided")
+		if err != nil {
+			return nil, err
+		}
+		message.to = []string{recipient}
+	}
+	for _, recipients := range []struct {
+		flag   string
+		emails []string
+	}{{"--to", message.to}, {"--cc", message.cc}, {"--bcc", message.bcc}} {
+		for _, email := range recipients.emails {
+			if err := validation.ValidateEmail(recipients.flag, email); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if message.subject, err = cmdutil.ReadOrAsk(cmd, "subject", "Email subject"); err != nil {
+		return nil, err
+	}
+	if message.text == "" && message.html == "" {
+		if message.text, err = cmdutil.AskIfEmpty(cmd, "", "Email content (plain text)",
+			"one of --text, --html, --text-file or --html-file must be provided"); err != nil {
+			return nil, err
+		}
+	}
+	if send.username, err = cmdutil.ReadOrAsk(cmd, "username", "SMTP username"); err != nil {
+		return nil, err
+	}
+	if send.password, err = readPassword(cmd); err != nil {
+		return nil, err
+	}
+	send.message = message
+	return send, nil
+}
+
+// ownHeaders are the headers the command always builds itself, with how to
+// set each instead. The sender and recipient headers make the SMTP
+// envelope, so a --header for one would send the message to addresses no
+// flag gave; the MIME headers describe the body and attachments. Date and
+// Message-ID are not here: --header may set them.
+var ownHeaders = []cmdutil.ReservedHeader{
+	{Name: "From", Hint: "set it with --from"},
+	{Name: "Sender", Hint: "the sender is --from"},
+	{Name: "To", Hint: "set it with --to"},
+	{Name: "Cc", Hint: "set it with --cc"},
+	{Name: "Bcc", Hint: "set it with --bcc"},
+	{Name: "Subject", Hint: "set it with --subject"},
+	{Name: "Mime-Version", Hint: "the command sets it"},
+	{Name: "Content-Type", Hint: "the command sets it from the content and attachments"},
+	{Name: "Content-Transfer-Encoding", Hint: "the command sets it from the content and attachments"},
+}
+
+// checkFlagHeaders rejects a --header that names, in any case, a header the
+// command sets itself, which it would replace or send twice: one of
+// ownHeaders, or one it sets from a flag that was given, the AhaSend headers
+// of --track-opens, --track-clicks, --tag, --sandbox and --sandbox-result,
+// which --sandbox sets with its default.
+func checkFlagHeaders(cmd *cobra.Command, headers map[string]string, sandbox bool) error {
+	if err := cmdutil.CheckReservedHeaders(headers, ownHeaders); err != nil {
+		return err
+	}
+	sandboxResultFlag := "sandbox"
+	if cmd.Flags().Changed("sandbox-result") {
+		sandboxResultFlag = "sandbox-result"
+	}
+	flagHeaders := []struct {
+		header, flag string
+		set          bool
+	}{
+		{"AhaSend-Track-Opens", "track-opens", cmd.Flags().Changed("track-opens")},
+		{"AhaSend-Track-Clicks", "track-clicks", cmd.Flags().Changed("track-clicks")},
+		{"AhaSend-Tags", cmdutil.TypedName(cmd, "tag"), cmd.Flags().Changed("tag")},
+		{"AhaSend-Sandbox", "sandbox", sandbox},
+		{"AhaSend-Sandbox-Result", sandboxResultFlag, sandbox},
+	}
+	for _, flagHeader := range flagHeaders {
+		if name, ok := cmdutil.FindHeader(headers, flagHeader.header); ok && flagHeader.set {
+			return errors.NewValidationError(fmt.Sprintf("--header %s and --%s cannot be used together", name, flagHeader.flag), nil)
+		}
+	}
+	return nil
+}
+
+// parseServer splits --server into a host and a port; a server without a
+// port uses 587. An empty server or host, and a port outside 1-65535, are
+// validation errors.
+func parseServer(server string) (string, int, error) {
+	if strings.TrimSpace(server) == "" {
+		return "", 0, errors.NewValidationError("--server cannot be empty", nil)
+	}
+	host, portStr, err := net.SplitHostPort(server)
+	if err != nil {
+		host, portStr = server, "587"
+	}
+	if host == "" {
+		return "", 0, validation.InvalidValueError("--server", server, "no host; use a host and port such as send.ahasend.com:587")
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return "", 0, validation.InvalidValueError("--server", server, "the port must be a number from 1 to 65535")
+	}
+	return host, port, nil
+}
+
+// buildGomailMessage builds the MIME message of m.
+func buildGomailMessage(m smtpMessage) *gomail.Message {
 	message := gomail.NewMessage()
 
 	// Set basic headers
-	message.SetHeader("From", from)
+	message.SetHeader("From", m.from)
 
-	if len(to) > 0 {
-		message.SetHeader("To", to...)
+	if len(m.to) > 0 {
+		message.SetHeader("To", m.to...)
 	}
-	if len(cc) > 0 {
-		message.SetHeader("Cc", cc...)
+	if len(m.cc) > 0 {
+		message.SetHeader("Cc", m.cc...)
 	}
-	if len(bcc) > 0 {
-		message.SetHeader("Bcc", bcc...)
+	if len(m.bcc) > 0 {
+		message.SetHeader("Bcc", m.bcc...)
 	}
 
-	message.SetHeader("Subject", subject)
+	message.SetHeader("Subject", m.subject)
 
 	// Set AhaSend special headers
-	if trackOpens {
-		message.SetHeader("AhaSend-Track-Opens", "true")
+	if m.trackOpens != nil {
+		message.SetHeader("AhaSend-Track-Opens", strconv.FormatBool(*m.trackOpens))
 	}
-	if trackClicks {
-		message.SetHeader("AhaSend-Track-Clicks", "true")
+	if m.trackClicks != nil {
+		message.SetHeader("AhaSend-Track-Clicks", strconv.FormatBool(*m.trackClicks))
 	}
-	if len(tags) > 0 {
-		message.SetHeader("AhaSend-Tags", strings.Join(tags, ","))
+	if len(m.tags) > 0 {
+		message.SetHeader("AhaSend-Tags", strings.Join(m.tags, ","))
 	}
-	if sandbox {
+	if m.sandbox {
 		message.SetHeader("AhaSend-Sandbox", "true")
-		if sandboxResult != "" {
-			message.SetHeader("AhaSend-Sandbox-Result", sandboxResult)
+		if m.sandboxResult != "" {
+			message.SetHeader("AhaSend-Sandbox-Result", m.sandboxResult)
 		}
 	}
 
-	// Set custom headers
-	for _, header := range customHeaders {
-		parts := strings.SplitN(header, ":", 2)
-		if len(parts) == 2 {
-			name := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			message.SetHeader(name, value)
+	// Set custom headers. gomail adds a Date header unless one is set under
+	// that exact name, so a date given in another case is set as Date.
+	for name, value := range m.headers {
+		if strings.EqualFold(name, "Date") {
+			name = "Date"
 		}
+		message.SetHeader(name, value)
 	}
 
 	// Set body content
-	if textContent != "" && htmlContent != "" {
+	if m.text != "" && m.html != "" {
 		// Multipart alternative
-		message.SetBody("text/plain", textContent)
-		message.AddAlternative("text/html", htmlContent)
-	} else if htmlContent != "" {
+		message.SetBody("text/plain", m.text)
+		message.AddAlternative("text/html", m.html)
+	} else if m.html != "" {
 		// HTML only
-		message.SetBody("text/html", htmlContent)
+		message.SetBody("text/html", m.html)
 	} else {
 		// Text only
-		message.SetBody("text/plain", textContent)
+		message.SetBody("text/plain", m.text)
 	}
 
 	// Add attachments
-	for _, attachment := range attachments {
-		message.Attach(attachment)
+	for _, attachment := range m.attachments {
+		data := attachment.Data
+		message.Attach(attachment.Path, gomail.SetCopyFunc(func(w io.Writer) error {
+			_, err := w.Write(data)
+			return err
+		}))
 	}
 
 	return message
 }
 
-func testSMTPWithGomail(dialer *gomail.Dialer, message *gomail.Message, handler printer.ResponseHandler, cmd *cobra.Command) error {
-	// Create a custom sender that will test the connection
-	testResult := &printer.SMTPSendResult{
-		Success:  false, // Will be set to true if connection succeeds
-		TestMode: true,
+// testSMTPConnection connects to the server, logs in when --username and
+// --password are given, and quits without sending.
+// Giving one of --username and --password asks for the other.
+func testSMTPConnection(cmd *cobra.Command, handler printer.ResponseHandler, host string, port int) error {
+	username, _ := cmd.Flags().GetString("username")
+	password, _ := cmd.Flags().GetString("password")
+	passwordStdin, _ := cmd.Flags().GetBool("password-stdin")
+	if username != "" || password != "" || passwordStdin {
+		var err error
+		if username, err = cmdutil.ReadOrAsk(cmd, "username", "SMTP username"); err != nil {
+			return err
+		}
+		if password, err = readPassword(cmd); err != nil {
+			return err
+		}
 	}
+	logger.Get().WithField("server", net.JoinHostPort(host, strconv.Itoa(port))).Debug("Testing the SMTP connection")
 
-	// Test the connection by creating a mock sender
-	sender, err := dialer.Dial()
+	result := &printer.SMTPSendResult{TestMode: true}
+	config := printer.ResultConfig{SuccessMessage: "SMTP test completed successfully"}
+
+	session, err := connectSMTP(host, port)
 	if err != nil {
-		testResult.Success = false
-		testResult.Error = err.Error()
-		return printTestResult(testResult, handler, cmd)
+		return printSMTPTestFailure(handler, result, config, "SMTP connection test failed", err)
 	}
-	defer sender.Close()
-
-	// Test sending process up to DATA command - if we got this far, everything worked
-	testResult.Success = true
-
-	return printTestResult(testResult, handler, cmd)
+	defer session.quit()
+	result.Connected = true
+	if username != "" {
+		if err := session.logIn(username, password); err != nil {
+			return printSMTPTestFailure(handler, result, config, "SMTP login failed", err)
+		}
+		result.Authenticated = true
+	}
+	result.Success = true
+	return handler.HandleSMTPSend(result, config)
 }
 
-func printTestResult(result *printer.SMTPSendResult, handler printer.ResponseHandler, cmd *cobra.Command) error {
-	// Use the ResponseHandler to display SMTP test result
-	successMsg := "SMTP connection test failed"
-	if result.Success {
-		successMsg = "SMTP test completed successfully"
+// readPassword returns the SMTP password: the first line of stdin with
+// --password-stdin, or else --password, which the command asks for when it
+// is missing and it can ask.
+func readPassword(cmd *cobra.Command) (string, error) {
+	if passwordStdin, _ := cmd.Flags().GetBool("password-stdin"); passwordStdin {
+		return prompt.ReadStdinLine(cmd, "password-stdin", "password")
 	}
-	return handler.HandleSMTPSend(result, printer.SMTPSendConfig{
-		SuccessMessage: successMsg,
-		TestMode:       true,
-	})
+	return cmdutil.ReadSecretOrAsk(cmd, "password", "SMTP password")
 }
 
-func printSendSuccess(handler printer.ResponseHandler, from string, to, cc, bcc []string, subject, server string, attachmentCount int) error {
-	// Create SMTPSendResult for ResponseHandler
-	result := &printer.SMTPSendResult{
-		Success:  true,
-		TestMode: false,
+// printSMTPTestFailure prints result with the failure err of action, such as
+// "SMTP login failed", and returns the error the command exits with: a
+// network failure exits 7.
+func printSMTPTestFailure(handler printer.ResponseHandler, result *printer.SMTPSendResult, config printer.ResultConfig, action string, err error) error {
+	err = sessionFailure(err)
+	result.Error = smtpErrorText(err)
+	if printErr := handler.HandleSMTPSend(result, config); printErr != nil {
+		return printErr
 	}
-
-	// Use the new ResponseHandler to display SMTP send success
-	return handler.HandleSMTPSend(result, printer.SMTPSendConfig{
-		SuccessMessage: "Email sent successfully via SMTP",
-		TestMode:       false,
-	})
+	return errors.NewResultPrintedError((&smtpError{action: action, err: err}).Error(), errors.GetExitCode(err))
 }

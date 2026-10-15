@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: '1.26'
+  # The toolchain line of go.mod; make check-go-version checks it
+  GO_VERSION: '1.27.2'
 
 jobs:
   lint:
@@ -21,7 +22,19 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.11
+          version: v2.14
+      - name: golangci-lint (Windows-only files)
+        uses: golangci/golangci-lint-action@v8
+        env:
+          GOOS: windows
+        with:
+          version: v2.14
+      - name: Check go.mod and go.sum are tidy
+        run: make deps-check
+      - name: Check THIRD_PARTY_NOTICES is current
+        run: make notices-check
+      - name: Check the Go version is the same everywhere
+        run: make check-go-version
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -36,18 +49,34 @@ jobs:
           cache: true
 
       - name: Download dependencies
-        run: make deps
+        run: go mod download
 
       - name: Run tests with coverage
         run: make test-coverage-ci
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          file: ./coverage.out
+          files: ./coverage.out
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+
+  test-windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
 
   build-check:
     name: Build Check
@@ -64,7 +93,7 @@ jobs:
           cache: true
 
       - name: Download dependencies
-        run: make deps
+        run: go mod download
 
       - name: Verify build works
         run: go build -v -o ahasend .

@@ -2,11 +2,14 @@ package auth
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/config"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -16,21 +19,34 @@ func NewLogoutCommand() *cobra.Command {
 		Use:   "logout [profile]",
 		Short: "Log out and remove stored credentials",
 		Long: `Remove stored API credentials for the current profile or a specific profile.
-This will delete the profile from your local configuration.`,
+This will delete the profile from your local configuration. Name the profile
+as the argument or with --profile; without either, the default profile logs
+out.
+
+--all removes every profile and its stored API key, and asks for confirmation
+unless --force is set.`,
 		Example: `  # Logout from current default profile
   ahasend auth logout
 
   # Logout from specific profile
   ahasend auth logout production
 
+  # Logout from specific profile, named with --profile
+  ahasend auth logout --profile production
+
   # Logout from all profiles
-  ahasend auth logout --all`,
-		Args:         cobra.MaximumNArgs(1),
-		RunE:         runLogout,
-		SilenceUsage: true,
+  ahasend auth logout --all
+
+  # Logout from all profiles without the confirmation prompt
+  ahasend auth logout --all --force`,
+		Args:              cmdutil.MaximumNArgs(1),
+		ValidArgsFunction: cmdutil.CompleteProfileArgument,
+		RunE:              runLogout,
+		SilenceUsage:      true,
 	}
 
 	cmd.Flags().Bool("all", false, "Logout from all profiles")
+	prompt.AddForceFlag(cmd)
 
 	return cmd
 }
@@ -40,6 +56,17 @@ func runLogout(cmd *cobra.Command, args []string) error {
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
 	all, _ := cmd.Flags().GetBool("all")
+	if err := checkLogoutTarget(cmd, args, all); err != nil {
+		return err
+	}
+	argument := ""
+	if len(args) > 0 {
+		argument = args[0]
+	}
+	profileFlag, _ := cmd.Flags().GetString("profile")
+	if profileFlag != "" {
+		args = []string{profileFlag}
+	}
 
 	// Log logout operation
 	logger.ConfigOperation("logout_start", "", map[string]interface{}{
@@ -47,109 +74,143 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		"profile_arg":  len(args) > 0,
 	})
 
-	configMgr, err := config.NewManager()
+	configMgr, err := config.LoadManager()
 	if err != nil {
-		return errors.NewConfigError("failed to initialize configuration", err)
+		return err
+	}
+	if argument != "" && profileFlag != "" && argument != profileFlag {
+		if err := checkSameProfile(configMgr, argument, profileFlag); err != nil {
+			return err
+		}
 	}
 
-	if err := configMgr.Load(); err != nil {
-		return errors.NewConfigError("failed to load configuration", err)
+	// Without profiles, there is nothing to log out of unless one is named
+	if len(configMgr.ListProfiles()) == 0 && len(args) == 0 {
+		return handler.HandleAuthResult(printer.AuthResult{Message: printer.NoProfilesMessage})
 	}
-
-	// Logout from all profiles
 	if all {
-		profiles := configMgr.ListProfiles()
-		logger.Get().WithField("profile_count", len(profiles)).Debug("Executing logout from all profiles")
-
-		if len(profiles) == 0 {
-			return handler.HandleEmpty("No profiles found")
+		question := fmt.Sprintf("Are you sure you want to log out of all %d profiles and delete their stored API keys?", len(configMgr.ListProfiles()))
+		if err := prompt.Confirm(cmd, question); err != nil {
+			return err
 		}
-
-		// Remove all profiles
-		for _, profileName := range profiles {
-			logger.Get().WithField("profile", profileName).Debug("Removing profile")
-			// Can't use RemoveProfile as it prevents removing default profile
-			delete(configMgr.GetConfig().Profiles, profileName)
-		}
-
-		// Reset default profile
-		configMgr.GetConfig().DefaultProfile = ""
-
-		if err := configMgr.Save(); err != nil {
-			return errors.NewConfigError("failed to save configuration", err)
-		}
-
-		logger.ConfigOperation("logout_complete", "", map[string]interface{}{
-			"operation": "all_profiles",
-			"count":     len(profiles),
-		})
-
-		// Handle successful logout from all profiles
-		return handler.HandleAuthLogout(true, printer.AuthConfig{
-			SuccessMessage: fmt.Sprintf("Logged out from all profiles (%d removed)", len(profiles)),
-		})
 	}
 
-	// Determine which profile to logout from
-	var profileName string
+	var result printer.AuthResult
+	err = config.Update(cmd.ErrOrStderr(), func(configMgr *config.Manager) error {
+		if all {
+			result = logoutAll(configMgr)
+			return nil
+		}
+		var err error
+		result, err = logoutProfile(configMgr, args)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	return handler.HandleAuthResult(result)
+}
+
+// checkLogoutTarget checks that the command names at most one profile to log
+// out: the argument and --profile do not name two profiles when both are
+// given, and --all comes with neither. Two names that differ only in case
+// are checked by checkSameProfile once the configuration is loaded.
+func checkLogoutTarget(cmd *cobra.Command, args []string, all bool) error {
+	profileSet := cmd.Flags().Changed("profile")
+	profileFlag, _ := cmd.Flags().GetString("profile")
+	switch {
+	case all && len(args) > 0:
+		return errors.NewValidationError("--all and a profile argument cannot be used together", nil)
+	case all && profileSet:
+		return errors.NewValidationError("--all and --profile cannot be used together", nil)
+	case !all && cmd.Flags().Changed("force"):
+		return errors.NewValidationError("--force needs --all", nil)
+	case len(args) > 0 && profileSet && !strings.EqualFold(args[0], profileFlag):
+		return twoProfilesError(args[0], profileFlag)
+	}
+	return nil
+}
+
+// checkSameProfile checks that argument and flag, the profile argument and
+// --profile of a logout, which differ only in case, name the same profile.
+func checkSameProfile(configMgr *config.Manager, argument, flag string) error {
+	fromArgument, err := configMgr.ProfileName(argument)
+	if err != nil {
+		return err
+	}
+	fromFlag, err := configMgr.ProfileName(flag)
+	if err != nil {
+		return err
+	}
+	if fromArgument != fromFlag {
+		return twoProfilesError(argument, flag)
+	}
+	return nil
+}
+
+// twoProfilesError is the error of a logout whose profile argument and
+// --profile name two profiles.
+func twoProfilesError(argument, flag string) error {
+	return errors.NewValidationError(fmt.Sprintf("the profile argument %q and --profile %q cannot be used together", argument, flag), nil)
+}
+
+// logoutAll removes every profile and the default.
+func logoutAll(configMgr *config.Manager) printer.AuthResult {
+	profiles := configMgr.ListProfiles()
+	logger.Get().WithField("profile_count", len(profiles)).Debug("Executing logout from all profiles")
+	for _, profileName := range profiles {
+		logger.Get().WithField("profile", profileName).Debug("Removing profile")
+		delete(configMgr.GetConfig().Profiles, profileName)
+	}
+	configMgr.GetConfig().DefaultProfile = ""
+
+	logger.ConfigOperation("logout_complete", "", map[string]interface{}{
+		"operation": "all_profiles",
+		"count":     len(profiles),
+	})
+	return printer.AuthResult{
+		Message: fmt.Sprintf("Logged out from all profiles (%d removed)", len(profiles)),
+	}
+}
+
+// logoutProfile removes the profile named in args, or the default profile.
+// When the default goes and exactly one profile remains, that profile becomes
+// the default; when several remain, none does, and the message says how to
+// choose one.
+func logoutProfile(configMgr *config.Manager, args []string) (printer.AuthResult, error) {
+	profileName := configMgr.GetConfig().DefaultProfile
 	if len(args) > 0 {
 		profileName = args[0]
-		logger.Get().WithField("profile", profileName).Debug("Using specified profile for logout")
-	} else {
-		// Use current default profile
-		profileName = configMgr.GetConfig().DefaultProfile
-		if profileName == "" {
-			return errors.NewValidationError("no default profile set and no profile specified", nil)
-		}
-		logger.Get().WithField("profile", profileName).Debug("Using default profile for logout")
+	} else if profileName == "" {
+		return printer.AuthResult{}, errors.NewConfigError("no default profile set and no profile specified", nil)
+	}
+	logger.Get().WithField("profile", profileName).Debug("Logging out of the profile")
+
+	profileName, err := configMgr.ProfileName(profileName)
+	if err != nil {
+		return printer.AuthResult{}, err
 	}
 
-	// Check if profile exists
-	profiles := configMgr.ListProfiles()
-	found := false
-	for _, name := range profiles {
-		if name == profileName {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return errors.NewNotFoundError(fmt.Sprintf("profile '%s' not found", profileName), nil)
-	}
-
-	// If this is the default profile, we need to handle it specially
-	if profileName == configMgr.GetConfig().DefaultProfile {
-		// Remove the profile manually since RemoveProfile prevents removing default
-		delete(configMgr.GetConfig().Profiles, profileName)
-
-		// Set new default profile if others exist
-		remainingProfiles := configMgr.ListProfiles()
-		if len(remainingProfiles) > 0 {
-			newDefaultProfile := remainingProfiles[0]
-			configMgr.GetConfig().DefaultProfile = newDefaultProfile
-			// Note: Info about new default will be included in the success message
-		} else {
+	message := fmt.Sprintf("Logged out from profile '%s'", profileName)
+	wasDefault := profileName == configMgr.GetConfig().DefaultProfile
+	delete(configMgr.GetConfig().Profiles, profileName)
+	if wasDefault {
+		remaining := configMgr.ListProfiles()
+		switch len(remaining) {
+		case 0:
 			configMgr.GetConfig().DefaultProfile = ""
-		}
-
-		if err := configMgr.Save(); err != nil {
-			return errors.NewConfigError("failed to save configuration", err)
-		}
-	} else {
-		// Use RemoveProfile for non-default profiles
-		if err := configMgr.RemoveProfile(profileName); err != nil {
-			return errors.NewConfigError("failed to remove profile", err)
+		case 1:
+			configMgr.GetConfig().DefaultProfile = remaining[0]
+			message += fmt.Sprintf(". Profile '%s' is now the default", remaining[0])
+		default:
+			configMgr.GetConfig().DefaultProfile = ""
+			message += ". No profile is the default now; run 'ahasend auth switch <profile>' to choose one"
 		}
 	}
 
 	logger.ConfigOperation("logout_complete", profileName, map[string]interface{}{
 		"operation":   "single_profile",
-		"was_default": profileName == configMgr.GetConfig().DefaultProfile,
+		"was_default": wasDefault,
 	})
-
-	// Handle successful logout
-	return handler.HandleAuthLogout(true, printer.AuthConfig{
-		SuccessMessage: fmt.Sprintf("Successfully logged out from profile '%s'", profileName),
-	})
+	return printer.AuthResult{Profile: profileName, Message: message}, nil
 }

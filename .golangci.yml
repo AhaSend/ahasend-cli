@@ -14,10 +14,6 @@ linters:
     warn-unused: true
     paths:
       - test
-    rules:
-      - path: "internal/printer/csv.go$"
-        linters:
-          - errcheck
   settings:
     errcheck:
       exclude-functions:
@@ -27,7 +23,7 @@ linters:
         - (io.Closer).Close
         - (*os.File).Close
         - crypto/rand.Read
-        - fmt.Scanln
+        - fmt.Fprint
         - fmt.Fprintln
         - fmt.Fprintf
         - (gopkg.in/gomail.v2.SendCloser).Close
@@ -37,9 +33,9 @@ linters:
         - (*github.com/spf13/cobra.Command).Usage
         - (github.com/AhaSend/ahasend-cli/internal/printer.ResponseHandler).HandleError
         - (*github.com/AhaSend/ahasend-cli/internal/client.WebSocketClient).Close
-        - (*github.com/fatih/color.Color).Println
-        - (*github.com/fatih/color.Color).Printf
-        - (*github.com/fatih/color.Color).Print
+        - (*github.com/fatih/color.Color).Fprintln
+        - (*github.com/fatih/color.Color).Fprintf
+        - (*github.com/fatih/color.Color).Fprint
 
 
 formatters:

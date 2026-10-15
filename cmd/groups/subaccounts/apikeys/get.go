@@ -2,6 +2,7 @@ package apikeys
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
@@ -12,7 +13,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <sub-account-id> <key-id>",
-		Short: "Get detailed information about a sub-account API key",
+		Short: "Get a sub-account API key",
 		Long: `Get detailed information about a specific API key that belongs to a
 sub-account, including its label, scopes, and timestamps.
 
@@ -22,7 +23,7 @@ The secret value is never displayed for security reasons.`,
 
   # Get details with JSON output
   ahasend subaccounts api-keys get 123e4567-e89b-12d3-a456-426614174000 223e4567-e89b-12d3-a456-426614174000 --output json`,
-		Args:         cobra.ExactArgs(2),
+		Args:         cmdutil.ExactArgs(2),
 		RunE:         runSubAccountAPIKeyGet,
 		SilenceUsage: true,
 	}
@@ -38,10 +39,12 @@ func runSubAccountAPIKeyGet(cmd *cobra.Command, args []string) error {
 	keyID := args[1]
 
 	// Validate before auth
-	if err := validation.ValidateUUIDField("sub-account ID", subAccountID); err != nil {
+	subAccountUUID, err := validation.ParseUUIDField("sub-account ID", subAccountID)
+	if err != nil {
 		return err
 	}
-	if err := validation.ValidateUUIDField("API key ID", keyID); err != nil {
+	keyUUID, err := validation.ParseUUIDField("API key ID", keyID)
+	if err != nil {
 		return err
 	}
 
@@ -57,7 +60,7 @@ func runSubAccountAPIKeyGet(cmd *cobra.Command, args []string) error {
 	}).Debug("Executing subaccounts api-keys get command")
 
 	// Get the sub-account's API key
-	apiKey, err := client.GetSubAccountAPIKey(subAccountID, keyID)
+	apiKey, err := client.GetSubAccountAPIKey(subAccountUUID, keyUUID)
 	if err != nil {
 		return err
 	}
@@ -65,8 +68,7 @@ func runSubAccountAPIKeyGet(cmd *cobra.Command, args []string) error {
 	// Reuse the shared single-API-key renderer for output parity with the
 	// top-level apikeys command.
 	return handler.HandleSingleAPIKey(apiKey, printer.SingleConfig{
-		SuccessMessage: "API Key Details",
+		SuccessMessage: "API key retrieved successfully",
 		EmptyMessage:   "API key not found",
-		FieldOrder:     []string{"id", "label", "scopes", "created_at", "updated_at"},
 	})
 }

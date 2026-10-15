@@ -1,16 +1,14 @@
 package apikeys
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
-	"github.com/google/uuid"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +19,7 @@ func NewDeleteCommand() *cobra.Command {
 		Short: "Delete an API key",
 		Long: `Delete an API key permanently.
 
-⚠️  WARNING: This action is irreversible. Once an API key is deleted:
+WARNING: This action is irreversible. Once an API key is deleted:
 - The key can no longer be used for authentication
 - Any applications using this key will lose access immediately
 - The key cannot be recovered or restored
@@ -31,7 +29,7 @@ Before deleting an API key, ensure:
 - You have alternative authentication methods configured
 - You have documented any systems that might be affected
 
-Use the --force flag to skip the confirmation prompt for automation.`,
+Delete asks for confirmation unless --force is set.`,
 		Example: `  # Delete an API key (with confirmation)
   ahasend apikeys delete fcb3f3bc-4ac8-4330-948d-1671fcf9a768
 
@@ -40,25 +38,26 @@ Use the --force flag to skip the confirmation prompt for automation.`,
 
   # JSON output for automation
   ahasend apikeys delete fcb3f3bc-4ac8-4330-948d-1671fcf9a768 --force --output json`,
-		Args: cobra.ExactArgs(1),
-		RunE: runAPIKeyDelete,
+		Args:         cmdutil.ExactArgs(1),
+		RunE:         runAPIKeyDelete,
+		SilenceUsage: true,
 	}
 
-	// Delete flags
-	cmd.Flags().Bool("force", false, "Skip confirmation prompt")
+	prompt.AddForceFlag(cmd)
 
 	return cmd
 }
 
 func runAPIKeyDelete(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
 	keyID := args[0]
 
-	// Validate keyID is a valid UUID
-	if _, err := uuid.Parse(keyID); err != nil {
-		return errors.NewValidationError(fmt.Sprintf("invalid API key ID format: %s", keyID), err)
+	keyUUID, err := validation.ParseUUIDField("API key ID", keyID)
+	if err != nil {
+		return err
+	}
+
+	if err := prompt.Confirm(cmd, fmt.Sprintf("Are you sure you want to delete API key %s?", keyID)); err != nil {
+		return err
 	}
 
 	client, err := auth.GetAuthenticatedClient(cmd)
@@ -66,47 +65,16 @@ func runAPIKeyDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Get flag values
-	force, _ := cmd.Flags().GetBool("force")
-
-	// If not force mode, show confirmation
-	if !force {
-		if err := confirmDeletion(keyID); err != nil {
-			return err
-		}
-	}
-
-	// Log the operation
 	logger.Get().WithFields(map[string]interface{}{
 		"key_id": keyID,
-		"force":  force,
 	}).Debug("Deleting API key")
 
-	// Delete the API key
-	_, err = client.DeleteAPIKey(keyID)
+	response, err := client.DeleteAPIKey(keyUUID)
 	if err != nil {
 		return err
 	}
 
-	// Handle successful deletion
-	return handler.HandleDeleteAPIKey(true, printer.DeleteConfig{
-		SuccessMessage: "✅ API Key Deleted Successfully",
-		ItemName:       "API key",
+	return printer.GetResponseHandlerFromCommand(cmd).HandleSuccessResponse(response, printer.ResultConfig{
+		SuccessMessage: fmt.Sprintf("API key '%s' deleted successfully", keyID),
 	})
-}
-
-func confirmDeletion(keyID string) error {
-	fmt.Printf("⚠️  You are about to permanently delete API key: %s\n", keyID)
-	fmt.Println("This action cannot be undone and will immediately revoke access for any applications using this key.")
-	fmt.Print("Are you sure you want to continue? (y/N): ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
-		if response == "y" || response == "yes" {
-			return nil
-		}
-	}
-
-	return errors.NewValidationError("operation cancelled", nil)
 }

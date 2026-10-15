@@ -3,15 +3,16 @@ package subaccounts
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -26,15 +27,18 @@ const (
 // NewCreateCommand creates the create command
 func NewCreateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new sub-account",
-		Long: `Create a new sub-account under your AhaSend parent account.
+		Use:   "create --name <name> --website <domain>",
+		Short: "Create a sub-account",
+		Long: `Create a sub-account under your AhaSend parent account.
 
-A sub-account requires a name and a website domain, such as example.com. A URL
-with only a scheme and host, such as https://example.com, is also accepted and
-sent as its domain. You can optionally set a monthly
-credit allocation. Creation is idempotent: provide your own --idempotency-key to
-make retries safe, or one is generated for you.`,
+A sub-account requires a name and a website domain, such as example.com.
+An http or https URL is also accepted: the command sends the website as the
+API stores it, the host alone in lowercase, without the scheme, path, query
+or port, and an international domain in Punycode, so
+https://Example.com/about is sent as example.com and bücher.de as
+xn--bcher-kva.de. You can optionally set a monthly credit allocation.
+Creation is idempotent: provide your own --idempotency-key to make retries
+safe, or one is generated for you.`,
 		Example: `  # Create a sub-account
   ahasend subaccounts create --name "Acme Inc" --website acme.example.com
 
@@ -43,7 +47,7 @@ make retries safe, or one is generated for you.`,
 
   # Create with a custom idempotency key for safe retries
   ahasend subaccounts create --name "Acme Inc" --website acme.example.com --idempotency-key my-unique-key`,
-		Args:         cobra.NoArgs,
+		Args:         cmdutil.NoArgs,
 		RunE:         runSubAccountsCreate,
 		SilenceUsage: true,
 	}
@@ -51,7 +55,7 @@ make retries safe, or one is generated for you.`,
 	cmd.Flags().String("name", "", "Sub-account name (required)")
 	cmd.Flags().String("website", "", "Sub-account website domain, e.g. example.com (required)")
 	cmd.Flags().Int64("monthly-credit", 0, "Monthly credit allocation (0-1000000000)")
-	cmd.Flags().String("idempotency-key", "", "Idempotency key for safe retries (auto-generated if not provided)")
+	cmdutil.AddIdempotencyKeyFlag(cmd)
 
 	return cmd
 }
@@ -60,19 +64,22 @@ func runSubAccountsCreate(cmd *cobra.Command, args []string) error {
 	// Get response handler instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
-	// Get flags
-	name, _ := cmd.Flags().GetString("name")
-	website, _ := cmd.Flags().GetString("website")
-	idempotencyKey, _ := cmd.Flags().GetString("idempotency-key")
-
-	// Validate name locally (trim, require non-empty)
+	// The API trims the name. The name is sent trimmed, as the SDK refuses
+	// one over the limit before the API trims it.
+	name, err := cmdutil.ReadRequiredText(cmd, "name")
+	if err != nil {
+		return err
+	}
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return errors.NewValidationError("--name is required", nil)
+	if err := cmdutil.CheckMaxLength("name", &name, cmdutil.MaxNameLength); err != nil {
+		return err
 	}
 
-	website, err := normalizeWebsite(website)
+	website, err := cmdutil.ReadRequiredText(cmd, "website")
 	if err != nil {
+		return err
+	}
+	if website, err = normalizeWebsite(website); err != nil {
 		return err
 	}
 
@@ -83,22 +90,17 @@ func runSubAccountsCreate(cmd *cobra.Command, args []string) error {
 		Website: website,
 	}
 
-	if cmd.Flags().Changed("monthly-credit") {
-		credit, _ := cmd.Flags().GetInt64("monthly-credit")
-		if err := validateMonthlyCredit(credit); err != nil {
-			return err
-		}
-		req.MonthlyCredit = &credit
-	}
-
-	// Generate an idempotency key when the user did not provide one so the
-	// create call is always safe to retry.
-	if idempotencyKey == "" {
-		idempotencyKey = uuid.NewString()
+	if req.MonthlyCredit, err = readMonthlyCredit(cmd); err != nil {
+		return err
 	}
 
 	// SDK backstop validation after local validation and before auth.
 	if err := req.Validate(); err != nil {
+		return errors.NewValidationError(err.Error(), nil)
+	}
+
+	idempotency, err := cmdutil.IdempotencyOptions(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -109,85 +111,138 @@ func runSubAccountsCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
-		"name":            name,
-		"website":         website,
-		"monthly_credit":  req.MonthlyCredit,
-		"idempotency_key": idempotencyKey,
+		"name":           name,
+		"website":        website,
+		"monthly_credit": req.MonthlyCredit,
 	}).Debug("Executing subaccounts create command")
 
-	response, err := client.CreateSubAccount(req, idempotencyKey)
+	response, err := client.CreateSubAccount(req, idempotency...)
 	if err != nil {
 		return err
 	}
 
-	if response == nil {
-		return errors.NewAPIError("received nil response from API", nil)
-	}
-
 	config := printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Sub-account '%s' created successfully", name),
+		SuccessMessage: "Sub-account created successfully",
 		EmptyMessage:   "No sub-account created",
-		FieldOrder:     []string{"name", "id", "parent_account_id", "status", "website", "monthly_credit", "domain_count", "member_count", "created_at", "last_activity_at"},
 	}
 
 	return handler.HandleSingleSubAccount(response, config)
 }
 
-// normalizeWebsite returns the bare domain the API expects for a sub-account
-// website. It accepts a domain such as "example.com", or an http(s) URL made of
-// only a scheme and host, such as "https://example.com/", which is reduced to
-// its host. URLs with credentials, a port, a path, a query, or a fragment are
-// rejected rather than silently trimmed.
+// maxWebsiteLength is the longest website the API takes, after it reduces
+// the website to its host.
+const maxWebsiteLength = 255
+
+// websitePattern is the API's rule for a website, the fqdn rule of its
+// validator: labels of letters, digits and hyphens that start with a letter
+// or digit, and a last label of letters and digits that starts with a
+// letter.
+var websitePattern = regexp.MustCompile(`^([a-zA-Z0-9]{1}[a-zA-Z0-9-]{0,62})(\.[a-zA-Z0-9]{1}[a-zA-Z0-9-]{0,62})*?(\.[a-zA-Z]{1}[a-zA-Z0-9]{0,62})\.?$`)
+
+// normalizeWebsite returns website, which is not blank, as the API stores
+// it, with websiteHost, or a validation error when the API would refuse it:
+// when it has no host, or its host is not a fully qualified domain.
 func normalizeWebsite(website string) (string, error) {
 	website = strings.TrimSpace(website)
-	if website == "" {
-		return "", errors.NewValidationError("--website is required", nil)
-	}
-
 	invalid := func(reason string) error {
-		return errors.NewValidationError(fmt.Sprintf("invalid website: %s (%s; use a domain such as example.com)", website, reason), nil)
+		return validation.InvalidValueError("--website", website, reason+"; use a domain such as example.com")
 	}
 
-	host := website
-	if strings.Contains(website, "://") {
-		parsed, err := url.Parse(website)
-		if err != nil {
-			return "", invalid("not a valid URL")
-		}
-		if parsed.Scheme != "http" && parsed.Scheme != "https" {
-			return "", invalid("only http and https URLs are accepted")
-		}
-		if parsed.User != nil {
-			return "", invalid("must not include credentials")
-		}
-		if parsed.Port() != "" {
-			return "", invalid("must not include a port")
-		}
-		if (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
-			return "", invalid("must not include a path, query, or fragment")
-		}
-		host = parsed.Hostname()
-	}
-
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	if validation.ValidateDomainName(host) != nil {
-		return "", invalid("not a valid domain")
-	}
-	labels := strings.Split(host, ".")
-	if len(labels) < 2 {
+	host, reason := websiteHost(website)
+	switch {
+	case reason != "":
+		return "", invalid(reason)
+	case !strings.Contains(host, "."):
 		return "", invalid("must be a fully qualified domain")
+	case len(host) > maxWebsiteLength:
+		return "", invalid(fmt.Sprintf("longer than %d characters", maxWebsiteLength))
+	case !websitePattern.MatchString(host):
+		labels := strings.Split(host, ".")
+		if tld := labels[len(labels)-1]; validation.IsDomainName(host) && (tld[0] < 'a' || tld[0] > 'z') {
+			return "", invalid("must end in a valid top-level domain")
+		}
+		return "", invalid("not a domain name")
 	}
-	if tld := labels[len(labels)-1]; tld[0] < 'a' || tld[0] > 'z' {
-		return "", invalid("must end in a valid top-level domain")
-	}
-
 	return host, nil
 }
 
-// validateMonthlyCredit enforces the 0..1000000000 range locally, before auth.
-func validateMonthlyCredit(credit int64) error {
-	if credit < monthlyCreditMin || credit > monthlyCreditMax {
-		return errors.NewValidationError(fmt.Sprintf("invalid monthly credit: %d (must be between %d and %d)", credit, monthlyCreditMin, monthlyCreditMax), nil)
+// websiteHost reduces website, trimmed, to its host as the API does: it
+// drops an http or https scheme, a leading "//", a path, query, fragment and
+// port, and a trailing dot, lowercases the host and writes an international
+// one in Punycode. It returns why website has no host the API would keep
+// instead, when it has none.
+func websiteHost(website string) (host, reason string) {
+	candidate := website
+	if strings.HasPrefix(candidate, "//") {
+		candidate = "https:" + candidate
 	}
-	return nil
+	host = candidate
+	if strings.Contains(candidate, "://") {
+		parsed, err := url.Parse(candidate)
+		if err != nil {
+			return "", "not a valid URL"
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return "", "only http and https URLs are accepted"
+		}
+		if parsed.User != nil {
+			return "", "must not include credentials"
+		}
+		host = parsed.Host
+	} else {
+		// The path goes before the port, so "example.com:8443/team" reduces
+		// as "https://example.com:8443/team" does
+		host = strings.TrimRight(cutWebsitePath(host), ".")
+		if colon := strings.Index(host, ":"); colon >= 0 && !isPort(host[colon+1:]) {
+			return "", "not a domain or an http or https URL"
+		}
+	}
+
+	host = cutWebsitePath(host)
+	if strings.Contains(host, "@") {
+		return "", "must not include credentials"
+	}
+	if colon := strings.LastIndex(host, ":"); colon >= 0 && !strings.Contains(host, "]") {
+		host = host[:colon]
+	}
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if host == "" {
+		return "", "not a domain name"
+	}
+	return validation.ASCIIDomain(host), ""
+}
+
+// cutWebsitePath returns value without its path, query and fragment: what
+// follows the first "/", "?" or "#".
+func cutWebsitePath(value string) string {
+	if i := strings.IndexAny(value, "/?#"); i >= 0 {
+		return value[:i]
+	}
+	return value
+}
+
+// isPort reports whether s is a port: one or more digits.
+func isPort(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// readMonthlyCredit returns --monthly-credit, or nil when the flag is not set,
+// so an explicit 0 is sent. A value outside its range is a validation error.
+func readMonthlyCredit(cmd *cobra.Command) (*int64, error) {
+	if !cmd.Flags().Changed("monthly-credit") {
+		return nil, nil
+	}
+	credit, _ := cmd.Flags().GetInt64("monthly-credit")
+	if credit < monthlyCreditMin || credit > monthlyCreditMax {
+		return nil, errors.NewValidationError(fmt.Sprintf("--monthly-credit must be between %d and %d", monthlyCreditMin, monthlyCreditMax), nil)
+	}
+	return &credit, nil
 }

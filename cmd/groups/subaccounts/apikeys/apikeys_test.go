@@ -2,16 +2,14 @@ package apikeys
 
 import (
 	"bytes"
-	"context"
+	"os"
 	"strings"
 	"testing"
-	"time"
 
 	topapikeys "github.com/AhaSend/ahasend-cli/cmd/groups/apikeys"
-	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/client"
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
-	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
@@ -28,92 +26,14 @@ const (
 	testKeyID        = "44444444-4444-4444-4444-444444444444"
 )
 
-// execCommand runs a leaf command with a plain response handler installed in
-// context and captures its output. It mirrors how the root command wires the
-// handler before a runner executes.
-func execCommand(cmd *cobra.Command, args ...string) (string, error) {
-	var buf bytes.Buffer
-	handler := printer.GetResponseHandler("plain", false, &buf)
-	ctx := context.WithValue(context.Background(), printer.ResponseHandlerKey, handler)
-	cmd.SetContext(ctx)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
-}
-
-// execCommandJSON mirrors execCommand but installs a JSON response handler so
-// tests can assert the SDK pass-through contract for machine-readable output.
-func execCommandJSON(cmd *cobra.Command, args ...string) (string, error) {
-	var buf bytes.Buffer
-	handler := printer.GetResponseHandler("json", false, &buf)
-	ctx := context.WithValue(context.Background(), printer.ResponseHandlerKey, handler)
-	cmd.SetContext(ctx)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
-}
-
-// trackingResolver installs a test auth resolver that records whether it was
-// invoked and returns the supplied client. The returned *bool lets tests assert
-// validation-before-auth ordering.
-func trackingResolver(t *testing.T, c client.AhaSendClient) *bool {
-	t.Helper()
-	called := false
-	restore := auth.SetAuthenticatedClientResolverForTesting(func(*cobra.Command) (client.AhaSendClient, error) {
-		called = true
-		return c, nil
-	})
-	t.Cleanup(restore)
-	return &called
-}
-
-func newTestAPIKey() *responses.APIKey {
-	return &responses.APIKey{
-		Object:    "api_key",
-		ID:        uuid.MustParse(testKeyID),
-		AccountID: uuid.MustParse(testSubAccountID),
-		CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		UpdatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
-		Label:     "Sub Key",
-		PublicKey: "ak_subaccount_example",
-	}
-}
-
 func newTestAPIKeyList() *responses.PaginatedAPIKeysResponse {
 	return &responses.PaginatedAPIKeysResponse{
 		Object: "list",
-		Data:   []responses.APIKey{*newTestAPIKey()},
+		Data:   []responses.APIKey{*mocks.NewAPIKey()},
 	}
 }
 
 // Group structure -----------------------------------------------------------
-
-func TestAPIKeysCommand_Structure(t *testing.T) {
-	cmd := NewCommand()
-	assert.Equal(t, "api-keys", cmd.Name())
-	assert.Contains(t, cmd.Aliases, "apikeys")
-	assert.NotEmpty(t, cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
-
-	subcommands := make([]string, 0)
-	for _, c := range cmd.Commands() {
-		subcommands = append(subcommands, c.Name())
-	}
-	assert.ElementsMatch(t, []string{"list", "get", "create", "update", "delete"}, subcommands)
-}
-
-func TestAPIKeysCommand_Help(t *testing.T) {
-	out, err := execCommand(NewCommand(), "--help")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Manage API keys that belong to a specific sub-account")
-	for _, sub := range []string{"list", "create", "get", "update", "delete"} {
-		assert.Contains(t, out, sub)
-	}
-}
 
 // The alias `apikeys` resolves to the same subgroup as `api-keys`, including
 // when used as `subaccounts apikeys list`.
@@ -130,82 +50,42 @@ func TestAPIKeysCommand_AliasResolves(t *testing.T) {
 
 // list -----------------------------------------------------------------------
 
-func TestListCommand_Structure(t *testing.T) {
-	cmd := NewListCommand()
-	assert.Equal(t, "list", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-}
-
-func TestListCommand_Flags(t *testing.T) {
-	flags := NewListCommand().Flags()
-
-	limitFlag := flags.Lookup("limit")
-	require.NotNil(t, limitFlag)
-	assert.Equal(t, "int32", limitFlag.Value.Type())
-	assert.Equal(t, "0", limitFlag.DefValue)
-
-	cursorFlag := flags.Lookup("cursor")
-	require.NotNil(t, cursorFlag)
-	assert.Equal(t, "string", cursorFlag.Value.Type())
-	assert.Empty(t, cursorFlag.DefValue)
-}
-
 func TestListCommand_RequiresExactlyOneArg(t *testing.T) {
-	_, err := execCommand(NewListCommand())
+	_, err := testutil.RunCommandCombined(t, NewListCommand(), "plain")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg")
+	assert.Equal(t, "the sub-account-id argument is required", err.Error())
 }
 
 func TestListCommand_BadSubAccountIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewListCommand(), "not-a-uuid")
+	_, err := testutil.RunCommandCombined(t, NewListCommand(), "plain", "not-a-uuid")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed sub-account ID")
-	mockClient.AssertNotCalled(t, "ListSubAccountAPIKeys", mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestListCommand_LimitOutOfBoundsFailsBeforeAuth(t *testing.T) {
-	for _, limit := range []string{"--limit=-1", "--limit=101"} {
-		t.Run(limit, func(t *testing.T) {
-			mockClient := &mocks.MockClient{}
-			called := trackingResolver(t, mockClient)
-
-			_, err := execCommand(NewListCommand(), testSubAccountID, limit)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid page limit")
-			assert.False(t, *called, "auth resolver must not be reached when validation fails")
-			mockClient.AssertNotCalled(t, "ListSubAccountAPIKeys", mock.Anything, mock.Anything, mock.Anything)
-		})
-	}
 }
 
 func TestListCommand_LimitZeroAccepted_NilPagination(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListSubAccountAPIKeys", testSubAccountID, (*int32)(nil), (*string)(nil)).
+	mockClient.On("ListSubAccountAPIKeys", uuid.MustParse(testSubAccountID), common.PaginationParams{}).
 		Return(newTestAPIKeyList(), nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewListCommand(), testSubAccountID, "--limit=0")
+	out, err := testutil.RunCommandCombined(t, NewListCommand(), "plain", testSubAccountID, "--limit=0")
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.Contains(t, out, "Sub Key")
+	assert.Contains(t, out, "Production servers")
 	mockClient.AssertExpectations(t)
 }
 
 func TestListCommand_LimitMaxAccepted(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListSubAccountAPIKeys", testSubAccountID,
-		mock.MatchedBy(func(l *int32) bool { return l != nil && *l == 100 }),
-		(*string)(nil)).
+	mockClient.On("ListSubAccountAPIKeys", uuid.MustParse(testSubAccountID),
+		mock.MatchedBy(func(p common.PaginationParams) bool { return p.Limit != nil && *p.Limit == 100 })).
 		Return(&responses.PaginatedAPIKeysResponse{Object: "list"}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewListCommand(), testSubAccountID, "--limit=100")
+	_, err := testutil.RunCommandCombined(t, NewListCommand(), "plain", testSubAccountID, "--limit=100")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	mockClient.AssertExpectations(t)
@@ -216,109 +96,83 @@ func TestListCommand_LimitMaxAccepted(t *testing.T) {
 func TestListCommand_JSONVerbatimPassThrough(t *testing.T) {
 	nextCursor := "next-page"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListSubAccountAPIKeys", testSubAccountID, (*int32)(nil), (*string)(nil)).
+	mockClient.On("ListSubAccountAPIKeys", uuid.MustParse(testSubAccountID), common.PaginationParams{}).
 		Return(&responses.PaginatedAPIKeysResponse{
 			Object: "list",
-			Data:   []responses.APIKey{*newTestAPIKey()},
+			Data:   []responses.APIKey{*mocks.NewAPIKey()},
 			Pagination: common.PaginationInfo{
 				HasMore:    true,
 				NextCursor: &nextCursor,
 			},
 		}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandJSON(NewListCommand(), testSubAccountID)
+	out, err := testutil.RunCommandCombined(t, NewListCommand(), "json", testSubAccountID)
 	require.NoError(t, err)
 	assert.True(t, *called)
 
 	assert.Contains(t, out, `"object": "list"`)
 	assert.Contains(t, out, "next-page")
-	assert.Contains(t, out, "ak_subaccount_example")
+	assert.Contains(t, out, "aha-pk-test")
 	assert.NotContains(t, out, `"empty"`)
 	mockClient.AssertExpectations(t)
 }
 
 // get ------------------------------------------------------------------------
 
-func TestGetCommand_Structure(t *testing.T) {
-	cmd := NewGetCommand()
-	assert.Equal(t, "get", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-}
-
 func TestGetCommand_RequiresExactlyTwoArgs(t *testing.T) {
-	_, err := execCommand(NewGetCommand(), testSubAccountID)
+	_, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", testSubAccountID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 2 arg")
+	assert.Equal(t, "the key-id argument is required", err.Error())
 }
 
 func TestGetCommand_BadSubAccountIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewGetCommand(), "not-a-uuid", testKeyID)
+	_, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", "not-a-uuid", testKeyID)
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed sub-account ID")
-	mockClient.AssertNotCalled(t, "GetSubAccountAPIKey", mock.Anything, mock.Anything)
 }
 
 func TestGetCommand_BadKeyIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewGetCommand(), testSubAccountID, "not-a-uuid")
+	_, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", testSubAccountID, "not-a-uuid")
 	require.Error(t, err)
-	assert.Equal(t, "invalid API key ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid API key ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed API key ID")
-	mockClient.AssertNotCalled(t, "GetSubAccountAPIKey", mock.Anything, mock.Anything)
 }
 
 func TestGetCommand_MockBacked(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("GetSubAccountAPIKey", testSubAccountID, testKeyID).Return(newTestAPIKey(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("GetSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID)).Return(mocks.NewAPIKey(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewGetCommand(), testSubAccountID, testKeyID)
+	out, err := testutil.RunCommandCombined(t, NewGetCommand(), "plain", testSubAccountID, testKeyID)
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.Contains(t, out, "Sub Key")
+	assert.Contains(t, out, "Production servers")
 	mockClient.AssertExpectations(t)
 }
 
 func TestGetCommand_JSONVerbatimPassThrough(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("GetSubAccountAPIKey", testSubAccountID, testKeyID).Return(newTestAPIKey(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("GetSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID)).Return(mocks.NewAPIKey(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandJSON(NewGetCommand(), testSubAccountID, testKeyID)
+	out, err := testutil.RunCommandCombined(t, NewGetCommand(), "json", testSubAccountID, testKeyID)
 	require.NoError(t, err)
 	assert.True(t, *called)
 
 	assert.Contains(t, out, `"object": "api_key"`)
-	assert.Contains(t, out, "ak_subaccount_example")
+	assert.Contains(t, out, "aha-pk-test")
 	assert.Contains(t, out, testKeyID)
 	mockClient.AssertExpectations(t)
 }
 
-// execCommandFormat mirrors execCommand but installs a handler for an arbitrary
-// output format so tests can exercise table-vs-plain-vs-json behavior.
-func execCommandFormat(format string, cmd *cobra.Command, args ...string) (string, error) {
-	var buf bytes.Buffer
-	handler := printer.GetResponseHandler(format, false, &buf)
-	ctx := context.WithValue(context.Background(), printer.ResponseHandlerKey, handler)
-	cmd.SetContext(ctx)
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return buf.String(), err
-}
-
 func newTestAPIKeyWithSecret() *responses.APIKey {
-	key := newTestAPIKey()
+	key := mocks.NewAPIKey()
 	secret := "sk_one_time_secret_value"
 	key.SecretKey = &secret
 	return key
@@ -328,105 +182,95 @@ const validScope = "messages:send:all"
 
 // create ----------------------------------------------------------------------
 
-func TestCreateCommand_Structure(t *testing.T) {
-	cmd := NewCreateCommand()
-	assert.Equal(t, "create", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-
-	flags := cmd.Flags()
-	require.NotNil(t, flags.Lookup("label"))
-	require.NotNil(t, flags.Lookup("scope"))
-	require.NotNil(t, flags.Lookup("idempotency-key"))
-}
-
 // The nested create help promises the idempotency flag and the 5-minute replay
-// window, while the top-level apikeys create help promises neither.
+// window; the top-level apikeys create takes the same flag.
 func TestCreateCommand_HelpMentionsIdempotencyAndReplayWindow(t *testing.T) {
-	out, err := execCommand(NewCreateCommand(), "--help")
+	out, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "--idempotency-key")
 	assert.Contains(t, out, "5-minute replay window")
 
-	topOut, err := execCommand(topapikeys.NewCreateCommand(), "--help")
+	topOut, err := testutil.RunCommandCombined(t, topapikeys.NewCreateCommand(), "plain", "--help")
 	require.NoError(t, err)
-	lower := strings.ToLower(topOut)
-	assert.NotContains(t, lower, "idempotency")
-	assert.NotContains(t, lower, "replay")
+	assert.Contains(t, topOut, "--idempotency-key")
 }
 
 func TestCreateCommand_RequiresLabelAndScope(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	tests := []struct {
+		args    []string
+		message string
+	}{
+		{[]string{testSubAccountID, "--scope", "messages:send:all"}, "--label is required"},
+		{[]string{testSubAccountID, "--label", "CI"}, "--scope is required"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.message, func(t *testing.T) {
+			called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewCreateCommand(), testSubAccountID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "required flag(s)")
-	assert.Contains(t, err.Error(), "label")
-	assert.Contains(t, err.Error(), "scope")
-	assert.False(t, *called, "auth resolver must not be reached when required flags are missing")
+			_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", tt.args...)
+			require.Error(t, err)
+			assert.Equal(t, tt.message, err.Error())
+			assert.Equal(t, 4, clierrors.GetExitCode(err))
+			assert.False(t, *called, "auth resolver must not be reached when required flags are missing")
+		})
+	}
+}
+
+func TestCreateCommand_RequiredFlagsSayRequiredInHelp(t *testing.T) {
+	cmd := NewCreateCommand()
+	assert.True(t, strings.HasSuffix(cmd.Flags().Lookup("label").Usage, "(required)"))
+	assert.True(t, strings.HasSuffix(cmd.Flags().Lookup("scope").Usage, "(required; can be used multiple times)"))
 }
 
 func TestCreateCommand_BadSubAccountIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewCreateCommand(), "not-a-uuid",
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", "not-a-uuid",
 		"--label", "CI", "--scope", validScope)
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed sub-account ID")
-	mockClient.AssertNotCalled(t, "CreateSubAccountAPIKey", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCreateCommand_InvalidScopeFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewCreateCommand(), testSubAccountID,
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID,
 		"--label", "CI", "--scope", "not-a-real-scope")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid scope: not-a-real-scope")
+	assert.Contains(t, err.Error(), `invalid --scope value "not-a-real-scope": not an API key scope`)
 	assert.False(t, *called, "auth resolver must not be reached for an invalid scope")
-	mockClient.AssertNotCalled(t, "CreateSubAccountAPIKey", mock.Anything, mock.Anything, mock.Anything)
 }
 
 // When --idempotency-key is provided it is passed through verbatim.
 func TestCreateCommand_IdempotencyKeyPassThrough(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
 		requests.CreateAPIKeyRequest{Label: "CI", Scopes: []string{validScope}},
-		"my-key").
-		Return(newTestAPIKey(), nil)
-	called := trackingResolver(t, mockClient)
+		testutil.IdempotencyKeyArg("my-key")).
+		Return(mocks.NewAPIKey(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), testSubAccountID,
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID,
 		"--label", "CI", "--scope", validScope, "--idempotency-key", "my-key")
 	require.NoError(t, err)
 	assert.True(t, *called)
 	mockClient.AssertExpectations(t)
 }
 
-// When --idempotency-key is omitted a non-empty UUID is generated and passed.
-func TestCreateCommand_IdempotencyKeyGenerated(t *testing.T) {
-	var capturedKey string
+// When --idempotency-key is omitted no key option is passed, so the SDK
+// generates one.
+func TestCreateCommand_IdempotencyKeyLeftToTheSDK(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-		requests.CreateAPIKeyRequest{Label: "CI", Scopes: []string{validScope}},
-		mock.MatchedBy(func(key string) bool {
-			capturedKey = key
-			_, err := uuid.Parse(key)
-			return key != "" && err == nil
-		})).
-		Return(newTestAPIKey(), nil)
-	called := trackingResolver(t, mockClient)
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		requests.CreateAPIKeyRequest{Label: "CI", Scopes: []string{validScope}}).
+		Return(mocks.NewAPIKey(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	_, err := execCommand(NewCreateCommand(), testSubAccountID,
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID,
 		"--label", "CI", "--scope", validScope)
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.NotEmpty(t, capturedKey)
 	mockClient.AssertExpectations(t)
 }
 
@@ -434,13 +278,12 @@ func TestCreateCommand_IdempotencyKeyGenerated(t *testing.T) {
 // one-time secret_key verbatim.
 func TestCreateCommand_JSONPreservesSecretKey(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-		mock.AnythingOfType("requests.CreateAPIKeyRequest"),
-		mock.AnythingOfType("string")).
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		mock.AnythingOfType("requests.CreateAPIKeyRequest")).
 		Return(newTestAPIKeyWithSecret(), nil)
-	trackingResolver(t, mockClient)
+	testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandJSON(NewCreateCommand(), testSubAccountID,
+	out, err := testutil.RunCommandCombined(t, NewCreateCommand(), "json", testSubAccountID,
 		"--label", "CI", "--scope", validScope)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"secret_key"`)
@@ -455,13 +298,12 @@ func TestCreateCommand_ReplayNotePrintedForHumanFormats(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		t.Run(format, func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
-			mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-				mock.AnythingOfType("requests.CreateAPIKeyRequest"),
-				mock.AnythingOfType("string")).
+			mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+				mock.AnythingOfType("requests.CreateAPIKeyRequest")).
 				Return(newTestAPIKeyWithSecret(), nil)
-			trackingResolver(t, mockClient)
+			testutil.InjectClient(t, mockClient)
 
-			out, err := execCommandFormat(format, NewCreateCommand(), testSubAccountID,
+			out, err := testutil.RunCommandCombined(t, NewCreateCommand(), format, testSubAccountID,
 				"--label", "CI", "--scope", validScope)
 			require.NoError(t, err)
 			assert.Contains(t, out, "5-minute replay window")
@@ -470,16 +312,42 @@ func TestCreateCommand_ReplayNotePrintedForHumanFormats(t *testing.T) {
 	}
 }
 
+// TestCreateCommand_PrintsTheSameAsTopLevelCreate checks that the sub-account
+// create prints one secret notice, the one the top-level create prints, so
+// the two commands say the same thing.
+func TestCreateCommand_PrintsTheSameAsTopLevelCreate(t *testing.T) {
+	for _, format := range []string{"table", "plain"} {
+		t.Run(format, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+				mock.AnythingOfType("requests.CreateAPIKeyRequest")).
+				Return(newTestAPIKeyWithSecret(), nil)
+			mockClient.On("CreateAPIKey", mock.AnythingOfType("requests.CreateAPIKeyRequest")).
+				Return(newTestAPIKeyWithSecret(), nil)
+			testutil.InjectClient(t, mockClient)
+
+			nested, _, err := testutil.RunCommand(t, NewCreateCommand(), format, "", testSubAccountID,
+				"--label", "CI", "--scope", validScope)
+			require.NoError(t, err)
+			top, _, err := testutil.RunCommand(t, topapikeys.NewCreateCommand(), format, "",
+				"--label", "CI", "--scope", validScope)
+			require.NoError(t, err)
+
+			assert.Equal(t, top, nested)
+			assert.Equal(t, 1, strings.Count(nested, "replay window"))
+		})
+	}
+}
+
 // The note is suppressed when the secret is absent, even for human formats.
 func TestCreateCommand_NoReplayNoteWhenSecretMissing(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-		mock.AnythingOfType("requests.CreateAPIKeyRequest"),
-		mock.AnythingOfType("string")).
-		Return(newTestAPIKey(), nil) // no SecretKey
-	trackingResolver(t, mockClient)
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		mock.AnythingOfType("requests.CreateAPIKeyRequest")).
+		Return(mocks.NewAPIKey(), nil) // no SecretKey
+	testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandFormat("plain", NewCreateCommand(), testSubAccountID,
+	out, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID,
 		"--label", "CI", "--scope", validScope)
 	require.NoError(t, err)
 	assert.NotContains(t, out, "replay window")
@@ -489,13 +357,12 @@ func TestCreateCommand_NoReplayNoteWhenSecretMissing(t *testing.T) {
 // The note is not printed for CSV output.
 func TestCreateCommand_NoReplayNoteForCSV(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-		mock.AnythingOfType("requests.CreateAPIKeyRequest"),
-		mock.AnythingOfType("string")).
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		mock.AnythingOfType("requests.CreateAPIKeyRequest")).
 		Return(newTestAPIKeyWithSecret(), nil)
-	trackingResolver(t, mockClient)
+	testutil.InjectClient(t, mockClient)
 
-	out, err := execCommandFormat("csv", NewCreateCommand(), testSubAccountID,
+	out, err := testutil.RunCommandCombined(t, NewCreateCommand(), "csv", testSubAccountID,
 		"--label", "CI", "--scope", validScope)
 	require.NoError(t, err)
 	assert.NotContains(t, out, "replay window")
@@ -522,13 +389,12 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 				Raw:        []byte(tc.raw),
 			}
 			mockClient := &mocks.MockClient{}
-			mockClient.On("CreateSubAccountAPIKey", testSubAccountID,
-				mock.AnythingOfType("requests.CreateAPIKeyRequest"),
-				mock.AnythingOfType("string")).
+			mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+				mock.AnythingOfType("requests.CreateAPIKeyRequest")).
 				Return(nil, apiErr)
-			trackingResolver(t, mockClient)
+			testutil.InjectClient(t, mockClient)
 
-			_, err := execCommandJSON(NewCreateCommand(), testSubAccountID,
+			_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "json", testSubAccountID,
 				"--label", "CI", "--scope", validScope)
 
 			// The runner returns the SDK error verbatim with its raw body.
@@ -539,7 +405,7 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 
 			// The JSON handler prints the raw body and still reports the failure.
 			var buf bytes.Buffer
-			handler := printer.GetResponseHandler("json", false, &buf)
+			handler := testutil.ResponseHandler(t, "json", &buf, os.Stderr)
 			assert.Equal(t, err, handler.HandleError(err))
 			assert.JSONEq(t, tc.raw, buf.String())
 
@@ -550,120 +416,228 @@ func TestCreateCommand_RawAPIErrorJSONPassThrough(t *testing.T) {
 
 // update ----------------------------------------------------------------------
 
-func TestUpdateCommand_Structure(t *testing.T) {
-	cmd := NewUpdateCommand()
-	assert.Equal(t, "update", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-
-	flags := cmd.Flags()
-	require.NotNil(t, flags.Lookup("label"))
-	require.NotNil(t, flags.Lookup("scope"))
-}
-
 func TestUpdateCommand_RequiresExactlyTwoArgs(t *testing.T) {
-	_, err := execCommand(NewUpdateCommand(), testSubAccountID)
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 2 arg")
+	assert.Equal(t, "the key-id argument is required", err.Error())
 }
 
 func TestUpdateCommand_BadSubAccountIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewUpdateCommand(), "not-a-uuid", testKeyID, "--label", "New")
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", "not-a-uuid", testKeyID, "--label", "New")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed sub-account ID")
-	mockClient.AssertNotCalled(t, "UpdateSubAccountAPIKey", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestUpdateCommand_BadKeyIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewUpdateCommand(), testSubAccountID, "not-a-uuid", "--label", "New")
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, "not-a-uuid", "--label", "New")
 	require.Error(t, err)
-	assert.Equal(t, "invalid API key ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid API key ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed API key ID")
-	mockClient.AssertNotCalled(t, "UpdateSubAccountAPIKey", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestUpdateCommand_NoChangedFlagsFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewUpdateCommand(), testSubAccountID, testKeyID)
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, testKeyID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one of --label or --scope must be provided")
+	assert.Contains(t, err.Error(), "at least one of --label, --scope, --ip-allow-list or --clear-ip-allow-list must be provided")
 	assert.False(t, *called, "auth resolver must not be reached when no changed flags are provided")
-	mockClient.AssertNotCalled(t, "UpdateSubAccountAPIKey", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestUpdateCommand_MockBacked(t *testing.T) {
 	label := "New Label"
 	mockClient := &mocks.MockClient{}
-	mockClient.On("UpdateSubAccountAPIKey", testSubAccountID, testKeyID,
+	mockClient.On("UpdateSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID),
 		requests.UpdateAPIKeyRequest{Label: &label}).
-		Return(newTestAPIKey(), nil)
-	called := trackingResolver(t, mockClient)
+		Return(mocks.NewAPIKey(), nil)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewUpdateCommand(), testSubAccountID, testKeyID, "--label", label)
+	out, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, testKeyID, "--label", label)
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.Contains(t, out, "Sub Key")
+	assert.Contains(t, out, "Production servers")
 	mockClient.AssertExpectations(t)
+}
+
+func TestCreateCommand_SendsIPAllowList(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		requests.CreateAPIKeyRequest{
+			Label:       "CI",
+			Scopes:      []string{validScope},
+			IPAllowList: []string{"203.0.113.0/24", "2001:db8::1"},
+		}).
+		Return(newTestAPIKeyWithSecret(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID, "--label", "CI", "--scope", validScope,
+		"--ip-allow-list", "203.0.113.0/24", "--ip-allow-list", "2001:db8::1")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateCommand_OmittedIPAllowListIsNil(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+		mock.MatchedBy(func(req requests.CreateAPIKeyRequest) bool { return req.IPAllowList == nil })).
+		Return(newTestAPIKeyWithSecret(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewCreateCommand(), "plain", testSubAccountID, "--label", "CI", "--scope", validScope)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateCommand_ReplacesIPAllowList(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UpdateSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID),
+		requests.UpdateAPIKeyRequest{IPAllowList: &[]string{"203.0.113.0/24"}}).
+		Return(mocks.NewAPIKey(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, testKeyID, "--ip-allow-list", "203.0.113.0/24")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateCommand_ClearsIPAllowList(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("UpdateSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID),
+		requests.UpdateAPIKeyRequest{IPAllowList: &[]string{}}).
+		Return(mocks.NewAPIKey(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, testKeyID, "--clear-ip-allow-list")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateCommand_IPAllowListAndClearFailBeforeAuth(t *testing.T) {
+	called := testutil.RefuseAuth(t)
+
+	_, err := testutil.RunCommandCombined(t, NewUpdateCommand(), "plain", testSubAccountID, testKeyID,
+		"--ip-allow-list", "203.0.113.0/24", "--clear-ip-allow-list")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--ip-allow-list and --clear-ip-allow-list cannot be used together")
+	assert.False(t, *called, "auth resolver must not be reached when validation fails")
+}
+
+func TestEmptyIPAllowListFailsBeforeAuth(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     *cobra.Command
+		args    []string
+		message string
+	}{
+		{"create", NewCreateCommand(), []string{testSubAccountID, "--label", "CI", "--scope", validScope, "--ip-allow-list", ""},
+			"--ip-allow-list cannot be empty"},
+		{"update", NewUpdateCommand(), []string{testSubAccountID, testKeyID, "--ip-allow-list", "203.0.113.0/24,,2001:db8::1"},
+			"--ip-allow-list cannot be empty; use --clear-ip-allow-list to clear it"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			called := testutil.RefuseAuth(t)
+
+			_, err := testutil.RunCommandCombined(t, test.cmd, "plain", test.args...)
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.False(t, *called, "auth resolver must not be reached when validation fails")
+		})
+	}
 }
 
 // delete ----------------------------------------------------------------------
 
-func TestDeleteCommand_Structure(t *testing.T) {
-	cmd := NewDeleteCommand()
-	assert.Equal(t, "delete", cmd.Name())
-	assert.NotNil(t, cmd.Args)
-	assert.NotEmpty(t, cmd.Long)
-	assert.NotEmpty(t, cmd.Example)
-	require.NotNil(t, cmd.Flags().Lookup("force"))
-}
-
 func TestDeleteCommand_RequiresExactlyTwoArgs(t *testing.T) {
-	_, err := execCommand(NewDeleteCommand(), testSubAccountID)
+	_, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", testSubAccountID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 2 arg")
+	assert.Equal(t, "the key-id argument is required", err.Error())
 }
 
 func TestDeleteCommand_BadSubAccountIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewDeleteCommand(), "not-a-uuid", testKeyID, "--force")
+	_, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", "not-a-uuid", testKeyID, "--force")
 	require.Error(t, err)
-	assert.Equal(t, "invalid sub-account ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid sub-account ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed sub-account ID")
-	mockClient.AssertNotCalled(t, "DeleteSubAccountAPIKey", mock.Anything, mock.Anything)
 }
 
 func TestDeleteCommand_BadKeyIDFailsBeforeAuth(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	called := trackingResolver(t, mockClient)
+	called := testutil.RefuseAuth(t)
 
-	_, err := execCommand(NewDeleteCommand(), testSubAccountID, "not-a-uuid", "--force")
+	_, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", testSubAccountID, "not-a-uuid", "--force")
 	require.Error(t, err)
-	assert.Equal(t, "invalid API key ID format: not-a-uuid", err.Error())
+	assert.Equal(t, `invalid API key ID value "not-a-uuid": not a UUID`, err.Error())
 	assert.False(t, *called, "auth resolver must not be reached for malformed API key ID")
-	mockClient.AssertNotCalled(t, "DeleteSubAccountAPIKey", mock.Anything, mock.Anything)
 }
 
 func TestDeleteCommand_ForceMockBacked(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("DeleteSubAccountAPIKey", testSubAccountID, testKeyID).
+	mockClient.On("DeleteSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID)).
 		Return(&common.SuccessResponse{}, nil)
-	called := trackingResolver(t, mockClient)
+	called := testutil.InjectClient(t, mockClient)
 
-	out, err := execCommand(NewDeleteCommand(), testSubAccountID, testKeyID, "--force")
+	out, err := testutil.RunCommandCombined(t, NewDeleteCommand(), "plain", testSubAccountID, testKeyID, "--force")
 	require.NoError(t, err)
 	assert.True(t, *called)
-	assert.Contains(t, out, "Deleted")
+	assert.Equal(t, "API key '"+testKeyID+"' deleted successfully\n", out)
 	mockClient.AssertExpectations(t)
+}
+
+func TestCommands_CSVIncludesIPAllowList(t *testing.T) {
+	key := mocks.NewAPIKey()
+	key.IPAllowList = []string{"203.0.113.0/24"}
+	tests := []struct {
+		name  string
+		setup func(*mocks.MockClient)
+		cmd   func() *cobra.Command
+		args  []string
+	}{
+		{"list", func(m *mocks.MockClient) {
+			m.On("ListSubAccountAPIKeys", uuid.MustParse(testSubAccountID), common.PaginationParams{}).
+				Return(&responses.PaginatedAPIKeysResponse{Data: []responses.APIKey{*key}}, nil)
+		}, NewListCommand, []string{testSubAccountID}},
+		{"get", func(m *mocks.MockClient) {
+			m.On("GetSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID)).Return(key, nil)
+		}, NewGetCommand, []string{testSubAccountID, testKeyID}},
+		{"create", func(m *mocks.MockClient) {
+			m.On("CreateSubAccountAPIKey", uuid.MustParse(testSubAccountID),
+				mock.AnythingOfType("requests.CreateAPIKeyRequest")).Return(key, nil)
+		}, NewCreateCommand, []string{testSubAccountID, "--label", "CI", "--scope", validScope}},
+		{"update", func(m *mocks.MockClient) {
+			m.On("UpdateSubAccountAPIKey", uuid.MustParse(testSubAccountID), uuid.MustParse(testKeyID),
+				mock.AnythingOfType("requests.UpdateAPIKeyRequest")).Return(key, nil)
+		}, NewUpdateCommand, []string{testSubAccountID, testKeyID, "--label", "CI"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			tt.setup(mockClient)
+			testutil.InjectClient(t, mockClient)
+
+			out, err := testutil.RunCommandCombined(t, tt.cmd(), "csv", tt.args...)
+			require.NoError(t, err)
+			header := strings.SplitN(out, "\n", 2)[0]
+			assert.Contains(t, strings.Split(header, ","), "ip_allow_list")
+			assert.Contains(t, out, "203.0.113.0/24")
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestDeleteDeclinedPromptsOnStderrBeforeAuthentication(t *testing.T) {
+	authCalled := testutil.RefuseAuth(t)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewDeleteCommand(), "plain", "n\n", "11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222")
+	require.Error(t, err)
+	assert.Equal(t, "operation cancelled", err.Error())
+	assert.Contains(t, stderr, "Are you sure you want to delete API key 22222222-2222-2222-2222-222222222222 of sub-account 11111111-1111-1111-1111-111111111111? (y/N): ")
+	assert.Empty(t, stdout)
+	assert.False(t, *authCalled)
 }

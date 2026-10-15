@@ -1,12 +1,11 @@
 package domains
 
 import (
-	"fmt"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +13,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <domain>",
-		Short: "Get detailed information about a domain",
+		Short: "Get a domain",
 		Long: `Get detailed information about a specific domain including DNS records,
 verification status, and last verification check time.
 
@@ -24,7 +23,7 @@ This command shows complete domain configuration and status.`,
 
   # Get domain details with JSON output
   ahasend domains get example.com --output json`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runDomainsGet,
 		SilenceUsage: true,
 	}
@@ -36,12 +35,15 @@ func runDomainsGet(cmd *cobra.Command, args []string) error {
 	// Get response handler instance
 	handler := printer.GetResponseHandlerFromCommand(cmd)
 
+	domain := args[0]
+	if err := validation.ValidatePathSegment("domain", domain); err != nil {
+		return err
+	}
+
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
 	}
-
-	domain := args[0]
 
 	logger.Get().WithFields(map[string]interface{}{
 		"domain": domain,
@@ -53,15 +55,10 @@ func runDomainsGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if response == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("domain '%s' not found", domain), nil)
-	}
-
 	// Handle successful domain response
 	config := printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Domain details for '%s'", domain),
+		SuccessMessage: "Domain retrieved successfully",
 		EmptyMessage:   "Domain not found",
-		FieldOrder:     []string{"domain", "id", "dns_valid", "created_at", "updated_at", "last_dns_check_at"},
 	}
 
 	return handler.HandleSingleDomain(response, config)

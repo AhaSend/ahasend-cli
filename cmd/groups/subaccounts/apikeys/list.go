@@ -2,6 +2,7 @@ package apikeys
 
 import (
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
@@ -27,13 +28,13 @@ The secret value of API keys is never displayed for security reasons.`,
 
   # List with pagination
   ahasend subaccounts api-keys list 123e4567-e89b-12d3-a456-426614174000 --limit 10`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runSubAccountAPIKeysList,
 		SilenceUsage: true,
 	}
 
-	cmd.Flags().Int32("limit", 0, "Maximum number of API keys to return")
-	cmd.Flags().String("cursor", "", "Pagination cursor for next page")
+	cmdutil.AddPaginationFlags(cmd)
+	cmdutil.AddLegacyCursorAlias(cmd)
 
 	return cmd
 }
@@ -44,15 +45,13 @@ func runSubAccountAPIKeysList(cmd *cobra.Command, args []string) error {
 
 	subAccountID := args[0]
 
-	// Get flags
-	limit, _ := cmd.Flags().GetInt32("limit")
-	cursor, _ := cmd.Flags().GetString("cursor")
-
 	// Validate before auth
-	if err := validation.ValidateUUIDField("sub-account ID", subAccountID); err != nil {
+	subAccountUUID, err := validation.ParseUUIDField("sub-account ID", subAccountID)
+	if err != nil {
 		return err
 	}
-	if err := validation.ValidatePageLimit(limit); err != nil {
+	pagination, err := cmdutil.ReadPaginationParams(cmd)
+	if err != nil {
 		return err
 	}
 
@@ -62,26 +61,13 @@ func runSubAccountAPIKeysList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Handle pagination: pass nil pointers when unset
-	var limitPtr *int32
-	var cursorPtr *string
-
-	if limit > 0 {
-		limitPtr = &limit
-	}
-	if cursor != "" {
-		cursorPtr = &cursor
-	}
-
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
 		"sub_account_id": subAccountID,
-		"limit":          limit,
-		"cursor":         cursor,
 	}).Debug("Executing subaccounts api-keys list command")
 
 	// Fetch the sub-account's API keys
-	response, err := client.ListSubAccountAPIKeys(subAccountID, limitPtr, cursorPtr)
+	response, err := client.ListSubAccountAPIKeys(subAccountUUID, pagination)
 	if err != nil {
 		return err
 	}
@@ -89,9 +75,7 @@ func runSubAccountAPIKeysList(cmd *cobra.Command, args []string) error {
 	// Reuse the shared API-key list renderer so output matches the top-level
 	// apikeys command and JSON stays a verbatim SDK PaginatedAPIKeysResponse.
 	return handler.HandleAPIKeyList(response, printer.ListConfig{
-		SuccessMessage: "API Keys Retrieved Successfully",
+		SuccessMessage: "API keys retrieved successfully",
 		EmptyMessage:   "No API keys found",
-		ShowPagination: true,
-		FieldOrder:     []string{"id", "label", "scopes", "created_at", "updated_at"},
 	})
 }

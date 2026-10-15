@@ -5,8 +5,12 @@ import (
 	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
+	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 	"github.com/spf13/cobra"
 )
 
@@ -23,68 +27,61 @@ particularly useful during development and integration testing.
 
 The webhook ID can be found using the 'ahasend webhooks list' command.
 
-Note: This is a development-only feature and may not be available in
-production environments.`,
+A disabled webhook gets no events: the API answers that they are queued, and
+then drops them.`,
 		Example: `  # Trigger a single event
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-    --events "message.delivered"
+    --events message.delivered
 
   # Trigger multiple events
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-    --events "message.delivered,message.opened,message.clicked"
+    --events message.delivered --events message.opened --events message.clicked
 
   # Trigger all available events
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
     --all-events`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runWebhooksTrigger,
 		SilenceUsage: true,
 	}
 
 	// Event selection flags
-	cmd.Flags().StringSlice("events", []string{}, "Event types to trigger")
-	cmd.Flags().Bool("all-events", false, "Trigger all available event types")
+	cmdutil.AddRepeatableFlag(cmd, "events", "Event type to trigger, such as message.delivered or delivered (can be used multiple times)")
+	cmdutil.CompleteValues(cmd, "events", webhooks.EventValues())
+	cmd.Flags().Bool("all-events", false, "Select every event type")
 
 	return cmd
 }
 
 func runWebhooksTrigger(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
-	client, err := auth.GetAuthenticatedClient(cmd)
+	webhookID := args[0]
+	webhookUUID, err := validation.ParseUUIDField("webhook ID", webhookID)
 	if err != nil {
 		return err
 	}
 
-	webhookID := args[0]
-
-	// Get flags
-	events, _ := cmd.Flags().GetStringSlice("events")
-	allEvents, _ := cmd.Flags().GetBool("all-events")
-
-	// Validate conflicting flags
-	if len(events) > 0 && allEvents {
-		return fmt.Errorf("cannot specify both --events and --all-events")
+	events, err := cmdutil.ReadRepeatable(cmd, "events", "")
+	if err != nil {
+		return err
 	}
-
-	// Check if any events are specified
-	if len(events) == 0 && !allEvents {
-		return fmt.Errorf("no events specified. Use --events or --all-events")
+	if err := cmdutil.RejectTogether(cmd, "events", "all-events"); err != nil {
+		return err
+	}
+	allEvents, _ := cmd.Flags().GetBool("all-events")
+	if events == nil && !allEvents {
+		return errors.NewValidationError("at least one of --events or --all-events must be provided", nil)
 	}
 
 	// Set events to trigger
-	var eventsToTrigger []string
-	if allEvents {
-		eventsToTrigger = getAllValidTriggerEvents()
-	} else {
-		// Validate provided events
-		validated, err := validateTriggerEvents(events)
-		if err != nil {
-			return err
-		}
-		eventsToTrigger = validated
+	// The trigger endpoint takes the event types of the payloads
+	parsedEvents, err := webhooks.ParseEvents(events)
+	if err != nil {
+		return err
 	}
+	if allEvents {
+		parsedEvents = webhooks.Events
+	}
+	eventsToTrigger := webhooks.EventTypes(parsedEvents)
 
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
@@ -93,68 +90,22 @@ func runWebhooksTrigger(cmd *cobra.Command, args []string) error {
 		"all_events": allEvents,
 	}).Debug("Executing webhooks trigger command")
 
+	client, err := auth.GetAuthenticatedClient(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Trigger the webhook
-	err = client.TriggerWebhook(webhookID, eventsToTrigger)
+	response, err := client.TriggerWebhook(webhookUUID, eventsToTrigger)
 	if err != nil {
 		return err
 	}
 
 	// Show success message
 	eventsList := strings.Join(eventsToTrigger, ", ")
-	successMsg := fmt.Sprintf("Successfully triggered webhook events: %s", eventsList)
+	successMsg := fmt.Sprintf("Webhook events triggered successfully: %s", eventsList)
 
-	return handler.HandleTriggerWebhook(webhookID, eventsToTrigger, printer.TriggerConfig{
+	return printer.GetResponseHandlerFromCommand(cmd).HandleSuccessResponse(response, printer.ResultConfig{
 		SuccessMessage: successMsg,
 	})
-}
-
-func getAllValidTriggerEvents() []string {
-	return []string{
-		"message.reception",
-		"message.delivered",
-		"message.transient_error",
-		"message.failed",
-		"message.bounced",
-		"message.suppressed",
-		"message.opened",
-		"message.clicked",
-		"suppression.created",
-		"domain.dns_error",
-	}
-}
-
-func validateTriggerEvents(events []string) ([]string, error) {
-	validEvents := map[string]bool{
-		"message.reception":       true,
-		"message.delivered":       true,
-		"message.transient_error": true,
-		"message.failed":          true,
-		"message.bounced":         true,
-		"message.suppressed":      true,
-		"message.opened":          true,
-		"message.clicked":         true,
-		"suppression.created":     true,
-		"domain.dns_error":        true,
-	}
-
-	var validatedEvents []string
-	var invalidEvents []string
-
-	for _, event := range events {
-		event = strings.TrimSpace(event)
-		if validEvents[event] {
-			validatedEvents = append(validatedEvents, event)
-		} else {
-			invalidEvents = append(invalidEvents, event)
-		}
-	}
-
-	if len(invalidEvents) > 0 {
-		validKeys := getAllValidTriggerEvents()
-		return nil, fmt.Errorf("invalid event types: %s\n\nValid event types are:\n%s",
-			strings.Join(invalidEvents, ", "),
-			strings.Join(validKeys, "\n"))
-	}
-
-	return validatedEvents, nil
 }

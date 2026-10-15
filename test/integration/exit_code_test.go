@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +11,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,45 +32,67 @@ const exitCodeSubAccountBody = `{
   "member_count": 1
 }`
 
-// buildCLIBinary compiles the CLI once per test run so exit codes can be
-// checked on the real process rather than on in-process command execution.
+// The CLI binary the tests of the package run, which the first call of
+// buildCLIBinary builds into cliBinaryDir, and TestMain removes.
+var (
+	cliBinaryOnce sync.Once
+	cliBinaryDir  string
+	cliBinary     string
+	cliBinaryErr  error
+)
+
+// buildCLIBinary returns the CLI binary, built once for the package, so exit
+// codes can be checked on the real process rather than on in-process command
+// execution. It is built with the clitest build tag, which makes it retry a
+// failed request after a millisecond rather than a second.
 func buildCLIBinary(t *testing.T) string {
 	t.Helper()
+	cliBinaryOnce.Do(func() {
+		cliBinaryDir, cliBinaryErr = os.MkdirTemp("", "ahasend-cli-")
+		if cliBinaryErr != nil {
+			return
+		}
+		_, thisFile, _, _ := runtime.Caller(0)
+		binary := filepath.Join(cliBinaryDir, executableName("ahasend", runtime.GOOS))
+		build := exec.Command("go", "build", "-tags", "clitest", "-o", binary, ".")
+		build.Dir = filepath.Join(filepath.Dir(thisFile), "..", "..")
+		if out, err := build.CombinedOutput(); err != nil {
+			cliBinaryErr = fmt.Errorf("go build failed: %w: %s", err, out)
+			return
+		}
+		cliBinary = binary
+	})
+	require.NoError(t, cliBinaryErr)
+	return cliBinary
+}
 
-	_, thisFile, _, _ := runtime.Caller(0)
-	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
+// executableName is the file name of the executable called name on goos:
+// Windows runs only files with an executable extension.
+func executableName(name, goos string) string {
+	if goos == "windows" {
+		return name + ".exe"
+	}
+	return name
+}
 
-	binary := filepath.Join(t.TempDir(), "ahasend")
-	build := exec.Command("go", "build", "-o", binary, ".")
-	build.Dir = repoRoot
-	out, err := build.CombinedOutput()
-	require.NoError(t, err, "go build failed: %s", out)
+func TestExecutableNameHasTheExeExtensionOnWindows(t *testing.T) {
+	assert.Equal(t, "ahasend.exe", executableName("ahasend", "windows"))
+	assert.Equal(t, "ahasend", executableName("ahasend", "linux"))
+}
 
-	return binary
+// removeCLIBinary removes the CLI binary, if a test built it.
+func removeCLIBinary() {
+	if cliBinaryDir != "" {
+		_ = os.RemoveAll(cliBinaryDir)
+	}
 }
 
 // writeProfile creates an isolated HOME whose default profile points the CLI at
 // apiURL, and returns that HOME directory.
 func writeProfile(t *testing.T, apiURL string) string {
 	t.Helper()
-
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".ahasend")
-	require.NoError(t, os.MkdirAll(configDir, 0o755))
-
-	config := fmt.Sprintf(`default_profile: default
-profiles:
-  default:
-    name: default
-    api_key: aha-sk-test
-    api_url: %s
-    account_id: 00000000-0000-0000-0000-0000000000aa
-preferences:
-  output_format: table
-  color_output: false
-`, apiURL)
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(config), 0o600))
-
+	testutil.WriteProfiles(t, home, apiURL, "00000000-0000-0000-0000-0000000000aa", "default")
 	return home
 }
 
@@ -80,7 +103,7 @@ func runCLI(t *testing.T, binary, home string, args ...string) (string, string, 
 
 	var stdout, stderr bytes.Buffer
 	command := exec.Command(binary, args...)
-	command.Env = append(os.Environ(), "HOME="+home, "NO_COLOR=1")
+	command.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "NO_COLOR=1")
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
@@ -92,18 +115,6 @@ func runCLI(t *testing.T, binary, home string, args ...string) (string, string, 
 	require.NoError(t, err)
 
 	return stdout.String(), stderr.String(), 0
-}
-
-// closedURL returns a URL for a local port with nothing listening on it.
-func closedURL(t *testing.T) string {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	addr := listener.Addr().String()
-	require.NoError(t, listener.Close())
-
-	return "http://" + addr
 }
 
 func TestCLIExitCodes(t *testing.T) {
@@ -118,17 +129,19 @@ func TestCLIExitCodes(t *testing.T) {
 		name   string
 		status int
 		body   string
-		// network scenarios use a closed port instead of a test server.
-		network bool
+		// network scenarios use a listener that hangs up instead of a test
+		// server.
+		network  bool
+		exitCode int
 	}{
 		{name: "success", status: http.StatusOK, body: exitCodeSubAccountBody},
-		{name: "validation", status: http.StatusUnprocessableEntity, body: `{"message":"website must be a valid domain"}`},
-		{name: "authentication", status: http.StatusUnauthorized, body: `{"message":"invalid API key"}`},
-		{name: "missing resource", status: http.StatusNotFound, body: `{"message":"sub-account not found"}`},
-		{name: "conflict", status: http.StatusConflict, body: `{"message":"idempotency key is already in use"}`},
-		{name: "rate limit", status: http.StatusTooManyRequests, body: `{"message":"rate limit exceeded"}`},
-		{name: "server", status: http.StatusInternalServerError, body: `{"message":"internal server error"}`},
-		{name: "network", network: true},
+		{name: "validation", status: http.StatusUnprocessableEntity, body: `{"message":"website must be a valid domain"}`, exitCode: 4},
+		{name: "authentication", status: http.StatusUnauthorized, body: `{"message":"invalid API key"}`, exitCode: 2},
+		{name: "missing resource", status: http.StatusNotFound, body: `{"message":"sub-account not found"}`, exitCode: 5},
+		{name: "conflict", status: http.StatusConflict, body: `{"message":"idempotency key is already in use"}`, exitCode: 1},
+		{name: "rate limit", status: http.StatusTooManyRequests, body: `{"message":"rate limit exceeded"}`, exitCode: 8},
+		{name: "server", status: http.StatusInternalServerError, body: `{"message":"internal server error"}`, exitCode: 1},
+		{name: "network", network: true, exitCode: 7},
 	}
 
 	for _, scenario := range scenarios {
@@ -138,7 +151,7 @@ func TestCLIExitCodes(t *testing.T) {
 
 				var apiURL string
 				if scenario.network {
-					apiURL = closedURL(t)
+					apiURL = testutil.HangUpURL(t)
 				} else {
 					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						w.Header().Set("Content-Type", "application/json")
@@ -159,13 +172,20 @@ func TestCLIExitCodes(t *testing.T) {
 					return
 				}
 
-				assert.NotEqual(t, 0, code, "failed request must exit nonzero\nstdout: %s\nstderr: %s", stdout, stderr)
+				assert.Equal(t, scenario.exitCode, code, "stdout: %s\nstderr: %s", stdout, stderr)
 				assert.NotContains(t, stdout, "Usage:")
 				assert.NotContains(t, stderr, "Usage:")
-				if format == "json" && !scenario.network {
+				assert.NotContains(t, stderr, "level=", "no log lines without --verbose or --debug")
+				switch {
+				case format == "json" && scenario.network:
+					assert.Contains(t, stdout, `"error": true`, "JSON mode must print the CLI error object")
+					assert.Empty(t, stderr)
+				case format == "json":
 					assert.JSONEq(t, scenario.body, stdout, "JSON mode must print the raw API body unchanged")
-				} else {
-					assert.NotEmpty(t, strings.TrimSpace(stdout+stderr), "an error message must be printed")
+					assert.Empty(t, stderr)
+				default:
+					assert.Empty(t, stdout, "errors go to stderr outside JSON mode")
+					assert.True(t, strings.HasPrefix(stderr, "Error: "), "stderr: %s", stderr)
 				}
 			})
 		}

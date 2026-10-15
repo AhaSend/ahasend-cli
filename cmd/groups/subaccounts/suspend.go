@@ -1,15 +1,15 @@
 package subaccounts
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/spf13/cobra"
@@ -23,26 +23,28 @@ const suspensionReasonMaxLength = 500
 // NewSuspendCommand creates the suspend command
 func NewSuspendCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "suspend <sub-account-id>",
-		Short: "Suspend a sub-account",
+		Use:     "suspend <sub-account-id>",
+		Aliases: []string{"pause"},
+		Short:   "Suspend a sub-account",
 		Long: `Suspend a sub-account under your AhaSend parent account.
 
 A suspended sub-account cannot send email until it is unsuspended. A reason is
-required and is recorded with the suspension.
+required and is recorded with the suspension. "pause" is an alias of this
+command.
 
-Use the --force flag to skip the confirmation prompt for automation.`,
+Suspend asks for confirmation unless --force is set.`,
 		Example: `  # Suspend a sub-account
   ahasend subaccounts suspend 123e4567-e89b-12d3-a456-426614174000 --reason "Payment overdue"
 
   # Force suspend without confirmation (for automation)
   ahasend subaccounts suspend 123e4567-e89b-12d3-a456-426614174000 --reason "Payment overdue" --force`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runSubAccountsSuspend,
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().String("reason", "", "Reason for the suspension (required)")
-	cmd.Flags().Bool("force", false, "Skip confirmation prompt")
+	prompt.AddForceFlag(cmd)
 
 	return cmd
 }
@@ -54,38 +56,33 @@ func runSubAccountsSuspend(cmd *cobra.Command, args []string) error {
 	subAccountID := args[0]
 
 	// Validate the ID before anything else, before auth and before confirmation.
-	if err := validation.ValidateUUIDField("sub-account ID", subAccountID); err != nil {
+	subAccountUUID, err := validation.ParseUUIDField("sub-account ID", subAccountID)
+	if err != nil {
 		return err
 	}
 
-	// Validate the reason locally before auth: trimmed, non-empty, and within
-	// the maximum length.
-	reason, _ := cmd.Flags().GetString("reason")
-	reason = strings.TrimSpace(reason)
-	if reason == "" {
-		return errors.NewValidationError("--reason is required", nil)
+	// Validate the reason locally before auth: not blank, and within the
+	// maximum length once trimmed, as it is sent.
+	reason, err := cmdutil.ReadRequiredText(cmd, "reason")
+	if err != nil {
+		return err
 	}
-	if len(reason) > suspensionReasonMaxLength {
-		return errors.NewValidationError(fmt.Sprintf("--reason too long: %d characters (max %d)", len(reason), suspensionReasonMaxLength), nil)
+	reason = strings.TrimSpace(reason)
+	if err := cmdutil.CheckMaxLength("reason", &reason, suspensionReasonMaxLength); err != nil {
+		return err
 	}
 
 	req := requests.SuspendSubAccountRequest{Reason: reason}
 
 	// SDK backstop validation after local validation and before auth.
 	if err := req.Validate(); err != nil {
+		return errors.NewValidationError(err.Error(), nil)
+	}
+
+	if err := prompt.Confirm(cmd, fmt.Sprintf("Are you sure you want to suspend sub-account %s?", subAccountID)); err != nil {
 		return err
 	}
 
-	force, _ := cmd.Flags().GetBool("force")
-
-	// Confirm only after all local validation passes.
-	if !force {
-		if err := confirmSubAccountStateChange("suspend", subAccountID); err != nil {
-			return err
-		}
-	}
-
-	// Only authenticate after local validation passes.
 	client, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
 		return err
@@ -93,38 +90,17 @@ func runSubAccountsSuspend(cmd *cobra.Command, args []string) error {
 
 	logger.Get().WithFields(map[string]interface{}{
 		"sub_account_id": subAccountID,
-		"force":          force,
 	}).Debug("Executing subaccounts suspend command")
 
-	response, err := client.SuspendSubAccount(subAccountID, req)
+	response, err := client.SuspendSubAccount(subAccountUUID, req)
 	if err != nil {
 		return err
 	}
 
-	if response == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("sub-account '%s' not found", subAccountID), nil)
-	}
-
 	config := printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Sub-account '%s' suspended successfully", subAccountID),
+		SuccessMessage: "Sub-account suspended successfully",
 		EmptyMessage:   "Sub-account not found",
-		FieldOrder:     []string{"name", "id", "parent_account_id", "status", "website", "monthly_credit", "domain_count", "member_count", "created_at", "last_activity_at"},
 	}
 
 	return handler.HandleSingleSubAccount(response, config)
-}
-
-func confirmSubAccountStateChange(action, subAccountID string) error {
-	fmt.Printf("⚠️  You are about to %s sub-account: %s\n", action, subAccountID)
-	fmt.Print("Are you sure you want to continue? (y/N): ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
-		if response == "y" || response == "yes" {
-			return nil
-		}
-	}
-
-	return errors.NewValidationError("operation cancelled", nil)
 }

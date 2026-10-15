@@ -1,11 +1,11 @@
 package routes
 
 import (
-	"fmt"
-
 	"github.com/AhaSend/ahasend-cli/internal/auth"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +13,7 @@ import (
 func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <route-id>",
-		Short: "Get detailed information about a specific route",
+		Short: "Get an inbound email route",
 		Long: `Get detailed information about a specific route including its
 configuration, webhook URL, recipient filtering, processing options,
 status, and metadata.
@@ -34,7 +34,7 @@ The route ID can be found using the 'ahasend routes list' command.`,
 
   # Get route configuration for backup/restore
   ahasend routes get abcd1234-5678-90ef-abcd-1234567890ab --output json > route-backup.json`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cmdutil.ExactArgs(1),
 		RunE:         runRoutesGet,
 		SilenceUsage: true,
 	}
@@ -43,15 +43,17 @@ The route ID can be found using the 'ahasend routes list' command.`,
 }
 
 func runRoutesGet(cmd *cobra.Command, args []string) error {
-	// Get response handler instance
-	handler := printer.GetResponseHandlerFromCommand(cmd)
-
-	client, err := auth.GetAuthenticatedClient(cmd)
+	routeID := args[0]
+	routeUUID, err := validation.ParseUUIDField("route ID", routeID)
 	if err != nil {
 		return err
 	}
 
-	routeID := args[0]
+	handler := printer.GetResponseHandlerFromCommand(cmd)
+	client, err := auth.GetAuthenticatedClient(cmd)
+	if err != nil {
+		return err
+	}
 
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
@@ -59,15 +61,14 @@ func runRoutesGet(cmd *cobra.Command, args []string) error {
 	}).Debug("Executing routes get command")
 
 	// Get the route
-	route, err := client.GetRoute(routeID)
+	route, err := client.GetRoute(routeUUID)
 	if err != nil {
 		return err
 	}
 
 	// Use the new ResponseHandler to display route details
 	return handler.HandleSingleRoute(route, printer.SingleConfig{
-		SuccessMessage: fmt.Sprintf("Route details for %s", routeID),
+		SuccessMessage: "Route retrieved successfully",
 		EmptyMessage:   "Route not found",
-		FieldOrder:     []string{"ID", "Name", "URL", "Enabled", "Recipient Filter", "Include Attachments", "Include Headers", "Group by Message ID", "Strip Replies", "Created at", "Updated at"},
 	})
 }

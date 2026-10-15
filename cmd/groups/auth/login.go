@@ -1,21 +1,23 @@
 package auth
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
-	"syscall"
-	"time"
 
+	"github.com/AhaSend/ahasend-cli/internal/auth"
 	"github.com/AhaSend/ahasend-cli/internal/client"
+	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/config"
 	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/prompt"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
+
+// defaultAPIURL is the API URL a profile uses unless login is given another.
+const defaultAPIURL = "https://api.ahasend.com"
 
 // NewLoginCommand creates the login command
 func NewLoginCommand() *cobra.Command {
@@ -23,7 +25,11 @@ func NewLoginCommand() *cobra.Command {
 		Use:   "login",
 		Short: "Log in to AhaSend by providing an API key",
 		Long: `Authenticate with AhaSend by providing your API key and account ID.
-This command will validate your credentials and store them securely for future use.
+The command checks that the API key belongs to the account by reading the
+account, and that the API accepts the key from this IP address, and saves
+the credentials only when both hold.
+The profile becomes the default when there is no default profile yet;
+otherwise the default stays, and 'ahasend auth switch <profile>' changes it.
 
 You can create API keys in your AhaSend dashboard at https://app.ahasend.com`,
 		Example: `  # Interactive login
@@ -34,14 +40,16 @@ You can create API keys in your AhaSend dashboard at https://app.ahasend.com`,
 
   # Login with API key directly (not recommended for production)
   ahasend auth login --api-key your-api-key --account-id your-account-id`,
+		Args:         cmdutil.NoArgs,
 		RunE:         runLogin,
 		SilenceUsage: true,
 	}
 
 	cmd.Flags().String("profile", "", "Profile name to save credentials under")
+	_ = cmd.RegisterFlagCompletionFunc("profile", cmdutil.CompleteProfileNames)
 	cmd.Flags().String("api-key", "", "AhaSend API key (not recommended, use interactive prompt)")
 	cmd.Flags().String("account-id", "", "AhaSend Account ID")
-	cmd.Flags().String("api-url", "https://api.ahasend.com", "AhaSend API URL")
+	cmd.Flags().String("api-url", defaultAPIURL, "AhaSend API URL")
 
 	return cmd
 }
@@ -55,25 +63,24 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	accountID, _ := cmd.Flags().GetString("account-id")
 	apiURL, _ := cmd.Flags().GetString("api-url")
 
-	// Create configuration manager
-	configMgr, err := config.NewManager()
+	// A configuration that cannot be loaded fails before the prompts
+	configMgr, err := config.LoadManager()
 	if err != nil {
-		return errors.NewConfigError("failed to initialize configuration", err)
-	}
-
-	// Load existing configuration
-	if err := configMgr.Load(); err != nil {
-		return errors.NewConfigError("failed to load configuration", err)
+		return err
 	}
 
 	// Use default profile name if not specified
 	if profileName == "" {
 		profileName = "default"
 	}
+	// A name several profiles match ignoring case fails before the prompts
+	if _, err := configMgr.NewProfileName(profileName); err != nil {
+		return err
+	}
 
 	// Default API URL
 	if apiURL == "" {
-		apiURL = "https://api.ahasend.com"
+		apiURL = defaultAPIURL
 	}
 
 	// Log login attempt
@@ -82,117 +89,100 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		"api_url":     apiURL,
 	})
 
-	// Validate partial flag usage - if one credential flag is provided, both must be provided
-	apiKeyProvided := cmd.Flags().Changed("api-key")
-	accountIDProvided := cmd.Flags().Changed("account-id")
-
-	if apiKeyProvided && !accountIDProvided {
-		return errors.NewValidationError("account ID is required when API key is provided", nil)
+	if err := cmdutil.CheckCredentialFlags(cmd); err != nil {
+		return err
 	}
-	if accountIDProvided && !apiKeyProvided {
-		return errors.NewValidationError("API key is required when account ID is provided", nil)
+	if err := validation.CheckAPIURL(apiURL); err != nil {
+		return errors.NewValidationError("--api-url "+err.Error(), nil)
 	}
+	auth.WarnIfUnencryptedAPIKey(cmd, apiURL)
 
-	// Interactive prompts if values not provided
-	// Note: The handler will manage whether to show prompts based on format
+	// Ask for the credentials no flag gave; a key that cannot be used fails
+	// before the Account ID is asked for
 	if apiKey == "" {
-		// TODO: Handler should manage interactive mode, but for now keep prompts
-		apiKey, err = promptAPIKey()
+		apiKey, err = prompt.PromptSecret(cmd, "Enter your AhaSend API key: ")
 		if err != nil {
-			return errors.NewValidationError("failed to read API key", err)
+			return err
 		}
+		// API keys hold no spaces: drop the ones a paste brings along
+		apiKey = strings.TrimSpace(apiKey)
+	}
+	if apiKey == "" {
+		return errors.NewValidationError("--api-key is required", nil)
+	}
+	if !validation.IsPrintableASCII(apiKey) {
+		return errors.NewValidationError("the API key "+validation.APIKeyNotPrintable, nil)
 	}
 
 	if accountID == "" {
-		// TODO: Handler should manage interactive mode, but for now keep prompts
-		accountID, err = promptAccountID()
+		accountID, err = prompt.Prompt(cmd, "Enter your AhaSend Account ID: ")
 		if err != nil {
-			return errors.NewValidationError("failed to read account ID", err)
+			return err
 		}
 	}
 
 	// Validate inputs
-	if apiKey == "" {
-		return errors.NewValidationError("API key is required", nil)
-	}
 	if accountID == "" {
-		return errors.NewValidationError("account ID is required", nil)
+		return errors.NewValidationError("--account-id is required", nil)
 	}
-
-	// Test the credentials
-	testClient, err := client.NewClient(apiKey, accountID)
-	if err != nil {
-		return errors.NewAuthError("failed to create API client", err)
-	}
-
-	if err := testClient.Ping(); err != nil {
+	if err := validation.ValidateUUIDField("account ID", accountID); err != nil {
 		return err
 	}
 
-	// Fetch account information
-	var accountName string
-	var accountUpdated time.Time
-
-	account, err := testClient.GetAccount()
+	// Test the credentials
+	testClient, err := client.NewClient(apiKey, accountID, apiURL)
 	if err != nil {
-		// If we can't get account info, log the error but don't fail the login
-		logger.Get().WithError(err).Warn("Failed to fetch account information, continuing with login")
-		accountName = ""
-		accountUpdated = time.Time{}
-	} else {
-		accountName = account.Name
-		accountUpdated = time.Now()
+		return errors.NewValidationError("failed to create API client", err)
+	}
+
+	if _, err := auth.CheckKey(testClient); err != nil {
+		return err
 	}
 
 	// Save the profile
 	profile := config.Profile{
-		APIKey:         apiKey,
-		APIURL:         apiURL,
-		AccountID:      accountID,
-		Name:           fmt.Sprintf("AhaSend %s", profileName),
-		AccountName:    accountName,
-		AccountUpdated: accountUpdated,
+		APIKey:    apiKey,
+		APIURL:    apiURL,
+		AccountID: accountID,
 	}
 
-	if err := configMgr.SetProfile(profileName, profile); err != nil {
-		return errors.NewConfigError("failed to save profile", err)
-	}
-
-	// Set as default profile if it's the first one or explicitly requested
-	currentProfiles := configMgr.ListProfiles()
-	if len(currentProfiles) == 1 || profileName == "default" {
-		if err := configMgr.SetDefaultProfile(profileName); err != nil {
-			return errors.NewConfigError("failed to set default profile", err)
+	var defaultProfile string
+	err = config.Update(cmd.ErrOrStderr(), func(configMgr *config.Manager) error {
+		// A profile logged in again keeps its name, which may differ from
+		// profileName in case, and the keys the CLI does not know
+		stored, err := configMgr.NewProfileName(profileName)
+		if err != nil {
+			return err
 		}
+		if stored != "" {
+			profileName = stored
+			existing, _ := configMgr.GetProfile(stored)
+			profile.Extra = existing.Extra
+		}
+		if err := configMgr.SetProfile(profileName, profile); err != nil {
+			return errors.NewConfigError("failed to save profile", err)
+		}
+		// The profile becomes the default only when there is none yet
+		defaultProfile = configMgr.GetConfig().DefaultProfile
+		if _, err := configMgr.GetProfile(defaultProfile); err != nil {
+			defaultProfile = profileName
+			if err := configMgr.SetDefaultProfile(profileName); err != nil {
+				return errors.NewConfigError("failed to set default profile", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// Handle successful login
-	return handler.HandleAuthLogin(true, profileName, printer.AuthConfig{
-		SuccessMessage: fmt.Sprintf("Successfully authenticated and saved profile '%s'", profileName),
+	message := fmt.Sprintf("Profile '%s' authenticated and saved successfully", profileName)
+	if defaultProfile != profileName {
+		message += fmt.Sprintf(". Profile '%s' is the default; run 'ahasend auth switch %s' to use this one", defaultProfile, profileName)
+	}
+	return handler.HandleAuthResult(printer.AuthResult{
+		Profile: profileName,
+		Message: message,
 	})
-}
-
-func promptAPIKey() (string, error) {
-	fmt.Print("Enter your AhaSend API key: ")
-
-	// Hide input for API key
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return "", err
-	}
-	fmt.Println() // Add newline after hidden input
-
-	return strings.TrimSpace(string(bytePassword)), nil
-}
-
-func promptAccountID() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter your AhaSend Account ID: ")
-
-	accountID, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(accountID), nil
 }

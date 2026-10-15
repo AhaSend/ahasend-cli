@@ -2,6 +2,7 @@ package printer
 
 import (
 	"bytes"
+	"os"
 	"testing"
 	"time"
 
@@ -31,9 +32,9 @@ func TestSMTPConnectionSettingsListSupportedPorts(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		t.Run(format+"/create", func(t *testing.T) {
 			var buf bytes.Buffer
-			handler := GetResponseHandler(format, false, &buf)
+			handler := testHandler(t, format, &buf, os.Stderr)
 
-			err := handler.HandleCreateSMTP(newTestSMTPCredential("secret-password"), CreateConfig{SuccessMessage: "created"})
+			err := handler.HandleCreateSMTP(newTestSMTPCredential("secret-password"), ResultConfig{SuccessMessage: "created"})
 			require.NoError(t, err)
 
 			out := buf.String()
@@ -43,7 +44,7 @@ func TestSMTPConnectionSettingsListSupportedPorts(t *testing.T) {
 
 		t.Run(format+"/get", func(t *testing.T) {
 			var buf bytes.Buffer
-			handler := GetResponseHandler(format, false, &buf)
+			handler := testHandler(t, format, &buf, os.Stderr)
 
 			err := handler.HandleSingleSMTP(newTestSMTPCredential(""), SingleConfig{SuccessMessage: "found"})
 			require.NoError(t, err)

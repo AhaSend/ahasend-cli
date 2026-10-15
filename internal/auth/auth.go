@@ -11,14 +11,16 @@
 package auth
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/spf13/cobra"
 
 	"github.com/AhaSend/ahasend-cli/internal/client"
 	"github.com/AhaSend/ahasend-cli/internal/config"
-	"github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
+	"github.com/AhaSend/ahasend-cli/internal/printer"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 )
 
 // ClientResolver resolves an authenticated AhaSend client for a command.
@@ -59,10 +61,8 @@ func defaultAuthenticatedClientResolver(cmd *cobra.Command) (client.AhaSendClien
 	accountID, _ := cmd.Flags().GetString("account-id")
 	profileName, _ := cmd.Flags().GetString("profile")
 
+	// The root command made sure --api-key comes with --account-id
 	if apiKey != "" {
-		if accountID == "" {
-			return nil, errors.NewValidationError("--account-id is required when using --api-key", nil)
-		}
 		logger.ConfigOperation("global_auth", "", map[string]interface{}{
 			"method":     "api-key",
 			"account_id": accountID,
@@ -71,43 +71,43 @@ func defaultAuthenticatedClientResolver(cmd *cobra.Command) (client.AhaSendClien
 	}
 
 	// Fall back to profile-based authentication
-	configMgr, err := config.NewManager()
+	configMgr, err := config.LoadManager()
 	if err != nil {
-		return nil, errors.NewConfigError("failed to initialize configuration", err)
-	}
-
-	if err := configMgr.Load(); err != nil {
-		return nil, errors.NewConfigError("failed to load configuration", err)
+		return nil, err
 	}
 
 	// Use specified profile or default
-	var profile *config.Profile
-	if profileName != "" {
-		profiles := configMgr.GetConfig().Profiles
-		if p, exists := profiles[profileName]; exists {
-			profile = &p
-		} else {
-			return nil, errors.NewNotFoundError("profile not found: "+profileName, nil)
-		}
-		logger.ConfigOperation("profile_auth", profileName, map[string]interface{}{
-			"method": "specified_profile",
-		})
-	} else {
-		var err error
-		profile, err = configMgr.GetCurrentProfile()
-		if err != nil {
-			return nil, errors.NewAuthError("no default profile found. Run 'ahasend auth login' to authenticate", err)
-		}
-		logger.ConfigOperation("profile_auth", profile.Name, map[string]interface{}{
-			"method": "default_profile",
-		})
+	name, profile, err := configMgr.ResolveProfile(profileName)
+	if err != nil {
+		return nil, err
 	}
+	method := "specified_profile"
+	if profileName == "" {
+		method = "default_profile"
+	}
+	logger.ConfigOperation("profile_auth", name, map[string]interface{}{
+		"method": method,
+	})
 
+	WarnIfUnencryptedAPIKey(cmd, profile.APIURL)
 	return client.NewClient(profile.APIKey, profile.AccountID, profile.APIURL)
 }
 
-// RequireAuth validates that authentication is available
-func RequireAuth(cmd *cobra.Command) error {
-	_, err := GetAuthenticatedClient(cmd)
-	return err
+// apiKeyWarnedAnnotation marks the root command of a run that warned that
+// its API key is sent unencrypted.
+const apiKeyWarnedAnnotation = "ahasend.api-key-warned"
+
+// WarnIfUnencryptedAPIKey writes a warning to stderr, once per run, when
+// apiURL, the API URL of a profile or of auth login, sends the API key over
+// plain HTTP to a host that is not a loopback host.
+func WarnIfUnencryptedAPIKey(cmd *cobra.Command, apiURL string) {
+	root := cmd.Root()
+	if !validation.SendsInClear(apiURL) || root.Annotations[apiKeyWarnedAnnotation] != "" {
+		return
+	}
+	if root.Annotations == nil {
+		root.Annotations = map[string]string{}
+	}
+	root.Annotations[apiKeyWarnedAnnotation] = "true"
+	fmt.Fprintln(printer.DisplayWriter(cmd.ErrOrStderr()), validation.PlainHTTPWarning("the API URL", apiURL, "the API key"))
 }

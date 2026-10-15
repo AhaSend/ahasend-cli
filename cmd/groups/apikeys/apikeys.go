@@ -18,7 +18,7 @@ different applications or team members.
 Each API key has:
 - A unique identifier and secret
 - Configurable scopes (permissions)
-- Optional labels for organization
+- A label that names it, required when you create it
 - Creation and last used timestamps
 
 Use these commands to create, list, update, and delete API keys as needed.`,
@@ -41,16 +41,16 @@ Use these commands to create, list, update, and delete API keys as needed.`,
     --scope suppressions:read
 
   # Get details about a specific API key
-  ahasend apikeys get ak_1234567890abcdef
+  ahasend apikeys get fcb3f3bc-4ac8-4330-948d-1671fcf9a768
 
   # Update API key label and scopes
-  ahasend apikeys update ak_1234567890abcdef \
+  ahasend apikeys update fcb3f3bc-4ac8-4330-948d-1671fcf9a768 \
     --label "Updated Label" \
     --scope messages:send:all \
     --scope webhooks:read:all
 
   # Delete an API key
-  ahasend apikeys delete ak_1234567890abcdef`,
+  ahasend apikeys delete fcb3f3bc-4ac8-4330-948d-1671fcf9a768`,
 	}
 
 	// Add subcommands

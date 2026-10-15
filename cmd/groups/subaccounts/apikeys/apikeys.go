@@ -17,14 +17,16 @@ func NewCommand() *cobra.Command {
 		Short:   "Manage API keys for a sub-account",
 		Long: `Manage API keys that belong to a specific sub-account.
 
-Sub-account API keys are nested under a sub-account, so every command takes the
-sub-account ID as its first positional argument.
+Sub-account API keys are nested under a sub-account, so every command takes
+the sub-account ID as its first positional argument.
 
 Common workflow:
-  1. List a sub-account's keys: ahasend subaccounts api-keys list <sub-account-id>
+  1. List the keys: ahasend subaccounts api-keys list <sub-account-id>
   2. Inspect one: ahasend subaccounts api-keys get <sub-account-id> <key-id>
-  3. Create one: ahasend subaccounts api-keys create <sub-account-id> --label "CI" --scope messages:send:all
-  4. Update or delete: ahasend subaccounts api-keys update|delete <sub-account-id> <key-id>`,
+  3. Create one: ahasend subaccounts api-keys create <sub-account-id> \
+       --label "CI" --scope messages:send:all
+  4. Update or delete one: ahasend subaccounts api-keys update <sub-account-id>
+       <key-id> (or delete)`,
 	}
 
 	// Add read-only subcommands

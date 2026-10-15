@@ -1,12 +1,11 @@
 package client
 
 import (
-	"context"
-
+	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
-	"github.com/AhaSend/ahasend-go/webhooks"
+	"github.com/google/uuid"
 )
 
 // AhaSendClient defines the interface for AhaSend API operations
@@ -14,61 +13,58 @@ import (
 type AhaSendClient interface {
 	// Authentication and account info
 	GetAccountID() string
-	GetAuthContext() context.Context
 	GetAccount() (*responses.Account, error)
-	Ping() error
-	ValidateConfiguration() error
+	Ping() (*common.SuccessResponse, error)
 
 	// Message operations
-	SendMessage(req requests.CreateMessageRequest) (*responses.CreateMessageResponse, error)
 	SendMessageWithIdempotencyKey(req requests.CreateMessageRequest, idempotencyKey string) (*responses.CreateMessageResponse, error)
-	CancelMessage(accountID, messageID string) (*common.SuccessResponse, error)
+	SendTemplateMessageWithIdempotencyKey(req requests.CreateTemplateMessageRequest, idempotencyKey string) (*responses.CreateMessageResponse, error)
+	CancelMessage(messageID string) (*common.SuccessResponse, error)
 	GetMessages(params requests.GetMessagesParams) (*responses.PaginatedMessagesResponse, error)
 	GetMessage(messageID string) (*responses.Message, error)
 
 	// Domain operations
-	ListDomains(limit *int32, cursor *string) (*responses.PaginatedDomainsResponse, error)
-	CreateDomain(domain string) (*responses.Domain, error)
+	ListDomains(params requests.GetDomainsParams) (*responses.PaginatedDomainsResponse, error)
+	CreateDomain(req requests.CreateDomainRequest, opts ...api.RequestOption) (*responses.Domain, error)
 	GetDomain(domain string) (*responses.Domain, error)
 	UpdateDomain(domain string, req requests.UpdateDomainRequest) (*responses.Domain, error)
 	CheckDomainDNS(domain string) (*responses.Domain, error)
 	DeleteDomain(domain string) (*common.SuccessResponse, error)
 
 	// Webhook operations
-	CreateWebhookVerifier(secret string) (*webhooks.WebhookVerifier, error)
-	ListWebhooks(limit *int32, cursor *string) (*responses.PaginatedWebhooksResponse, error)
-	CreateWebhook(req requests.CreateWebhookRequest) (*responses.Webhook, error)
-	GetWebhook(webhookID string) (*responses.Webhook, error)
-	UpdateWebhook(webhookID string, req requests.UpdateWebhookRequest) (*responses.Webhook, error)
-	DeleteWebhook(webhookID string) error
+	ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error)
+	CreateWebhook(req requests.CreateWebhookRequest, opts ...api.RequestOption) (*responses.Webhook, error)
+	GetWebhook(webhookID uuid.UUID) (*responses.Webhook, error)
+	UpdateWebhook(webhookID uuid.UUID, req requests.UpdateWebhookRequest) (*responses.Webhook, error)
+	DeleteWebhook(webhookID uuid.UUID) (*common.SuccessResponse, error)
 
 	// Webhook streaming operations (development only)
-	InitiateWebhookStream(webhookID string) (*WebhookStreamResponse, error)
-	ConnectWebSocket(wsURL, webhookID string, forceReconnect, skipVerify bool) (*WebSocketClient, error)
-	TriggerWebhook(webhookID string, events []string) error
+	InitiateWebhookStream(webhookID *uuid.UUID) (*WebhookStreamResponse, error)
+	ConnectWebSocket(wsURL string, forceReconnect bool) (*WebSocketClient, error)
+	TriggerWebhook(webhookID uuid.UUID, events []string) (*common.SuccessResponse, error)
 
 	// Route operations
-	ListRoutes(limit *int32, cursor *string) (*responses.PaginatedRoutesResponse, error)
-	CreateRoute(req requests.CreateRouteRequest) (*responses.Route, error)
-	GetRoute(routeID string) (*responses.Route, error)
-	UpdateRoute(routeID string, req requests.UpdateRouteRequest) (*responses.Route, error)
-	DeleteRoute(routeID string) error
+	ListRoutes(params requests.GetRoutesParams) (*responses.PaginatedRoutesResponse, error)
+	CreateRoute(req requests.CreateRouteRequest, opts ...api.RequestOption) (*responses.Route, error)
+	GetRoute(routeID uuid.UUID) (*responses.Route, error)
+	UpdateRoute(routeID uuid.UUID, req requests.UpdateRouteRequest) (*responses.Route, error)
+	DeleteRoute(routeID uuid.UUID) (*common.SuccessResponse, error)
 
 	// Route streaming operations (development only)
-	InitiateRouteStream(routeID, recipient string) (*RouteStreamResponse, error)
-	TriggerRoute(routeID string) error
+	InitiateRouteStream(routeID *uuid.UUID, recipient string) (*RouteStreamResponse, error)
+	TriggerRoute(routeID uuid.UUID) (*common.SuccessResponse, error)
 
 	// Suppression operations
 	ListSuppressions(params requests.GetSuppressionsParams) (*responses.PaginatedSuppressionsResponse, error)
-	CreateSuppression(req requests.CreateSuppressionRequest) (*responses.CreateSuppressionResponse, error)
+	CreateSuppression(req requests.CreateSuppressionRequest, opts ...api.RequestOption) (*responses.CreateSuppressionResponse, error)
 	DeleteSuppression(email string, domain *string) (*common.SuccessResponse, error)
 	WipeSuppressions(domains *string) (*common.SuccessResponse, error)
 
 	// SMTP operations
-	ListSMTPCredentials(limit *int32, cursor *string) (*responses.PaginatedSMTPCredentialsResponse, error)
-	GetSMTPCredential(credentialID string) (*responses.SMTPCredential, error)
-	CreateSMTPCredential(req requests.CreateSMTPCredentialRequest) (*responses.SMTPCredential, error)
-	DeleteSMTPCredential(credentialID string) error
+	ListSMTPCredentials(pagination common.PaginationParams) (*responses.PaginatedSMTPCredentialsResponse, error)
+	GetSMTPCredential(credentialID uuid.UUID) (*responses.SMTPCredential, error)
+	CreateSMTPCredential(req requests.CreateSMTPCredentialRequest, opts ...api.RequestOption) (*responses.SMTPCredential, error)
+	DeleteSMTPCredential(credentialID uuid.UUID) (*common.SuccessResponse, error)
 
 	// Statistics operations
 	GetDeliverabilityStatistics(params requests.GetDeliverabilityStatisticsParams) (*responses.DeliverabilityStatisticsResponse, error)
@@ -76,26 +72,80 @@ type AhaSendClient interface {
 	GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatisticsParams) (*responses.DeliveryTimeStatisticsResponse, error)
 
 	// Sub-account operations
-	ListSubAccounts(limit *int32, cursor *string) (*responses.PaginatedSubAccountsResponse, error)
-	CreateSubAccount(req requests.CreateSubAccountRequest, idempotencyKey string) (*responses.SubAccount, error)
+	ListSubAccounts(pagination common.PaginationParams) (*responses.PaginatedSubAccountsResponse, error)
+	CreateSubAccount(req requests.CreateSubAccountRequest, opts ...api.RequestOption) (*responses.SubAccount, error)
 	GetSubAccountsUsage() (*responses.SubAccountUsageResponse, error)
-	GetSubAccount(subAccountID string) (*responses.SubAccount, error)
-	UpdateSubAccount(subAccountID string, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error)
-	DeleteSubAccount(subAccountID string) (*common.SuccessResponse, error)
-	SuspendSubAccount(subAccountID string, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error)
-	UnsuspendSubAccount(subAccountID string) (*responses.SubAccount, error)
+	GetSubAccount(subAccountID uuid.UUID) (*responses.SubAccount, error)
+	UpdateSubAccount(subAccountID uuid.UUID, req requests.UpdateSubAccountRequest) (*responses.SubAccount, error)
+	DeleteSubAccount(subAccountID uuid.UUID) (*common.SuccessResponse, error)
+	SuspendSubAccount(subAccountID uuid.UUID, req requests.SuspendSubAccountRequest) (*responses.SubAccount, error)
+	UnsuspendSubAccount(subAccountID uuid.UUID) (*responses.SubAccount, error)
+	UnpauseSubAccountDomain(subAccountID uuid.UUID, domain string) (*responses.Domain, error)
 
 	// Sub-account API key operations
-	ListSubAccountAPIKeys(subAccountID string, limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)
-	CreateSubAccountAPIKey(subAccountID string, req requests.CreateAPIKeyRequest, idempotencyKey string) (*responses.APIKey, error)
-	GetSubAccountAPIKey(subAccountID, keyID string) (*responses.APIKey, error)
-	UpdateSubAccountAPIKey(subAccountID, keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
-	DeleteSubAccountAPIKey(subAccountID, keyID string) (*common.SuccessResponse, error)
+	ListSubAccountAPIKeys(subAccountID uuid.UUID, pagination common.PaginationParams) (*responses.PaginatedAPIKeysResponse, error)
+	CreateSubAccountAPIKey(subAccountID uuid.UUID, req requests.CreateAPIKeyRequest, opts ...api.RequestOption) (*responses.APIKey, error)
+	GetSubAccountAPIKey(subAccountID, keyID uuid.UUID) (*responses.APIKey, error)
+	UpdateSubAccountAPIKey(subAccountID, keyID uuid.UUID, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
+	DeleteSubAccountAPIKey(subAccountID, keyID uuid.UUID) (*common.SuccessResponse, error)
 
 	// API Key operations
-	ListAPIKeys(limit *int32, cursor *string) (*responses.PaginatedAPIKeysResponse, error)
-	GetAPIKey(keyID string) (*responses.APIKey, error)
-	CreateAPIKey(req requests.CreateAPIKeyRequest) (*responses.APIKey, error)
-	UpdateAPIKey(keyID string, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
-	DeleteAPIKey(keyID string) (*common.SuccessResponse, error)
+	ListAPIKeys(pagination common.PaginationParams) (*responses.PaginatedAPIKeysResponse, error)
+	GetAPIKey(keyID uuid.UUID) (*responses.APIKey, error)
+	CreateAPIKey(req requests.CreateAPIKeyRequest, opts ...api.RequestOption) (*responses.APIKey, error)
+	UpdateAPIKey(keyID uuid.UUID, req requests.UpdateAPIKeyRequest) (*responses.APIKey, error)
+	DeleteAPIKey(keyID uuid.UUID) (*common.SuccessResponse, error)
+
+	// Contact operations
+	GetContacts(params requests.GetContactsParams) (*responses.PaginatedContactsResponse, error)
+	GetContact(idOrEmail string) (*responses.Contact, error)
+	CreateContact(req requests.CreateContactRequest, opts ...api.RequestOption) (*responses.Contact, error)
+	UpdateContact(idOrEmail string, req requests.UpdateContactRequest) (*responses.Contact, error)
+	DeleteContact(idOrEmail string) (*common.SuccessResponse, error)
+	BatchUpsertContacts(req requests.BatchUpsertContactsRequest, opts ...api.RequestOption) (*responses.BatchUpsertContactsResponse, error)
+
+	// List operations
+	GetLists(params requests.GetListsParams) (*responses.PaginatedContactListsResponse, error)
+	GetList(listID uuid.UUID) (*responses.ContactList, error)
+	CreateList(req requests.CreateListRequest, opts ...api.RequestOption) (*responses.ContactList, error)
+	UpdateList(listID uuid.UUID, req requests.UpdateListRequest) (*responses.ContactList, error)
+	DeleteList(listID uuid.UUID) (*common.SuccessResponse, error)
+	GetListContacts(listID uuid.UUID, params requests.GetListContactsParams) (*responses.PaginatedListContactsResponse, error)
+	BatchAddListContacts(listID uuid.UUID, req requests.BatchAddListContactsRequest, opts ...api.RequestOption) (*responses.BatchAddListContactsResponse, error)
+	UpsertListContact(listID uuid.UUID, idOrEmail string, req requests.UpsertListContactRequest) (*responses.ListContact, error)
+	DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error)
+	GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error)
+
+	// Template operations
+	GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error)
+	GetTemplate(templateID uuid.UUID) (*responses.Template, error)
+	CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
+	UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
+	DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
+	GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error)
+	DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error)
+	PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error)
+	GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error)
+	GetTemplateVersion(templateID, versionID uuid.UUID) (*responses.TemplateVersionDetail, error)
+	RestoreTemplateVersion(templateID, versionID uuid.UUID, req requests.RestoreTemplateVersionRequest, opts ...api.RequestOption) (*responses.Template, error)
+
+	// Campaign operations
+	ListCampaigns(params requests.ListCampaignsParams) (*responses.PaginatedCampaignsResponse, error)
+	GetCampaign(campaignID uuid.UUID) (*responses.Campaign, error)
+	CreateCampaign(req requests.CreateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	UpdateCampaign(campaignID uuid.UUID, req requests.UpdateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	DeleteCampaign(campaignID uuid.UUID) (*common.SuccessResponse, error)
+	DuplicateCampaign(campaignID uuid.UUID, req requests.DuplicateCampaignRequest, opts ...api.RequestOption) (*responses.Campaign, error)
+	SendCampaign(campaignID uuid.UUID, req requests.SendCampaignRequest, opts ...api.RequestOption) (*responses.CampaignSend, error)
+	UnscheduleCampaign(campaignID uuid.UUID, opts ...api.RequestOption) (*responses.Campaign, error)
+	TestCampaign(campaignID uuid.UUID, req requests.TestCampaignRequest, opts ...api.RequestOption) (*responses.CampaignTest, error)
+	GetCampaignStats(campaignID uuid.UUID) (*responses.CampaignStats, error)
+	ListCampaignRecipients(campaignID uuid.UUID, params requests.ListCampaignRecipientsParams) (*responses.PaginatedCampaignRecipientsResponse, error)
+
+	// Campaign template operations
+	ListCampaignTemplates(params requests.ListCampaignTemplatesParams) (*responses.PaginatedCampaignTemplatesResponse, error)
+	GetCampaignTemplate(templateID uuid.UUID) (*responses.CampaignTemplate, error)
+	CreateCampaignTemplate(req requests.CreateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error)
+	UpdateCampaignTemplate(templateID uuid.UUID, req requests.UpdateCampaignTemplateRequest, opts ...api.RequestOption) (*responses.CampaignTemplate, error)
+	DeleteCampaignTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
 }
