@@ -471,7 +471,8 @@ none of them.
 ### curl script (`install.sh`)
 
 - POSIX `sh` with `set -eu`. All code is in functions and the last line is
-  `main "$@"`, so a download that stops halfway runs nothing.
+  `{ main "$@"; }`, so a download that stops anywhere, even inside that
+  line, runs nothing.
 - It needs `curl` or `wget`, plus `uname`, `mktemp`, `mkdir`, `cp`, `mv`,
   `rm`, `chmod`, `awk` and `readlink`, and `sysctl` on macOS. It uses `dpkg`,
   `rpm` and `pacman` when they exist. It hashes with `sha256sum`, else
@@ -489,7 +490,9 @@ none of them.
   - It downloads from `<AHASEND_RELEASES_URL>/download/<tag>/`.
 - **Install directory:** `--install-dir` or `AHASEND_INSTALL_DIR`, default
   `${XDG_BIN_HOME:-$HOME/.local/bin}`, created if missing. It never runs
-  `sudo`. A directory it cannot write to fails, with a hint.
+  `sudo`. A directory it cannot write to fails, with a hint, and so does one
+  that starts with `~`, which the shell does not expand after
+  `--install-dir=`.
 - **Package-manager installs:** the script never replaces a file a package
   manager owns. An existing file is owned when:
   - it is a symbolic link (the script only writes regular files, while
@@ -497,12 +500,18 @@ none of them.
   - it is in `/usr/bin` or `/nix/store`;
   - `dpkg -S`, `rpm -qf` or `pacman -Qo` claims it.
 
-  The script checks ownership before it checks that it can write. When the
-  target `<install-dir>/ahasend` is owned, the script exits nonzero with the
+  The script checks ownership before it checks that it can write, on the
+  target `<install-dir>/ahasend` as given and, when the directory exists, on
+  its real path, because a package manager knows a file by its real path
+  (`/bin/ahasend` is `/usr/bin/ahasend` where `/bin` links to `/usr/bin`).
+  When the target is owned, the script exits nonzero with the
   upgrade command of the manager it recognises, or a general message:
   - `brew upgrade ahasend/tap/ahasend` for a link into a Homebrew `Cellar`;
   - `npm install -g @ahasend/cli` for a link into `node_modules`;
-  - the upgrade command of the system package manager that claims the file.
+  - for a file `dpkg -S` claims, `sudo apt install ./<deb>`, and for one
+    `rpm -qf` claims, `sudo rpm -U ./<rpm>`, each naming the release's
+    download URL, because there is no hosted repository;
+  - `yay -S ahasend-bin` for a file `pacman -Qo` claims.
 - **Other copies:** when another `ahasend` comes earlier on `PATH`, owned or
   not (such as a manual download in `/usr/local/bin`), the script installs
   and then warns which copy runs first, naming its manager when it has one.
@@ -515,12 +524,18 @@ none of them.
   4. `mv -f` it over `ahasend`. On any earlier failure the old binary stays
      in place and works.
 
-  A trap on EXIT, INT and TERM removes the download directory and the
-  temporary copy in the install directory.
+  A trap on EXIT, HUP, INT and TERM removes the download directory and the
+  temporary copy in the install directory, so a closed terminal leaves
+  nothing behind either.
 - **PATH:** if the install directory is not on `PATH`, it prints the line to
   add for sh, bash and zsh, and for fish. It never edits shell profiles.
 - **Flags:** `--version`, `--install-dir`, `--quiet` (prints only errors),
-  `--no-color`, `--help`. Users pass flags with
+  `--no-color`, `--help`. Colour is also off when `NO_COLOR` is set or
+  `TERM` is `dumb`, as in the CLI. A `--version` that does not match
+  `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` fails before any download,
+  and so does an empty `--version` or `--install-dir`, so an unset variable
+  in `--version "$V"` never turns a pinned install into the latest one.
+  Users pass flags with
   `curl -fsSL … | sh -s -- --version v0.4.0`.
 - **Exit codes:** 0 on success; nonzero for an unsupported system, a failed
   download, a missing asset, a checksum mismatch, a directory it cannot write
@@ -539,19 +554,28 @@ none of them.
     file only after the new one passes `--version`.
 - It never replaces a file a package manager owns. On Windows a path is
   owned when it is under a Scoop `shims` folder, `WinGet\Links`,
-  `chocolatey\bin` or the global npm prefix (`npm prefix -g`). An owned
-  target and other copies on `PATH` are handled as in `install.sh`, with the
-  matching `scoop update`, `winget upgrade`, `choco upgrade` or
-  `npm install -g` command.
+  `chocolatey\bin` or the global npm prefix (`NPM_CONFIG_PREFIX`, else
+  `npm prefix -g`, else `%APPDATA%\npm`). It refuses such a folder even
+  when no `ahasend.exe` is there yet, because npm and Scoop put their own
+  shims there. An owned target and other copies on `PATH` are handled as in
+  `install.sh`, with the matching `scoop update`, `winget upgrade`,
+  `choco upgrade` or `npm install -g` command.
 - It prints the command that adds the directory to the user `PATH`, and does
-  not run it.
-- All code is in functions and the last line calls the main one, so a
-  download that stops halfway runs nothing.
+  not run it. The command edits `HKCU:\Environment` directly, reading `Path`
+  without expanding names such as `%USERPROFILE%` and writing it back as an
+  expandable value, because `[Environment]::SetEnvironmentVariable` would
+  freeze those names and store a plain string.
+- All code is in functions and the last line calls the main one inside an
+  `if ($true) { … }` block, so a download that stops anywhere, even inside
+  that line, runs nothing.
 - It never calls `exit`, which would close the user's PowerShell session
   under `iex`. It reports a failure with `throw`.
+- It reads the redirect of `<AHASEND_RELEASES_URL>/latest` with one HEAD
+  request that does not follow it, which works the same on 5.1 and 7.
 - It takes the parameters `-Version`, `-InstallDir` and `-Quiet`, plus the
   `AHASEND_VERSION`, `AHASEND_INSTALL_DIR` and `AHASEND_RELEASES_URL`
-  environment variables. Parameters are passed with
+  environment variables. An empty `-Version` or `-InstallDir` fails, as in
+  `install.sh`. Parameters are passed with
   `& ([scriptblock]::Create((irm https://ahasend.com/install.ps1))) -Version v0.4.0`.
 
 ### Hosting the scripts
@@ -569,10 +593,11 @@ none of them.
 ## Testing
 
 - **Fake release:** packaging tests build a GoReleaser snapshot, stage it
-  with `scripts/stage-release.sh`, and serve the staged folder from a local
-  HTTP server in the GitHub release layout (`/latest` redirects to the
-  served tag, `/download/<tag>/<asset>`), with `AHASEND_RELEASES_URL`
-  pointing at it.
+  with `scripts/stage-release.sh`, and serve the staged folder with
+  `test/install/fake-release`, a small Go server that runs on every runner
+  and in Alpine. It serves the GitHub release layout (`/latest` redirects
+  to `/tag/<tag>`, `/download/<tag>/<asset>`) on 127.0.0.1, and
+  `AHASEND_RELEASES_URL` points at it.
 - **Test version:** a default snapshot's version is a pre-release, which npm
   and Chocolatey treat specially. Every snapshot a test builds, the snapshot
   check's included, is therefore built with `SNAPSHOT_VERSION=99.0.0` and
@@ -731,7 +756,8 @@ support.
     (`AHASEND_VERSION`, `AHASEND_INSTALL_DIR`), and the default install
     directory (including `XDG_BIN_HOME` for `install.sh`);
   - an upgrade over an older binary;
-  - pinning a version, including a pre-release tag;
+  - pinning a version, including a pre-release tag, and an empty version or
+    install directory, which fails;
   - `--quiet`, `--no-color` and `--help` for `install.sh`, and `-Quiet` for
     `install.ps1`;
   - the PATH hint when the directory is not on `PATH`;
@@ -742,7 +768,9 @@ support.
   - an owned target, which is refused with the matching upgrade command:
     - for `install.sh`: a symbolic link into a fake Homebrew `Cellar`, one
       into a fake npm `node_modules`, files that fake `dpkg -S`, `rpm -qf`
-      and `pacman -Qo` commands (first on `PATH`) claim, and, in CI,
+      and `pacman -Qo` commands (first on `PATH`) claim, a file that a fake
+      `dpkg -S` claims by its real path only, reached through a linked
+      directory and through a path with `..`, and, in CI,
       `--install-dir /usr/bin` over an existing `/usr/bin/ahasend`, which
       gets the general message;
     - for `install.ps1`: a fake Scoop `shims` folder, a fake `WinGet\Links`
@@ -752,8 +780,8 @@ support.
     warns;
   - a script cut off mid-file, which runs nothing;
   - no leftover temporary files, in the download directory or the install
-    directory, after a success, after each failure, and after an INT and a
-    TERM sent during the download (`install.sh`).
+    directory, after a success, after each failure, and after an INT, a
+    TERM and a HUP sent during the download (`install.sh`).
 - `install.sh` also runs with `wget` and no `curl` on `PATH`, and with each
   hashing tool missing in turn (`sha256sum`, then `shasum`) so it falls back
   to the next.
@@ -762,11 +790,14 @@ support.
 - A failing `install.ps1` run through `iex` in a child session leaves that
   session running, and the `[scriptblock]::Create(...) -Version` form passes
   its parameter.
+- On Windows, the printed PATH command, run against a saved and restored
+  user `Path`, keeps a `%SystemRoot%` entry unexpanded and the value an
+  expandable string.
 - `install.sh` runs on ubuntu-latest, ubuntu-24.04-arm, macos-latest
   (arm64), macos-15-intel, and under `dash` and Alpine's `busybox sh`.
 - `install.ps1` runs on windows-latest (x64) and windows-11-arm, under both
   Windows PowerShell 5.1 and PowerShell 7.
-**Status**: Not Started
+**Status**: Complete
 
 ## Stage 3: Channel publishing, with Homebrew, Scoop and AUR
 **Goal**: `publish-channel.yml` publishes Homebrew, Scoop and AUR for a

@@ -35,7 +35,9 @@ trap 'rm -rf "$tmp"' EXIT
 echo "Checking the asset names"
 expected="checksums.txt
 LICENSE
-THIRD_PARTY_NOTICES"
+THIRD_PARTY_NOTICES
+install.sh
+install.ps1"
 for platform in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
 	expected="$expected
 ahasend-$platform

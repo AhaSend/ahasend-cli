@@ -126,6 +126,8 @@ checksum:
   extra_files: &extra_files
     - glob: ./LICENSE
     - glob: ./THIRD_PARTY_NOTICES
+    - glob: ./install.sh
+    - glob: ./install.ps1
 
 snapshot:
   # SNAPSHOT_VERSION gives a test snapshot a stable version, such as 99.0.0
