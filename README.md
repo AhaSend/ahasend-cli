@@ -518,8 +518,12 @@ make build
 make lint
 ```
 
-`make check-go-version` checks that the Dockerfile and the workflows use the
-toolchain of `go.mod`; change all of them together.
+`make check-versions` checks that the Dockerfile and the workflows use the
+toolchain of `go.mod`, and that the workflows use the GoReleaser version of
+the Makefile; change all of them together.
+
+`make release-snapshot` builds the release assets for every platform into
+`dist/` with GoReleaser, as a release does, without publishing anything.
 
 ### Third-Party Notices
 

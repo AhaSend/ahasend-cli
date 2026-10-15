@@ -6,8 +6,11 @@ on:
       - 'v*.*.*'
 
 env:
-  # The toolchain line of go.mod; make check-go-version checks it
+  # The toolchain line of go.mod; make check-versions checks it
   GO_VERSION: '1.27.2'
+  GOTOOLCHAIN: 'go1.27.2'
+  # GORELEASER_VERSION of the Makefile; make check-versions checks it
+  GORELEASER_VERSION: 'v2.18.3'
 
 # Each job asks for the permissions it needs
 permissions: {}
@@ -19,8 +22,11 @@ jobs:
     permissions:
       contents: read
     steps:
+      # The release scripts read the repository's tags
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -38,18 +44,41 @@ jobs:
       - name: Check THIRD_PARTY_NOTICES is current
         run: make notices-check
 
-      - name: Check the Go version is the same everywhere
-        run: make check-go-version
+      - name: Check the Go and GoReleaser versions are the same everywhere
+        run: make check-versions
 
       - name: Run tests
         run: make test
 
-  build-and-release:
-    name: Build and Release
+      - name: Check the release notes
+        run: scripts/release-notes.sh "$GITHUB_REF_NAME"
+
+      # check-release-assets.sh lists the .rpm files with rpm
+      - name: Install rpm
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Check the GoReleaser configuration
+        run: scripts/goreleaser-check.sh
+
+      - name: Build a snapshot of the release
+        run: make release-snapshot SNAPSHOT_VERSION=99.0.0
+
+      - name: Check the snapshot's assets
+        run: |
+          scripts/stage-release.sh dist "$RUNNER_TEMP/snapshot"
+          scripts/check-release-assets.sh "$RUNNER_TEMP/snapshot"
+
+      - name: Test the release scripts
+        run: make test-scripts
+
+  goreleaser:
+    name: Build and publish the GitHub release
     runs-on: ubuntu-latest
     needs: test
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,137 +91,63 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Build all binaries
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-        run: make build-all
-
-      # The licence files are release assets too, so the checksums cover them
-      - name: Generate checksums
+      # GIT_COMMIT and BUILD_TIME stamp the version; MAKE_LATEST marks only
+      # the newest stable tag as the latest release
+      - name: Prepare the release notes and build information
         run: |
-          cp LICENSE THIRD_PARTY_NOTICES bin/
-          cd bin
-          sha256sum * > checksums.txt
-          cat checksums.txt
+          scripts/release-notes.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+          scripts/build-info.sh >> "$GITHUB_ENV"
+          # Assigned first, so a failure stops the step instead of writing
+          # an empty value, which GitHub would take as latest
+          make_latest=$(scripts/make-latest.sh "$GITHUB_REF_NAME")
+          echo "MAKE_LATEST=$make_latest" >> "$GITHUB_ENV"
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # Get the current tag
-          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 $CURRENT_TAG^ 2>/dev/null || echo "")
-
-          # Generate changelog
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-            echo "## Changes since $PREVIOUS_TAG" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..$CURRENT_TAG >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-            echo "## Initial Release" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "First release of AhaSend CLI" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      # The tag is named, so a commit that also has a pre-release tag builds
+      # this tag's version
+      - name: Build and publish the release
+        uses: goreleaser/goreleaser-action@v6
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: AhaSend CLI ${{ steps.version.outputs.VERSION }}
-          body: |
-            # AhaSend CLI ${{ steps.version.outputs.VERSION }}
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean --skip=homebrew,scoop,aur --release-notes ${{ runner.temp }}/release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
 
-            ${{ steps.changelog.outputs.CHANGELOG }}
+      - name: Collect the release assets
+        run: scripts/stage-release.sh dist "$RUNNER_TEMP/release"
 
-            ## Installation
-
-            Download the appropriate binary for your platform from the assets below.
-
-            ### Linux (x86-64)
-            ```bash
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-linux-amd64 -o ahasend
-            chmod +x ahasend
-            sudo mv ahasend /usr/local/bin/
-            ```
-
-            ### Linux (ARM64)
-            ```bash
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-linux-arm64 -o ahasend
-            chmod +x ahasend
-            sudo mv ahasend /usr/local/bin/
-            ```
-
-            ### macOS (Intel)
-            ```bash
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-darwin-amd64 -o ahasend
-            chmod +x ahasend
-            sudo mv ahasend /usr/local/bin/
-            ```
-
-            ### macOS (Apple Silicon)
-            ```bash
-            curl -L https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/ahasend-darwin-arm64 -o ahasend
-            chmod +x ahasend
-            sudo mv ahasend /usr/local/bin/
-            ```
-
-            ### Windows
-            Download `ahasend-windows-amd64.exe` (or `ahasend-windows-arm64.exe` on ARM64) and add it to your PATH.
-
-            ## Checksums
-
-            Please verify the checksums after downloading:
-            ```
-            sha256sum <downloaded-file>
-            ```
-
-            See `checksums.txt` in the release assets for the expected values.
-          files: |
-            bin/ahasend-linux-amd64
-            bin/ahasend-linux-arm64
-            bin/ahasend-darwin-amd64
-            bin/ahasend-darwin-arm64
-            bin/ahasend-windows-amd64.exe
-            bin/ahasend-windows-arm64.exe
-            bin/checksums.txt
-            bin/LICENSE
-            bin/THIRD_PARTY_NOTICES
-          draft: false
-          prerelease: false
+      - name: Attest the release assets
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/release/*
 
   docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: test
+    # No image for a tag whose GitHub release failed
+    needs: goreleaser
     permissions:
       contents: read
       packages: write
     steps:
+      # The release scripts read the repository's tags
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Extract version from tag
-        id: version
+      - name: Read the build information and the image tags
+        id: info
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION_WITHOUT_V=${VERSION#v}" >> $GITHUB_OUTPUT
-          echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "REPO_OWNER_LOWER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          scripts/build-info.sh >> "$GITHUB_OUTPUT"
+          tags=$(scripts/docker-tags.sh "$GITHUB_REF_NAME")
+          image="ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')/ahasend-cli"
+          {
+            echo 'TAGS<<EOF'
+            echo "$tags" | sed "s|^|$image:|"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       # QEMU runs the arm64 image's setup steps; Go cross-compiles the binary
       - name: Set up QEMU
@@ -224,12 +179,9 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ steps.version.outputs.VERSION }}
-            GIT_COMMIT=${{ steps.version.outputs.GIT_COMMIT }}
-            BUILD_TIME=${{ steps.version.outputs.BUILD_TIME }}
-          tags: |
-            ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:${{ steps.version.outputs.VERSION_WITHOUT_V }}
-            ghcr.io/${{ steps.version.outputs.REPO_OWNER_LOWER }}/ahasend-cli:latest
+            VERSION=${{ github.ref_name }}
+            GIT_COMMIT=${{ steps.info.outputs.GIT_COMMIT }}
+            BUILD_TIME=${{ steps.info.outputs.BUILD_TIME }}
+          tags: ${{ steps.info.outputs.TAGS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

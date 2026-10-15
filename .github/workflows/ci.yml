@@ -7,8 +7,9 @@ on:
     branches: [ main ]
 
 env:
-  # The toolchain line of go.mod; make check-go-version checks it
+  # The toolchain line of go.mod; make check-versions checks it
   GO_VERSION: '1.27.2'
+  GOTOOLCHAIN: 'go1.27.2'
 
 jobs:
   lint:
@@ -33,8 +34,8 @@ jobs:
         run: make deps-check
       - name: Check THIRD_PARTY_NOTICES is current
         run: make notices-check
-      - name: Check the Go version is the same everywhere
-        run: make check-go-version
+      - name: Check the Go and GoReleaser versions are the same everywhere
+        run: make check-versions
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -100,3 +101,37 @@ jobs:
 
       - name: Test binary
         run: ./ahasend --version
+
+  release-check:
+    name: Release check
+    runs-on: ubuntu-latest
+    steps:
+      # The release scripts read the repository's tags
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # check-release-assets.sh lists the .rpm files with rpm
+      - name: Install rpm
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Check the GoReleaser configuration
+        run: scripts/goreleaser-check.sh
+
+      - name: Build a snapshot of the release
+        run: make release-snapshot SNAPSHOT_VERSION=99.0.0
+
+      - name: Check the snapshot's assets
+        run: |
+          scripts/stage-release.sh dist "$RUNNER_TEMP/snapshot"
+          scripts/check-release-assets.sh "$RUNNER_TEMP/snapshot"
+
+      - name: Test the release scripts
+        run: make test-scripts
