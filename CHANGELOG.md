@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-16
+
+This release changes no command. It adds package pages for the install channels.
+
 ### Added
 
 - The npm packages have a README, which npmjs.com shows on each package's page.
@@ -255,5 +259,6 @@ on stderr
 Notes for v0.2.0 and earlier are on the
 [GitHub releases page](https://github.com/AhaSend/ahasend-cli/releases).
 
-[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.2.0...v0.3.0
