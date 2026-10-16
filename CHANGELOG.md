@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
 This release adds the `contacts`, `lists`, `templates` and `campaigns`
 commands, and makes exit codes, input checks and output consistent across
 commands. Read **Breaking changes** before upgrading scripts written for v0.2.0.
@@ -106,6 +108,11 @@ commands. Read **Breaking changes** before upgrading scripts written for v0.2.0.
 
 ### Added
 
+- Install with Homebrew (`brew install ahasend/tap/ahasend`), Scoop, npm
+  (`npm install -g @ahasend/cli`), the `install.sh` and `install.ps1`
+  scripts, or the .deb and .rpm packages on the release page
+  ([installation instructions](https://ahasend.com/docs/cli/installation)).
+  WinGet, Chocolatey and AUR packages follow.
 - [`contacts`](USAGE.mdx#contact-commands) and
   [`lists`](USAGE.mdx#list-commands) commands manage contacts, contact lists
   and list members.
@@ -240,4 +247,5 @@ on stderr
 Notes for v0.2.0 and earlier are on the
 [GitHub releases page](https://github.com/AhaSend/ahasend-cli/releases).
 
-[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.2.0...v0.3.0
