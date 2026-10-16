@@ -9,6 +9,7 @@
     <title>AhaSend CLI</title>
     <authors>AhaSend</authors>
     <projectUrl>https://ahasend.com</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/AhaSend/ahasend-cli@v@VERSION@/packaging/chocolatey/icon.png</iconUrl>
     <licenseUrl>https://github.com/AhaSend/ahasend-cli/blob/v@VERSION@/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/AhaSend/ahasend-cli</projectSourceUrl>
