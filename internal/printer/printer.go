@@ -209,8 +209,9 @@ type AuthStatus struct {
 // message, or a test that passed or failed. A send that fails returns its
 // error without printing a result.
 type SMTPSendResult struct {
-	Success   bool   // Whether the send or the test was successful
-	MessageID string // Message ID if successful
+	Success bool // Whether the send or the test was successful
+	// MessageID is the Message-ID header of a sent message
+	MessageID string
 	Error     string // The failure of a failed test
 	TestMode  bool   // Whether this was a test send
 	// Connected is whether a test connected to the server and read its

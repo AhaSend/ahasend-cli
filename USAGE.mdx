@@ -4226,10 +4226,15 @@ and exits with code 7 for a network failure or a timeout. Outside
 `--output json`, the command also prints `SMTP login failed: <error>` or
 `SMTP connection test failed: <error>` on stderr.
 
-`--output json` prints the CLI's own result object, not an API response, with
-the keys `Success`, `MessageID`, `Error`, `TestMode`, `Connected` and
-`Authenticated`. CSV output has a `success,message_id` header for a send,
-and a `test_mode,success,connected,authenticated,error` header for a test.
+A sent message's output shows its Message-ID: the one `--header` gave, or
+the one the command sets, a UUID at the domain of `--from`, such as
+`<0d371db4-00d0-5eec-851c-e1db1e2b190d@example.com>`. AhaSend keeps it, so
+[`messages get`](#ahasend-messages-get) finds the message by it.
+
+`--output json` prints the CLI's own result object, not an API response,
+with the same keys as CSV output: `success` and `message_id` for a send,
+and `test_mode`, `success`, `connected`, `authenticated` and `error` for a
+test.
 
 **Exit Codes:**
 - 0: The message was sent, or the test passed

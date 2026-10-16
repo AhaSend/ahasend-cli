@@ -31,7 +31,7 @@ the credentials only when both hold.
 The profile becomes the default when there is no default profile yet;
 otherwise the default stays, and 'ahasend auth switch <profile>' changes it.
 
-You can create API keys in your AhaSend dashboard at https://app.ahasend.com`,
+You can create API keys in your AhaSend dashboard at https://dash.ahasend.com`,
 		Example: `  # Interactive login
   ahasend auth login
 

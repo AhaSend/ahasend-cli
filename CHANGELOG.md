@@ -214,6 +214,8 @@ on stderr
   `routes listen --slim-output` shows the sender, recipient and subject.
 - `smtp send` times out on an unresponsive server and shows the server's
   reply on a refused send.
+- `smtp send` prints the Message-ID of the message it sent, which
+  `messages get` takes, and its JSON output has the keys of its CSV output.
 - Large attachments on slow connections no longer time out
   ([Network Limits](USAGE.mdx#network-limits)).
 - Files with a UTF-8 byte order mark are read correctly.

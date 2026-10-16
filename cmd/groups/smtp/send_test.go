@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -38,24 +39,17 @@ func TestSendCommand_OutputFormats(t *testing.T) {
 		{"table", func(t *testing.T, stdout string) {
 			assert.True(t, strings.HasPrefix(stdout, "Email sent successfully via SMTP\n\n"), stdout)
 			assert.Regexp(t, `│ Status +│ Sent +│`, stdout)
-			assert.Regexp(t, `│ Delivery +│ Message queued for delivery │`, stdout)
+			assert.Regexp(t, `│ Message ID +│ `+generatedMessageID+` +│`, stdout)
+			assert.Regexp(t, `│ Delivery +│ Message queued for delivery +│`, stdout)
 		}},
 		{"plain", func(t *testing.T, stdout string) {
-			assert.Equal(t, "Email sent successfully via SMTP\n", stdout)
+			assert.Regexp(t, `^Email sent successfully via SMTP\nMessage ID: `+generatedMessageID+`\n$`, stdout)
 		}},
 		{"json", func(t *testing.T, stdout string) {
-			assert.Equal(t, `{
-  "Success": true,
-  "MessageID": "",
-  "Error": "",
-  "TestMode": false,
-  "Connected": false,
-  "Authenticated": false
-}
-`, stdout)
+			assert.Regexp(t, `^\{\n  "success": true,\n  "message_id": "`+generatedMessageID+`"\n\}\n$`, stdout)
 		}},
 		{"csv", func(t *testing.T, stdout string) {
-			assert.Equal(t, "success,message_id\ntrue,\n", stdout)
+			assert.Regexp(t, `^success,message_id\ntrue,`+generatedMessageID+`\n$`, stdout)
 		}},
 	}
 
@@ -72,8 +66,32 @@ func TestSendCommand_OutputFormats(t *testing.T) {
 			require.Len(t, messages, 1)
 			assert.Contains(t, messages[0], "Subject: Hello")
 			assert.Contains(t, messages[0], "Hi there")
+			// The printed ID is the Message-ID header the message carries
+			id := regexp.MustCompile(generatedMessageID).FindString(stdout)
+			assert.Contains(t, messages[0], "\nMessage-ID: "+id+"\n")
 		})
 	}
+}
+
+// generatedMessageID matches the Message-ID smtp send gives a message from
+// sender@example.com: a UUID at the sender's domain.
+const generatedMessageID = `<[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@example\.com>`
+
+// TestSendCommand_ReportsTheMessageIDOfAHeader checks that a Message-ID given
+// with --header, in any case, is the one sent and printed, and that the
+// message carries no second one.
+func TestSendCommand_ReportsTheMessageIDOfAHeader(t *testing.T) {
+	server := newFakeSMTPServer(t)
+
+	stdout, _, err := testutil.RunCommand(t, NewSendCommand(), "csv", "",
+		sendArgs(server, "--header", "message-id: <given@example.com>")...)
+
+	require.NoError(t, err)
+	assert.Equal(t, "success,message_id\ntrue,<given@example.com>\n", stdout)
+	messages := server.Messages()
+	require.Len(t, messages, 1)
+	assert.Equal(t, 1, strings.Count(strings.ToLower(messages[0]), "\nmessage-id: "), messages[0])
+	assert.Contains(t, strings.ToLower(messages[0]), "\nmessage-id: <given@example.com>\n")
 }
 
 // TestSendCommand_TestModeConnectsWithoutSending checks that --test reports
@@ -86,12 +104,11 @@ func TestSendCommand_TestModeConnectsWithoutSending(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, stderr)
 	assert.Equal(t, `{
-  "Success": true,
-  "MessageID": "",
-  "Error": "",
-  "TestMode": true,
-  "Connected": true,
-  "Authenticated": true
+  "test_mode": true,
+  "success": true,
+  "connected": true,
+  "authenticated": true,
+  "error": ""
 }
 `, stdout)
 	assert.Empty(t, server.Messages())
