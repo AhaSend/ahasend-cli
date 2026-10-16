@@ -7,7 +7,7 @@
 #   test/install/winget.ps1 -Manifests <manifests> -Release <release> -Server <fake-release.exe>
 #
 # It installs WinGet when the machine lacks it or has a version older than
-# 1.12, which reads the manifests' schema; enables local manifests; runs
+# 1.10, which reads the manifests' schema; enables local manifests; runs
 # winget validate; installs the manifests; and checks ahasend --version in a
 # new shell. It runs as an administrator.
 param(
@@ -48,7 +48,7 @@ try {
     }
 
     $version = wingetVersion
-    if (-not $version -or $version -lt [version]'1.12') {
+    if (-not $version -or $version -lt [version]'1.10') {
         Write-Host "Installing WinGet (found $version)"
         Install-Module Microsoft.WinGet.Client -Force -Scope CurrentUser -Repository PSGallery
         Repair-WinGetPackageManager -AllUsers -Latest -Force

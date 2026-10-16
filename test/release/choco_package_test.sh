@@ -14,6 +14,9 @@ sha256=$(awk '$2 == "ahasend-windows-amd64.exe" { print $1 }' "$assets/checksums
 # changed/: the exe does not match checksums.txt
 cp -R "$assets" "$tmp/changed"
 printf 'changed\n' >> "$tmp/changed/ahasend-windows-amd64.exe"
+# back\slash/: the assets in a folder whose path has a backslash, as a
+# Windows path does
+cp -R "$assets" "$tmp/back\\slash"
 # no-line/: checksums.txt has no line for the exe
 cp -R "$assets" "$tmp/no-line"
 grep -v ahasend-windows-amd64.exe "$assets/checksums.txt" > "$tmp/no-line/checksums.txt"
@@ -37,6 +40,8 @@ expect_success "the exe is the asset" cmp "$assets/ahasend-windows-amd64.exe" "$
 expect_success "LICENSE.txt is the asset" cmp "$assets/LICENSE" "$tmp/out/tools/LICENSE.txt"
 expect_success "THIRD_PARTY_NOTICES.txt is the asset" \
 	cmp "$assets/THIRD_PARTY_NOTICES" "$tmp/out/tools/THIRD_PARTY_NOTICES.txt"
+expect_success "assets in a folder whose path has a backslash make a package" \
+	package v1.2.3 "$tmp/back\\slash" "$tmp/out-backslash"
 expect_error "an exe that does not match checksums.txt fails" "ahasend-windows-amd64.exe does not match checksums.txt" \
 	package v1.2.3 "$tmp/changed" "$tmp/out-changed"
 expect_error "a checksums.txt without the exe fails" "has no line for ahasend-windows-amd64.exe" \

@@ -197,12 +197,14 @@ download() {
 	fi
 }
 
-# sha256 FILE prints the SHA-256 of FILE
+# sha256 FILE prints the SHA-256 of FILE. The tools read the file from
+# stdin, because sha256sum and shasum put a backslash before the hash of a
+# file whose path has one.
 sha256() {
 	case $hasher in
-	sha256sum) sha256sum "$1" | awk '{ print $1 }' ;;
-	shasum) shasum -a 256 "$1" | awk '{ print $1 }' ;;
-	openssl) openssl dgst -sha256 "$1" | awk '{ print $NF }' ;;
+	sha256sum) sha256sum < "$1" | awk '{ print $1 }' ;;
+	shasum) shasum -a 256 < "$1" | awk '{ print $1 }' ;;
+	openssl) openssl dgst -sha256 < "$1" | awk '{ print $NF }' ;;
 	esac
 }
 

@@ -392,7 +392,7 @@ none of them.
 
 ### WinGet
 
-- The identifier is `AhaSend.CLI`. Its manifest (schema 1.12.0) has one
+- The identifier is `AhaSend.CLI`. Its manifest (schema 1.10.0) has one
   installer per architecture (x64, arm64), each pointing at the zip with its
   SHA-256: `InstallerType: zip`, `NestedInstallerType: portable`, and
   `NestedInstallerFiles` with `ahasend.exe` and

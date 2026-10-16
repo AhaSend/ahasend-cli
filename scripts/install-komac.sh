@@ -19,7 +19,9 @@ archive=komac-$version-x86_64-unknown-linux-gnu.tar.gz
 mkdir -p "$dir"
 curl -fsSL --retry 3 -o "$dir/$archive" \
 	"https://github.com/russellbanks/Komac/releases/download/v$version/$archive"
-actual=$(sha256sum "$dir/$archive" | awk '{ print $1 }')
+# From stdin, because sha256sum puts a backslash before the hash of a file
+# whose path has one
+actual=$(sha256sum < "$dir/$archive" | awk '{ print $1 }')
 if [ "$actual" != "$KOMAC_SHA256" ]; then
 	rm -f "$dir/$archive"
 	echo "install-komac: the SHA-256 of $archive is $actual, not KOMAC_SHA256 ($KOMAC_SHA256)" >&2

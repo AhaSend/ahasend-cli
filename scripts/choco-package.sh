@@ -36,8 +36,10 @@ if [ -z "$sha256" ]; then
 	echo "choco-package: $assets/checksums.txt has no line for $exe" >&2
 	exit 1
 fi
-# VERIFICATION.txt gives this SHA-256 for the embedded exe
-actual=$(sha256sum "$assets/$exe" | awk '{ print $1 }')
+# VERIFICATION.txt gives this SHA-256 for the embedded exe. sha256sum reads
+# the exe from stdin, because it puts a backslash before the hash of a file
+# whose path has one, as Windows paths do.
+actual=$(sha256sum < "$assets/$exe" | awk '{ print $1 }')
 if [ "$actual" != "$sha256" ]; then
 	echo "choco-package: $assets/$exe does not match checksums.txt" >&2
 	exit 1
