@@ -1077,6 +1077,7 @@ func TestSendWritesLogsAboveTheProgressBar(t *testing.T) {
 	// request
 	require.Eventually(t, func() bool { return strings.Contains(shown(), "\r\033[KSent 2/150 messages") }, 5*time.Second,
 		10*time.Millisecond, "%q", shown())
-	assert.Contains(t, shown(), "(1/150) ETA: 0s\r\033[Ktime=")
+	// The ETA depends on how fast the requests run, so any value will do
+	assert.Regexp(t, `\(1/150\) ETA: \d+s\r\x1b\[Ktime=`, shown())
 	assert.Contains(t, shown(), "msg=\"a log line during the send\"\r\n\r\033[K[")
 }
