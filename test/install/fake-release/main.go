@@ -1,5 +1,5 @@
 // Command fake-release serves release assets the way GitHub serves the
-// releases of a repository, for the install script tests in test/install:
+// releases of a repository, for the install tests in test/install:
 //
 //	/latest                   redirects to /tag/<tag>, for the latest tag
 //	/latest/download/<asset>  redirects to /download/<tag>/<asset>
@@ -8,14 +8,15 @@
 //
 // Usage:
 //
-//	fake-release -url <file> -latest <file> [-slow <tag>] <dir>...
+//	fake-release -url <file> -latest <file> [-slow <tag>] [-addr <address>] <dir>...
 //
 // It reads the latest tag from the -latest file on every request, so a test
 // can change it; without that file, /latest is a 404. A download of the -slow
 // tag sends a few bytes, waits three seconds and breaks off, so a test can
 // stop an install script during a download. The server listens on a free
-// port of 127.0.0.1, writes its base URL into the -url file once it is ready,
-// and logs every request to stderr.
+// port of 127.0.0.1, or on the -addr address when the files under test
+// already hold the server's URL, writes its base URL into the -url file once
+// it is ready, and logs every request to stderr.
 package main
 
 import (
@@ -34,14 +35,15 @@ func main() {
 	urlFile := flag.String("url", "", "the file to write the base URL into")
 	latestFile := flag.String("latest", "", "the file that holds the latest tag")
 	slowTag := flag.String("slow", "", "the tag whose downloads break off")
+	addr := flag.String("addr", "127.0.0.1:0", "the address to listen on")
 	flag.Parse()
 	if *urlFile == "" || *latestFile == "" || flag.NArg() == 0 {
-		fmt.Fprintln(os.Stderr, "usage: fake-release -url <file> -latest <file> [-slow <tag>] <dir>...")
+		fmt.Fprintln(os.Stderr, "usage: fake-release -url <file> -latest <file> [-slow <tag>] [-addr <address>] <dir>...")
 		os.Exit(2)
 	}
 	dirs := flag.Args()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", *addr)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,0 +1,22 @@
+{
+    "version": "1.2.3",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/AhaSend/ahasend-cli/releases/download/v1.2.3/ahasend_1.2.3_windows_amd64.zip",
+            "bin": [
+                "ahasend.exe"
+            ],
+            "hash": "0bdee1024c7db334ddb3cf8f2004e20b504e29a1d125d21507c2f33d818ec01c"
+        },
+        "arm64": {
+            "url": "https://github.com/AhaSend/ahasend-cli/releases/download/v1.2.3/ahasend_1.2.3_windows_arm64.zip",
+            "bin": [
+                "ahasend.exe"
+            ],
+            "hash": "ace4c1913585bbb96fef81e860d64e9581853292cc82c26483a46851c4fc4425"
+        }
+    },
+    "homepage": "https://ahasend.com",
+    "license": "Apache-2.0",
+    "description": "Command-line interface for the AhaSend email API"
+}

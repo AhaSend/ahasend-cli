@@ -118,6 +118,69 @@ nfpms:
       # nfpm records the machine's host name otherwise
       buildhost: ahasend-release
 
+# The Homebrew formula, Scoop manifest and AUR files. GoReleaser only writes
+# them into dist/: skip_upload keeps it from ever pushing them, the release
+# job skips them, and publish-channel.yml pushes them with
+# scripts/push-channel.sh once its build matches the release.
+# AHASEND_RELEASES_URL points their downloads at another server, such as a
+# test's fake release.
+brews:
+  - name: ahasend
+    # The raw binaries would match too, and GoReleaser allows one file per
+    # platform
+    ids: [unix-tar]
+    # GoReleaser never pushes it, but writes no formula without a repository
+    repository:
+      owner: AhaSend
+      name: homebrew-tap
+    directory: Formula
+    skip_upload: true
+    url_template: &download_url '{{ envOrDefault "AHASEND_RELEASES_URL" "https://github.com/AhaSend/ahasend-cli/releases" }}/download/v{{ .Version }}/{{ .ArtifactName }}'
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+    install: |
+      bin.install "ahasend"
+      bash_completion.install "completions/ahasend.bash" => "ahasend"
+      zsh_completion.install "completions/_ahasend"
+      fish_completion.install "completions/ahasend.fish"
+      doc.install "LICENSE", "THIRD_PARTY_NOTICES"
+    test: |
+      assert_match "AhaSend CLI v#{version}", shell_output("#{bin}/ahasend --version")
+
+scoops:
+  - name: ahasend
+    ids: [windows-zip]
+    repository:
+      owner: AhaSend
+      name: scoop-bucket
+    skip_upload: true
+    url_template: *download_url
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+
+aurs:
+  - name: ahasend-bin
+    # For the same reason as brews
+    ids: [unix-tar]
+    skip_upload: true
+    url_template: *download_url
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+    maintainers:
+      - AhaSend <info@ahasend.com>
+    provides: [ahasend]
+    conflicts: [ahasend]
+    package: |
+      install -Dm755 ./ahasend "${pkgdir}/usr/bin/ahasend"
+      install -Dm644 ./completions/ahasend.bash "${pkgdir}/usr/share/bash-completion/completions/ahasend"
+      install -Dm644 ./completions/_ahasend "${pkgdir}/usr/share/zsh/site-functions/_ahasend"
+      install -Dm644 ./completions/ahasend.fish "${pkgdir}/usr/share/fish/vendor_completions.d/ahasend.fish"
+      install -Dm644 ./LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+      install -Dm644 ./THIRD_PARTY_NOTICES "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES"
+
 # The files every release has besides the built ones; checksums.txt covers
 # them, in a snapshot too
 checksum:

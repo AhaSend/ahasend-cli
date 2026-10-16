@@ -132,7 +132,9 @@ It works in four steps.
 2. **Prepare.**
    - homebrew, scoop, aur: one `goreleaser release --skip=publish` builds
      everything and writes the formula, the Scoop manifest, and the AUR files
-     into `dist/` without publishing them. `scripts/check-rebuild.sh` compares
+     into `dist/` without publishing them. `skip_upload: true` on `brews`,
+     `scoops` and `aurs` keeps GoReleaser from ever pushing them, whatever
+     flags it runs with. `scripts/check-rebuild.sh` compares
      `dist/checksums.txt` with the release's `checksums.txt`, and stops the
      run if they differ.
    - winget, chocolatey, npm: `scripts/fetch-release.sh <tag> <dir>`
@@ -152,7 +154,10 @@ It works in four steps.
    all, which stops the job (see Channel details, WinGet). The environment
    variables `AHASEND_TAP_REPO`, `AHASEND_BUCKET_REPO` and
    `AHASEND_AUR_REPO` replace the git URLs of the tap, the bucket and the
-   AUR repo, here and in step 4, so tests can use local repos:
+   AUR repo, here and in step 4, so tests can use local repos.
+   `scripts/channel-repo.sh`, which both scripts source, holds those URLs
+   and the branches (`main` for the tap and the bucket, `master` for the
+   AUR):
 
    | Channel | Already published when | Not published when |
    |---|---|---|
@@ -363,6 +368,11 @@ none of them.
 - `package()` (the `aurs.package` template) installs the binary, the
   completions (zsh into `/usr/share/zsh/site-functions/`), and `LICENSE` and
   `THIRD_PARTY_NOTICES` to `/usr/share/licenses/ahasend-bin/`.
+- `makepkg` strips the binary and builds a separate `ahasend-bin-debug`
+  package, as Arch's defaults say, because GoReleaser's `aurs` has no
+  `options` field. The installed binary is the release binary without its
+  symbol table. `namcap` warns that a static Go binary lacks PIE and full
+  RELRO; those warnings are expected.
 - GoReleaser writes `dist/aur/ahasend-bin.pkgbuild` and
   `dist/aur/ahasend-bin.srcinfo`. `scripts/push-channel.sh aur` commits them
   as `PKGBUILD` and `.SRCINFO` to
@@ -373,7 +383,7 @@ none of them.
 
 - The bucket is `AhaSend/scoop-bucket`, with one manifest, `ahasend.json`.
 - The manifest has `architecture.64bit` and `architecture.arm64` with the
-  zip URL and hash, and `"bin": "ahasend.exe"`. Scoop keeps the zip's
+  zip URL and hash, and `"bin": ["ahasend.exe"]`. Scoop keeps the zip's
   licence files in the app folder.
 
 ### WinGet
@@ -639,7 +649,9 @@ none of them.
   formula is the generated file unchanged.
 - **Home folder:** every packaging and install-script test runs with a
   temporary `HOME` (and `USERPROFILE` and `LOCALAPPDATA` on Windows), so a
-  default install directory is never the developer's own.
+  default install directory is never the developer's own. The Scoop test
+  refuses to run unless `SCOOP` names a Scoop installed for it, and the
+  Homebrew test refuses to run where `ahasend/tap` is already tapped.
 - **Binary runs:** packaging tests run the binary only with `--version`,
   `--help`, `completion` and an unknown command, which make no network
   calls.
@@ -660,6 +672,8 @@ runs fail and how these steps finish them.
      reviewers if wanted.
 2. **AUR:** register an AhaSend account (plus a personal co-maintainer), add
    the public key, and store the private key as `AUR_SSH_PRIVATE_KEY`.
+   Check that the ed25519 host key fingerprint in `publish-channel.yml`
+   matches the one aur.archlinux.org lists; the AUR run refuses any other.
 3. **WinGet:**
    - create or choose a bot GitHub account, fork `microsoft/winget-pkgs`, and
      store a classic PAT (`public_repo`) as `WINGET_TOKEN`;
@@ -841,7 +855,7 @@ stable tag, and the `channels` job of `release.yml` starts it for those three.
   empty one.
 - **Channels job:** `scripts/channels.sh` prints the three channels for a
   `latest` and an `older` tag, and none for a pre-release.
-**Status**: Not Started
+**Status**: Complete
 
 ## Stage 4: WinGet, Chocolatey and npm
 **Goal**: `publish-channel.yml` also publishes WinGet, Chocolatey and npm
@@ -1015,8 +1029,9 @@ channels that are live. The stage closes after the second release.
     runner that runs GoReleaser).
 - **Scoop through our own bucket.** Main and Extras require far more GitHub
   stars than the repo has.
-- **AUR `-bin` package only, from a tar.gz archive.** It uses the tested
-  release binary, and the archive carries the notices and completions, which
+- **AUR `-bin` package only, from a tar.gz archive.** It installs the
+  release build (stripped, see Channel details, AUR) rather than one built
+  with Arch's Go, and the archive carries the notices and completions, which
   GoReleaser's `aurs` cannot add as separate sources.
   - Rejected: a source package `ahasend` (it would build with Arch's Go and
     needs the `go.mod` toolchain pinned).

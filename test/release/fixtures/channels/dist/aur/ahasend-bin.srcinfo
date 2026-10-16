@@ -1,0 +1,16 @@
+pkgbase = ahasend-bin
+	pkgdesc = Command-line interface for the AhaSend email API
+	pkgver = 1.2.3
+	pkgrel = 1
+	url = https://ahasend.com
+	license = Apache-2.0
+	conflicts = ahasend
+	provides = ahasend
+	arch = aarch64
+	source_aarch64 = ahasend-bin_1.2.3_aarch64.tar.gz::https://github.com/AhaSend/ahasend-cli/releases/download/v1.2.3/ahasend_1.2.3_linux_arm64.tar.gz
+	sha256sums_aarch64 = fb3e31e0e30925d5235118d0140ab238d003ed789347afe81d531cacae1af662
+	arch = x86_64
+	source_x86_64 = ahasend-bin_1.2.3_x86_64.tar.gz::https://github.com/AhaSend/ahasend-cli/releases/download/v1.2.3/ahasend_1.2.3_linux_amd64.tar.gz
+	sha256sums_x86_64 = 93c775a44329daaab6e326a6ae107a7461aff9960f847e781ad475cfd34bcd81
+	
+pkgname = ahasend-bin

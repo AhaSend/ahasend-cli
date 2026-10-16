@@ -20,6 +20,11 @@ env:
   # The toolchain line of go.mod; make check-versions checks it
   GO_VERSION: '1.27.2'
   GOTOOLCHAIN: 'go1.27.2'
+  # GORELEASER_VERSION of the Makefile; make check-versions checks it
+  GORELEASER_VERSION: 'v2.18.3'
+  # The channel tests serve the fake release here, and the snapshot's
+  # formula, manifest and AUR files download from it
+  FAKE_RELEASE_URL: 'http://127.0.0.1:8484'
 
 permissions:
   contents: read
@@ -38,8 +43,8 @@ jobs:
 
       - name: Check the sh scripts
         run: |
-          shellcheck -x -s sh install.sh test/install/run.sh
-          checkbashisms install.sh test/install/run.sh
+          shellcheck -x -s sh install.sh scripts/*.sh test/install/*.sh test/release/*.sh
+          checkbashisms install.sh scripts/*.sh test/install/*.sh test/release/*.sh
 
       # Windows PowerShell 5.1 reads a download without a charset as
       # ISO-8859-1, so install.ps1 must be ASCII
@@ -79,13 +84,18 @@ jobs:
           cache: true
 
       # A stable version, and an older pre-release for the upgrade and
-      # pre-release cases
+      # pre-release cases. The stable one is built last, so dist/ keeps its
+      # formula, manifest and AUR files, which download from the fake release.
       - name: Build the test snapshots
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
         run: |
-          for version in 99.0.0 98.0.0-rc.1; do
+          for version in 98.0.0-rc.1 99.0.0; do
             make release-snapshot SNAPSHOT_VERSION=$version
             scripts/stage-release.sh dist "$RUNNER_TEMP/release/v$version"
           done
+          mkdir "$RUNNER_TEMP/channels"
+          cp -R dist/homebrew dist/scoop dist/aur "$RUNNER_TEMP/channels/"
 
       # The install scripts need only checksums.txt and the raw binaries
       - name: Upload the fake release
@@ -97,6 +107,18 @@ jobs:
             ${{ runner.temp }}/release/*/ahasend-linux-*
             ${{ runner.temp }}/release/*/ahasend-darwin-*
             ${{ runner.temp }}/release/*/ahasend-windows-*
+          retention-days: 1
+
+      # The channel tests need the generated files and the archives; the
+      # artifact holds channels/ and release/v99.0.0/
+      - name: Upload the channel files
+        uses: actions/upload-artifact@v4
+        with:
+          name: channel-files
+          path: |
+            ${{ runner.temp }}/channels
+            ${{ runner.temp }}/release/v99.0.0/*.tar.gz
+            ${{ runner.temp }}/release/v99.0.0/*.zip
           retention-days: 1
 
   install-sh:
@@ -231,3 +253,228 @@ jobs:
           $config.Run.Exit = $true
           $config.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $config
+
+  homebrew:
+    name: Homebrew (${{ matrix.os }})
+    needs: fake-release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download the channel files
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-files
+          path: ${{ runner.temp }}/channel-files
+
+      - name: Build the fake release server
+        run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/fake-release" ./test/install/fake-release
+
+      # The Ubuntu runners have Homebrew, but not on PATH
+      - name: Put brew on PATH
+        if: runner.os == 'Linux'
+        run: echo /home/linuxbrew/.linuxbrew/bin >> "$GITHUB_PATH"
+
+      - name: Test the Homebrew formula
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          sh test/install/homebrew.sh "$RUNNER_TEMP/channel-files/channels" \
+            "$RUNNER_TEMP/channel-files/release" "$RUNNER_TEMP/fake-release"
+
+  scoop:
+    name: Scoop (windows-latest)
+    needs: fake-release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download the channel files
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-files
+          path: ${{ runner.temp }}/channel-files
+
+      - name: Build the fake release server
+        run: go build -o "$env:RUNNER_TEMP\fake-release.exe" ./test/install/fake-release
+
+      # The runner is an administrator, which Scoop's installer refuses
+      # without -RunAsAdmin
+      - name: Install Scoop
+        run: |
+          $env:SCOOP = "$env:RUNNER_TEMP\scoop"
+          "SCOOP=$env:SCOOP" >> $env:GITHUB_ENV
+          Invoke-RestMethod -Uri https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\install-scoop.ps1"
+          & "$env:RUNNER_TEMP\install-scoop.ps1" -RunAsAdmin -ScoopDir $env:SCOOP
+          "$env:SCOOP\shims" >> $env:GITHUB_PATH
+
+      - name: Test the Scoop manifest
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          test/install/scoop.ps1 -Dist "$env:RUNNER_TEMP\channel-files\channels" `
+            -Release "$env:RUNNER_TEMP\channel-files\release" -Server "$env:RUNNER_TEMP\fake-release.exe"
+
+  aur:
+    name: AUR (Arch Linux, x86_64)
+    needs: fake-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download the channel files
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-files
+          path: ${{ runner.temp }}/channel-files
+
+      # Static, so it runs in the Arch Linux container
+      - name: Build the fake release server
+        run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/fake-release" ./test/install/fake-release
+
+      # makepkg runs as a user other than root, who installs the package
+      # with sudo
+      - name: Test the AUR package
+        run: |
+          docker run --rm -e AHASEND_RELEASES_URL="$FAKE_RELEASE_URL" \
+            -v "$PWD:/src:ro" -v "$RUNNER_TEMP/channel-files:/files:ro" \
+            -v "$RUNNER_TEMP/fake-release:/fake-release:ro" -w /src \
+            archlinux:base-devel sh -c '
+              pacman -Syu --noconfirm --needed namcap &&
+              useradd -m builder &&
+              echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder &&
+              sudo -u builder --preserve-env=AHASEND_RELEASES_URL \
+                sh test/install/aur.sh /files/channels /files/release /fake-release'
+
+  # The two builds that scripts/check-rebuild.sh compares before a channel
+  # publishes, each on its own runner in a full clone of this commit, for a
+  # test tag: the release job's build, and the build of publish-channel.yml
+  rebuild-release:
+    name: Reproducibility (release build)
+    runs-on: ubuntu-latest
+    steps:
+      # The commit itself, so both builds use the same one
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Tag the commit and prepare the build information
+        run: |
+          git tag v99.0.0
+          echo "Test release notes" > "$RUNNER_TEMP/release-notes.md"
+          scripts/build-info.sh >> "$GITHUB_ENV"
+          make_latest=$(scripts/make-latest.sh v99.0.0)
+          echo "MAKE_LATEST=$make_latest" >> "$GITHUB_ENV"
+
+      # The release job's command, with publish added to --skip
+      - name: Build the release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean --skip=publish,homebrew,scoop,aur --release-notes ${{ runner.temp }}/release-notes.md
+        env:
+          GORELEASER_CURRENT_TAG: v99.0.0
+
+      - name: Upload checksums.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-release
+          path: dist/checksums.txt
+          retention-days: 1
+
+  rebuild-channel:
+    name: Reproducibility (channel build)
+    runs-on: ubuntu-latest
+    steps:
+      # The commit itself, so both builds use the same one
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Tag the commit and prepare the build information
+        run: |
+          git tag v99.0.0
+          scripts/build-info.sh >> "$GITHUB_ENV"
+          make_latest=$(scripts/make-latest.sh v99.0.0)
+          echo "MAKE_LATEST=$make_latest" >> "$GITHUB_ENV"
+
+      # The command of publish-channel.yml
+      - name: Rebuild the release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean --skip=publish
+        env:
+          GORELEASER_CURRENT_TAG: v99.0.0
+
+      - name: Upload checksums.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-channel
+          path: dist/checksums.txt
+          retention-days: 1
+
+  check-rebuild:
+    name: Reproducibility (compare)
+    needs: [rebuild-release, rebuild-channel]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download both checksums.txt files
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/rebuild
+          pattern: rebuild-*
+
+      - name: Compare the builds
+        run: |
+          scripts/check-rebuild.sh "$RUNNER_TEMP/rebuild/rebuild-channel/checksums.txt" \
+            "$RUNNER_TEMP/rebuild/rebuild-release/checksums.txt"

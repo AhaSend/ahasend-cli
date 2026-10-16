@@ -1,0 +1,152 @@
+name: Publish channel
+
+# Publishes one install channel for one release tag. The channels job of
+# release.yml starts a run for each channel that scripts/channels.sh prints,
+# and a person can start one to retry a channel:
+#
+#   gh workflow run publish-channel.yml --ref <tag> -f tag=<tag> -f channel=<channel>
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag, such as v1.2.3; the run's ref must be this tag
+        required: true
+        type: string
+      channel:
+        description: The channel to publish
+        required: true
+        type: choice
+        options:
+          - homebrew
+          - scoop
+          - aur
+
+run-name: Publish ${{ inputs.channel }} for ${{ inputs.tag }}
+
+# Runs for one channel wait for each other, so two tags never publish a
+# channel at the same time; queue: max keeps every waiting run, where the
+# default keeps one and cancels the one before it
+concurrency:
+  group: publish-channel-${{ inputs.channel }}
+  queue: max
+
+env:
+  # The toolchain line of go.mod; make check-versions checks it
+  GO_VERSION: '1.27.2'
+  GOTOOLCHAIN: 'go1.27.2'
+  # GORELEASER_VERSION of the Makefile; make check-versions checks it
+  GORELEASER_VERSION: 'v2.18.3'
+  TAG: ${{ inputs.tag }}
+  CHANNEL: ${{ inputs.channel }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Homebrew, Scoop and AUR publish the files GoReleaser generates, from a
+  # rebuild whose assets must match the release's
+  generated-files:
+    name: Publish ${{ inputs.channel }}
+    if: contains(fromJSON('["homebrew", "scoop", "aur"]'), inputs.channel)
+    runs-on: ubuntu-latest
+    # A hung run would hold the channel's queue for hours
+    timeout-minutes: 30
+    steps:
+      # The release scripts read the repository's tags
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check that the tag may be published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/channel-gates.sh "$TAG" "$GITHUB_REF"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      # The same build information as the release job; the release settings
+      # read MAKE_LATEST, though nothing is published
+      - name: Prepare the build information
+        run: |
+          scripts/build-info.sh >> "$GITHUB_ENV"
+          make_latest=$(scripts/make-latest.sh "$TAG")
+          echo "MAKE_LATEST=$make_latest" >> "$GITHUB_ENV"
+
+      # Builds everything and writes the formula, the manifest and the AUR
+      # files into dist/, without publishing anything
+      - name: Rebuild the release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean --skip=publish
+        env:
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
+
+      - name: Check that the rebuild matches the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --pattern checksums.txt --dir "$RUNNER_TEMP/release"
+          scripts/check-rebuild.sh dist/checksums.txt "$RUNNER_TEMP/release/checksums.txt"
+
+      # A short-lived token that can push to the tap or the bucket only
+      - name: Get a token for the repository
+        if: inputs.channel == 'homebrew' || inputs.channel == 'scoop'
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: AhaSend
+          repositories: ${{ inputs.channel == 'homebrew' && 'homebrew-tap' || 'scoop-bucket' }}
+
+      # git asks gh for the token, which gh reads from GH_TOKEN
+      - name: Let git push with the token
+        if: inputs.channel == 'homebrew' || inputs.channel == 'scoop'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth setup-git
+
+      # The host key is checked against the fingerprint the AUR publishes on
+      # https://aur.archlinux.org
+      - name: Set up the AUR SSH key
+        if: inputs.channel == 'aur'
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org > "$RUNNER_TEMP/aur-host-key"
+          fingerprint=$(ssh-keygen -lf "$RUNNER_TEMP/aur-host-key" | awk '{ print $2 }')
+          if [ "$fingerprint" != 'SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4' ]; then
+            echo "aur.archlinux.org has the unknown host key $fingerprint" >&2
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/aur-host-key" >> ~/.ssh/known_hosts
+          printf 'Host aur.archlinux.org\n  User aur\n  IdentityFile ~/.ssh/aur\n  IdentitiesOnly yes\n' >> ~/.ssh/config
+
+      # Stops the run with success when the channel already has this
+      # version or a newer one, so a run can be repeated
+      - name: Check whether the channel already has the version
+        id: published
+        run: |
+          state=$(scripts/channel-published.sh "$CHANNEL" "${TAG#v}")
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          if [ "$state" = published ]; then
+            echo "::notice::$CHANNEL already has ${TAG#v} or a newer version; nothing to publish"
+          fi
+
+      - name: Publish the generated files
+        if: steps.published.outputs.state == 'missing'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: scripts/push-channel.sh "$CHANNEL"

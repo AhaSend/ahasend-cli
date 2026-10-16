@@ -89,6 +89,30 @@ scratch_repo() {
 	done
 }
 
+# bare_repo DIR BRANCH [SRC DST]... creates a bare git repository in DIR,
+# which stands in for a channel's repository. Given files, it has one commit
+# on BRANCH with each file SRC at the path DST; without, it is empty.
+bare_repo() {
+	dir=$1
+	branch=$2
+	shift 2
+	git init -q --bare "$dir"
+	if [ $# -eq 0 ]; then
+		return
+	fi
+	git init -q "$dir.work"
+	git -C "$dir.work" checkout -q -b "$branch"
+	while [ $# -gt 0 ]; do
+		mkdir -p "$(dirname "$dir.work/$2")"
+		cp "$1" "$dir.work/$2"
+		shift 2
+	done
+	git -C "$dir.work" add -A
+	git -C "$dir.work" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false \
+		commit -q -m test
+	git -C "$dir.work" push -q "$dir" "$branch"
+}
+
 finish() {
 	if [ "$failures" -ne 0 ]; then
 		echo "$failures check(s) failed"

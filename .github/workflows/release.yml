@@ -122,6 +122,41 @@ jobs:
         with:
           subject-path: ${{ runner.temp }}/release/*
 
+  channels:
+    name: Start the channel runs
+    runs-on: ubuntu-latest
+    # No channel for a tag whose GitHub release failed
+    needs: goreleaser
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      # The release scripts read the repository's tags
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # One publish-channel.yml run per channel, so each channel fails or
+      # succeeds on its own; a pre-release gets none. A failed start does not
+      # stop the others; the step fails after trying them all.
+      - name: Start a publish-channel.yml run for each channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Assigned first, so a failure stops the step
+          channels=$(scripts/channels.sh "$GITHUB_REF_NAME")
+          failed=
+          for channel in $channels; do
+            gh workflow run publish-channel.yml --ref "$GITHUB_REF_NAME" -f tag="$GITHUB_REF_NAME" -f channel="$channel" ||
+              failed="$failed $channel"
+          done
+          if [ -n "$failed" ]; then
+            echo "could not start publish-channel.yml for:$failed" >&2
+            exit 1
+          fi
+
   docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
