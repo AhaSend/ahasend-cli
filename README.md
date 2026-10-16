@@ -35,6 +35,71 @@ For comprehensive details, visit the [official Ahasend CLI documentation](https:
 
 ## Installation
 
+Install with the tool you already use:
+
+```bash
+# macOS and Linux: Homebrew
+brew install ahasend/tap/ahasend
+
+# macOS and Linux: install script
+curl -fsSL https://ahasend.com/install.sh | sh
+
+# Windows: Scoop
+scoop bucket add ahasend https://github.com/AhaSend/scoop-bucket
+scoop install ahasend/ahasend
+
+# Windows: PowerShell script
+irm https://ahasend.com/install.ps1 | iex
+
+# npm (Node.js 18 or later)
+npm install -g @ahasend/cli
+```
+
+To upgrade or uninstall:
+
+| Installed with | Upgrade | Uninstall |
+|---|---|---|
+| Homebrew | `brew upgrade ahasend/tap/ahasend` | `brew uninstall ahasend` |
+| Install script | run it again | delete `ahasend` from the folder it installed into (by default `rm ~/.local/bin/ahasend`) |
+| PowerShell script | run it again | `Remove-Item -Recurse "$env:LOCALAPPDATA\Programs\AhaSend"`; if you added `AhaSend\bin` to your user `PATH`, delete that entry in **Edit environment variables for your account** |
+| Scoop | `scoop update; scoop update ahasend` | `scoop uninstall ahasend` |
+| npm | `npm install -g @ahasend/cli@latest` | `npm uninstall -g @ahasend/cli` |
+| .deb | install the newer package | `sudo apt remove ahasend` |
+| .rpm | install the newer package | `sudo dnf remove ahasend` |
+
+Each [release](https://github.com/AhaSend/ahasend-cli/releases) also has .deb and .rpm packages (`sudo apt install ./ahasend_<version>_<arch>.deb`, `sudo dnf install ./ahasend-<version>-1.<arch>.rpm`) and plain binaries for macOS, Linux and Windows, on x86_64 and ARM64. The [installation guide](https://ahasend.com/docs/cli/installation) covers each method in full, checking downloads, shell completion, and the npm package's signal handling.
+
+### Binary Download
+
+Set `FILE` to the binary for your system, such as `ahasend-linux-amd64` or `ahasend-darwin-arm64` (the [installation guide](https://ahasend.com/docs/cli/installation#binary-download) has the Windows steps):
+
+```bash
+FILE=ahasend-linux-amd64
+curl -fsSLO "https://github.com/AhaSend/ahasend-cli/releases/latest/download/$FILE"
+curl -fsSLO https://github.com/AhaSend/ahasend-cli/releases/latest/download/checksums.txt
+
+# Linux
+sha256sum --ignore-missing -c checksums.txt
+# macOS
+shasum -a 256 --ignore-missing -c checksums.txt
+```
+
+If the check prints `OK` for the file, install it. If it prints `FAILED`, delete the file and do not run it.
+
+```bash
+chmod +x "$FILE"
+mkdir -p ~/.local/bin
+mv "$FILE" ~/.local/bin/ahasend
+```
+
+If `~/.local/bin` is not on your `PATH`, add this line to your shell's startup file (such as `~/.bashrc` or `~/.zshrc`), then open a new terminal and run `ahasend --version`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+On macOS, a binary downloaded with a browser is blocked until you run `xattr -d com.apple.quarantine ~/.local/bin/ahasend`.
+
 ### From Source
 
 ```bash
@@ -45,21 +110,9 @@ cd ahasend-cli
 # Build the CLI
 make build
 
-# Install to your PATH
-sudo cp ./bin/ahasend /usr/local/bin/
-
-# Verify installation
-ahasend --help
-```
-
-### Binary Installation
-
-Download the latest binary for your platform from the [releases page](https://github.com/AhaSend/ahasend-cli/releases).
-
-```bash
-# Linux/macOS
-chmod +x ahasend
-sudo mv ahasend /usr/local/bin/
+# Install into ~/.local/bin, which must be on your PATH
+mkdir -p ~/.local/bin
+cp ./bin/ahasend ~/.local/bin/ahasend
 
 # Verify installation
 ahasend --version

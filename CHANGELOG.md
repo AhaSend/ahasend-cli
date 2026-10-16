@@ -29,7 +29,7 @@ commands. Read **Breaking changes** before upgrading scripts written for v0.2.0.
   unknown profile exited 5 and a missing default profile 2); `auth status`
   exits nonzero when the key cannot be verified.
 - A command with per-item results exits with 1 when any item failed;
-  `messages send` counts recipients the API rejects, such as suppressed ones.
+  `messages send` counts recipients the API does not queue.
 - Ctrl+C or SIGTERM stops `messages send` and `messages cancel` cleanly with
   exit code 130, and a closed stdout pipe exits with 1 instead of SIGPIPE.
 
