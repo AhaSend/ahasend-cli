@@ -10,6 +10,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - The npm packages have a README, which npmjs.com shows on each package's page.
+- The Chocolatey package page shows how to use the CLI, with links to the docs.
 
 ## [0.3.0] - 2026-10-16
 

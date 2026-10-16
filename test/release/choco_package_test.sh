@@ -28,14 +28,15 @@ package() {
 
 expect_success "a release's assets make a package" package v1.2.3 "$assets" "$tmp/out"
 expect_success "the nuspec has the version" grep -qF '<version>1.2.3</version>' "$tmp/out/ahasend.nuspec"
-expect_success "the nuspec has no placeholder left" test -z "$(grep @ "$tmp/out/ahasend.nuspec" || true)"
+# A placeholder is @NAME@; the description's example addresses hold an @ too
+expect_success "the nuspec has no placeholder left" test -z "$(grep -E '@[A-Z_]+@' "$tmp/out/ahasend.nuspec" || true)"
 expect_success "VERIFICATION.txt gives the exe's release URL" grep -qF \
 	"  https://releases.example.com/ahasend/download/v1.2.3/ahasend-windows-amd64.exe" \
 	"$tmp/out/tools/VERIFICATION.txt"
 expect_success "VERIFICATION.txt gives the exe's SHA-256 from checksums.txt" grep -qxF "  $sha256" \
 	"$tmp/out/tools/VERIFICATION.txt"
 expect_success "VERIFICATION.txt has no placeholder left" \
-	test -z "$(grep @ "$tmp/out/tools/VERIFICATION.txt" || true)"
+	test -z "$(grep -E '@[A-Z_]+@' "$tmp/out/tools/VERIFICATION.txt" || true)"
 expect_success "the exe is the asset" cmp "$assets/ahasend-windows-amd64.exe" "$tmp/out/tools/ahasend.exe"
 expect_success "LICENSE.txt is the asset" cmp "$assets/LICENSE" "$tmp/out/tools/LICENSE.txt"
 expect_success "THIRD_PARTY_NOTICES.txt is the asset" \
