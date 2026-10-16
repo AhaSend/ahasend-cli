@@ -4,8 +4,9 @@
 # or the `## [Unreleased]` section for a pre-release. The section is printed
 # without its heading, followed by the definitions of the reference-style
 # links it uses. Links to files of the repository point at the files of the
-# tag on GitHub, so they work on the release page. It fails when the section
-# is missing or empty.
+# tag on GitHub, so they work on the release page. Each paragraph and list
+# item is printed on one line, because GitHub shows every line break of a
+# release's notes. It fails when the section is missing or empty.
 set -eu
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
@@ -36,6 +37,23 @@ if [ -z "$section" ]; then
 	echo "$changelog has no $heading section, or it is empty" >&2
 	exit 1
 fi
+
+# The section with each paragraph and list item joined into one line. A line
+# joins the one before it unless it is blank, a heading, a table row, a
+# quote, a code fence, the start of a list item, or inside a code block.
+section=$(printf '%s\n' "$section" | awk '
+	function flush() {
+		if (text != "") print text
+		text = ""
+	}
+	/^[ \t]*(```|~~~)/ { flush(); print; code = !code; next }
+	code { print; next }
+	/^[ \t]*$/ || /^#/ || /^[ \t]*[|>]/ { flush(); print; next }
+	/^[ \t]*([-*+]|[0-9]+[.)])[ \t]/ { flush(); text = $0; next }
+	text == "" { text = $0; next }
+	{ sub(/^[ \t]+/, ""); text = text " " $0 }
+	END { flush() }
+')
 
 # The definitions of the links the section uses
 definitions=$(grep '^\[[^]]*\]: ' "$changelog" | while IFS= read -r line; do

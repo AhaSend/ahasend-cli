@@ -8,6 +8,30 @@ All notable changes are recorded in this file, as [Keep a Changelog] says.
 
 - Pre-release notes.
 
+## [1.3.0] - 2026-04-01
+
+A paragraph that is
+wrapped over two lines.
+
+### Changed
+
+- An item that is
+  wrapped, with a [link](USAGE.mdx#a) on
+  its last line.
+  - A nested item that is
+    wrapped.
+
+  A second paragraph of the
+  item.
+
+```sh
+keep
+  these lines
+```
+
+| a | b |
+|---|---|
+
 ## [1.2.30] - 2026-03-01
 
 ### Fixed
