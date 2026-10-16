@@ -218,5 +218,21 @@ jobs:
             GIT_COMMIT=${{ steps.info.outputs.GIT_COMMIT }}
             BUILD_TIME=${{ steps.info.outputs.BUILD_TIME }}
           tags: ${{ steps.info.outputs.TAGS }}
+          # GHCR shows the description and links of a multi-platform image
+          # from its index annotations, and older tools read the labels
+          labels: |
+            org.opencontainers.image.title=AhaSend CLI
+            org.opencontainers.image.description=Send email and manage your AhaSend account from the command line
+            org.opencontainers.image.source=https://github.com/AhaSend/ahasend-cli
+            org.opencontainers.image.documentation=https://ahasend.com/docs/cli
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          annotations: |
+            index:org.opencontainers.image.title=AhaSend CLI
+            index:org.opencontainers.image.description=Send email and manage your AhaSend account from the command line
+            index:org.opencontainers.image.source=https://github.com/AhaSend/ahasend-cli
+            index:org.opencontainers.image.documentation=https://ahasend.com/docs/cli
+            index:org.opencontainers.image.licenses=Apache-2.0
           cache-from: type=gha
           cache-to: type=gha,mode=max

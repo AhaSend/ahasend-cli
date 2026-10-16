@@ -11,6 +11,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - The npm packages have a README, which npmjs.com shows on each package's page.
 - The Chocolatey package page shows how to use the CLI, with links to the docs.
+- The Docker image has a description, licence and source link, which its GHCR page shows.
 
 ## [0.3.0] - 2026-10-16
 
