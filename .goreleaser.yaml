@@ -213,12 +213,10 @@ release:
   replace_existing_artifacts: true
   extra_files: *extra_files
   footer: |
-    ## Installation
+    ### Installation
 
     See the [installation instructions](https://ahasend.com/docs/cli/installation).
 
-    ## Checking a download
+    ### Checking a download
 
-    `checksums.txt` has the SHA-256 of every asset. Download it next to the
-    files, then run `sha256sum --ignore-missing -c checksums.txt` on Linux,
-    or `shasum -a 256 --ignore-missing -c checksums.txt` on macOS.
+    `checksums.txt` has the SHA-256 of every asset. Download it next to the files, then run `sha256sum --ignore-missing -c checksums.txt` on Linux, or `shasum -a 256 --ignore-missing -c checksums.txt` on macOS.

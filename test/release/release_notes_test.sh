@@ -21,6 +21,25 @@ sed 's/^## \[1\.2\.3\] - .*/## [1.2.3]/' "$changelog" > "$tmp/undated.md"
 expect_output "a stable tag's section without a date" "$notes_1_2_3" \
 	"$root/scripts/release-notes.sh" v1.2.3 "$tmp/undated.md"
 
+notes_1_3_0="A paragraph that is wrapped over two lines.
+
+### Changed
+
+- An item that is wrapped, with a [link]($blob/v1.3.0/USAGE.mdx#a) on its last line.
+  - A nested item that is wrapped.
+
+  A second paragraph of the item.
+
+\`\`\`sh
+keep
+  these lines
+\`\`\`
+
+| a | b |
+|---|---|"
+expect_output "wrapped paragraphs and items become one line each, code and tables stay" \
+	"$notes_1_3_0" "$root/scripts/release-notes.sh" v1.3.0 "$changelog"
+
 expect_output "a pre-release's Unreleased section" "### Added
 
 - Pre-release notes." "$root/scripts/release-notes.sh" v1.2.4-rc.1 "$changelog"

@@ -318,8 +318,10 @@ the reference-style links the section uses, which `CHANGELOG.md` keeps at
 its end. It rewrites links to repository files, such as
 `USAGE.mdx#exit-codes`, to
 `https://github.com/AhaSend/ahasend-cli/blob/<tag>/<path>`, so they work on
-the release page. It fails if the section is missing or empty, and the
-release then fails.
+the release page. It joins each paragraph and list item into one line,
+leaving code blocks and tables as they are, because GitHub shows every line
+break in a release's notes. It fails if the section is missing or empty,
+and the release then fails.
 
 `release.footer` links to the installation docs and shows how to check a
 download against `checksums.txt`. It names no channel, because it is
@@ -762,8 +764,10 @@ publishes no package-manager channel.
 - `scripts/release-notes.sh`, on a fixture `CHANGELOG.md`, extracts
   `[1.2.3]` (with and without a date) for `v1.2.3` and `[Unreleased]` for
   `v1.2.4-rc.1`, rewrites a `USAGE.mdx#exit-codes` link to the tag's GitHub
-  URL, keeps a reference-style link working, leaves out the heading, and
-  fails for a version with no section and for an empty section.
+  URL, keeps a reference-style link working, leaves out the heading, joins
+  wrapped paragraphs and list items (nested ones too) into one line each
+  while leaving a code block and a table unchanged, and fails for a version
+  with no section and for an empty section.
 - `scripts/goreleaser-check.sh` fails on a fixture config that also uses
   another deprecated property.
 - `make check-versions` fails for a workflow with another Go version, one
