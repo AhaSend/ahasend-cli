@@ -28,6 +28,9 @@ package() {
 
 expect_success "a release's assets make a package" package v1.2.3 "$assets" "$tmp/out"
 expect_success "the nuspec has the version" grep -qF '<version>1.2.3</version>' "$tmp/out/ahasend.nuspec"
+expect_success "the icon URL is the tag's icon" grep -qF \
+	'<iconUrl>https://cdn.jsdelivr.net/gh/AhaSend/ahasend-cli@v1.2.3/packaging/chocolatey/icon.png</iconUrl>' \
+	"$tmp/out/ahasend.nuspec"
 # A placeholder is @NAME@; the description's example addresses hold an @ too
 expect_success "the nuspec has no placeholder left" test -z "$(grep -E '@[A-Z_]+@' "$tmp/out/ahasend.nuspec" || true)"
 expect_success "VERIFICATION.txt gives the exe's release URL" grep -qF \

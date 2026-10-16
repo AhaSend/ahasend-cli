@@ -429,6 +429,10 @@ none of them.
   SHA-256 from `checksums.txt`.
 - No install script is needed: install and uninstall only add and remove the
   shim.
+- The package icon is `packaging/chocolatey/icon.png`, the AhaSend mark at
+  256×256. `iconUrl` points at the tag's copy on jsDelivr
+  (`https://cdn.jsdelivr.net/gh/AhaSend/ahasend-cli@v<version>/packaging/chocolatey/icon.png`),
+  which Chocolatey suggests instead of a raw GitHub link.
 - `packaging/chocolatey/` holds the nuspec and `VERIFICATION.txt` templates.
   `scripts/choco-package.sh <tag> <assets-dir> <out>` fills them in and
   copies the exe and licence files. The job then runs `choco pack` and

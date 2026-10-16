@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The Chocolatey package has the AhaSend icon.
+
 ## [0.3.1] - 2026-10-16
 
 This release changes no command. It adds package pages for the install channels.
