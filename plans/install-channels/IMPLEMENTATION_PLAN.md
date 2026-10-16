@@ -154,7 +154,9 @@ It works in four steps.
    all, which stops the job (see Channel details, WinGet). The environment
    variables `AHASEND_TAP_REPO`, `AHASEND_BUCKET_REPO` and
    `AHASEND_AUR_REPO` replace the git URLs of the tap, the bucket and the
-   AUR repo, here and in step 4, so tests can use local repos.
+   AUR repo, here and in step 4, so tests can use local repos, and
+   `AHASEND_WINGET_ID` and `AHASEND_CHOCOLATEY_ID` replace the WinGet and
+   Chocolatey package names, so tests can check `jqlang.jq` and `jq`.
    `scripts/channel-repo.sh`, which both scripts source, holds those URLs
    and the branches (`main` for the tap and the bucket, `master` for the
    AUR):
@@ -285,14 +287,16 @@ release assets are:
   `make release-snapshot` sets it the same way the Makefile's `notices`
   target does, and every workflow that builds sets it in `env`.
 - The Makefile holds `GORELEASER_VERSION := v2.18.3`, and `KOMAC_VERSION`
-  and `KOMAC_SHA256` (the SHA-256 of Komac's linux x64 release binary).
+  and `KOMAC_SHA256` (the SHA-256 of Komac's linux x64 release archive,
+  which holds its only Linux binary).
   `make release-snapshot` runs that GoReleaser version with `go run`.
   `scripts/goreleaser-check.sh` installs the same version into a temporary
   `GOBIN` and runs `goreleaser check` from there, because `go run` turns the
   program's exit code 2 into 1. It passes when the check exits 0, or exits 2
-  with `brews` as the only deprecated property it reports. The WinGet job
-  downloads that Komac binary and checks it against `KOMAC_SHA256` before
-  running it.
+  with `brews` as the only deprecated property it reports.
+  `scripts/install-komac.sh` downloads that Komac archive, checks it
+  against `KOMAC_SHA256` and only then unpacks it; the WinGet job and its
+  tests use it.
 - The Makefile's `check-go-version` target becomes `check-versions`.
   `make check-versions` checks that the Dockerfile and every workflow file
   that uses `actions/setup-go` name `go.mod`'s toolchain, that every
@@ -399,7 +403,12 @@ none of them.
   fills them in; that is what the job uploads as its artifact.
 - When `scripts/channel-published.sh` prints `no-package`, the job fails,
   saying the first version must be submitted by hand from that artifact
-  (Human setup, step 3).
+  (Human setup, step 3). Komac reports any failed version lookup (a rate
+  limit, a server error) as a package that does not exist, so the message
+  also says to retry the run first if the package should already exist.
+- The check runs Komac and `gh` with the run's read-only `github.token`,
+  because `komac list-versions` needs a token; `WINGET_TOKEN` goes only to
+  `komac update --submit`.
 - Once the package exists, the job runs
   `komac update AhaSend.CLI --version <version> --urls <x64 zip> <arm64 zip> --submit`,
   with `WINGET_TOKEN` passed as Komac's `GITHUB_TOKEN`. Komac copies the
@@ -450,10 +459,13 @@ none of them.
     inherited stdio, so its signal handlers can run while the binary does;
   - ignores SIGINT and does not forward it, because a terminal Ctrl+C
     already reaches the binary, which is in the same process group;
-  - forwards SIGTERM and SIGHUP to the binary;
+  - forwards SIGTERM and SIGHUP to the binary on macOS and Linux (Windows
+    has no such signals to forward; the binary gets the console's own
+    events);
   - when the binary exits, exits with its code; when a signal ended it,
     removes its own handlers for that signal and re-raises it, so the
-    launcher ends the same way.
+    launcher ends the same way, and exits with 128 plus the signal's number
+    when Node ignores the signal or keeps it for itself (SIGPIPE, SIGUSR1).
 - This signal handling has two limits. The npm instructions in the docs
   state both, and point users who hit them to a channel that installs the
   binary directly:
@@ -622,6 +634,7 @@ none of them.
   `scripts/release-notes.sh`, `scripts/check-rebuild.sh`,
   `scripts/push-channel.sh`, `scripts/channel-published.sh`,
   `scripts/fetch-release.sh`, `scripts/choco-package.sh`,
+  `scripts/winget-manifest.sh`, `scripts/install-komac.sh`,
   `scripts/goreleaser-check.sh`, `scripts/npm-publish.mjs` and
   `make check-versions`. Stages 1, 3 and 4 list the cases. Each test file is
   `test/release/<name>_test.sh`, a POSIX `sh` script that uses the helpers
@@ -635,9 +648,12 @@ none of them.
   - `.github/workflows/packaging.yml` (created in Stage 2), on pull
     requests that touch `.goreleaser.yaml`, `Makefile`, `go.mod`,
     `scripts/`, `npm/`, `packaging/`, `install.sh`, `install.ps1`,
-    `test/install/` or the workflows: the reproducibility check, the
-    Homebrew, Scoop, AUR, WinGet, Chocolatey, npm and install-script tests,
-    and the script tests that need the network or Verdaccio.
+    `test/install/`, `test/release/` or the workflows: the reproducibility
+    check, the Homebrew, Scoop, AUR, WinGet, Chocolatey, npm and
+    install-script tests, and the script tests that need the network or
+    Verdaccio. Those script tests skip, saying why, unless
+    `RELEASE_TESTS_NETWORK` or `VERDACCIO` is set, so `make test-scripts`
+    stays offline; this workflow sets both.
   - Locally, inside the loopback-only network namespace (`unshare -rn`),
     after the Go toolchain and GoReleaser's modules are downloaded outside
     it once: the snapshot check (which needs `dpkg-deb` and `rpm`), the
@@ -651,7 +667,9 @@ none of them.
   temporary `HOME` (and `USERPROFILE` and `LOCALAPPDATA` on Windows), so a
   default install directory is never the developer's own. The Scoop test
   refuses to run unless `SCOOP` names a Scoop installed for it, and the
-  Homebrew test refuses to run where `ahasend/tap` is already tapped.
+  Homebrew test refuses to run where `ahasend/tap` is already tapped. WinGet
+  and Chocolatey install into their own machine-wide folders whatever the
+  home folder is, so their tests run on throwaway CI runners only.
 - **Binary runs:** packaging tests run the binary only with `--version`,
   `--help`, `completion` and an unknown command, which make no network
   calls.
@@ -891,6 +909,7 @@ from a release's assets, and `scripts/channels.sh` lists them.
       once, and the launcher ends the same way as the script;
     - SIGTERM sent to the process group reaches the script twice, the limit
       that Channel details states;
+    - a script that SIGPIPE ends makes the launcher exit 141, not 0;
   - check that the missing-package message appears when optional
     dependencies are left out.
 - **Chocolatey** (windows-latest): `scripts/choco-package.sh` on the fake
@@ -923,7 +942,7 @@ from a release's assets, and `scripts/channels.sh` lists them.
   for a `latest` and an `older` tag.
 - `make check-versions` fails for a WinGet job with another Komac version or
   hash.
-**Status**: Not Started
+**Status**: Complete
 
 ## Stage 5: Accounts, first releases and docs
 **Goal**: the accounts and secrets exist; the first stable release made

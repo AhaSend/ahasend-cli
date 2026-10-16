@@ -1,0 +1,16 @@
+{
+  "name": "@ahasend/cli-PLATFORM",
+  "version": "0.0.0",
+  "description": "The ahasend binary for one platform; install @ahasend/cli instead",
+  "homepage": "https://ahasend.com/docs/cli",
+  "bugs": "https://github.com/AhaSend/ahasend-cli/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AhaSend/ahasend-cli.git"
+  },
+  "os": [],
+  "cpu": [],
+  "preferUnplugged": true,
+  "files": []
+}

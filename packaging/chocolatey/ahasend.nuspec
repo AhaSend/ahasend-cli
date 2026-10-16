@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- scripts/choco-package.sh fills in this nuspec for a release -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>ahasend</id>
+    <version>@VERSION@</version>
+    <packageSourceUrl>https://github.com/AhaSend/ahasend-cli/tree/v@VERSION@/packaging/chocolatey</packageSourceUrl>
+    <owners>AhaSend</owners>
+    <title>AhaSend CLI</title>
+    <authors>AhaSend</authors>
+    <projectUrl>https://ahasend.com</projectUrl>
+    <licenseUrl>https://github.com/AhaSend/ahasend-cli/blob/v@VERSION@/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/AhaSend/ahasend-cli</projectSourceUrl>
+    <docsUrl>https://ahasend.com/docs/cli</docsUrl>
+    <bugTrackerUrl>https://github.com/AhaSend/ahasend-cli/issues</bugTrackerUrl>
+    <tags>ahasend cli email smtp transactional-email</tags>
+    <summary>Send email and manage your AhaSend account from the command line.</summary>
+    <description>The AhaSend CLI sends email through AhaSend, the transactional email service, and manages domains, webhooks, routes, sub-accounts, contacts, templates and campaigns, with JSON, table, CSV and plain text output.
+
+The package installs the `ahasend` command.</description>
+    <releaseNotes>@RELEASES_URL@/tag/v@VERSION@</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

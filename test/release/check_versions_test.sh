@@ -58,4 +58,33 @@ WORKFLOW
 expect_error "a workflow that runs GoReleaser without GORELEASER_VERSION fails" \
 	"extra.yml does not set GORELEASER_VERSION" check_versions no-goreleaser-version
 
+copy komac-version
+sed -i.bak "s/KOMAC_VERSION: '[^']*'/KOMAC_VERSION: 'v2.0.0'/" "$tmp/komac-version/.github/workflows/publish-channel.yml"
+expect_error "a WinGet job with another Komac version fails" \
+	"publish-channel.yml does not set KOMAC_VERSION and KOMAC_SHA256" check_versions komac-version
+
+copy komac-sha256
+sed -i.bak "s/KOMAC_SHA256: '[^']*'/KOMAC_SHA256: '0000000000000000000000000000000000000000000000000000000000000000'/" \
+	"$tmp/komac-sha256/.github/workflows/publish-channel.yml"
+expect_error "a WinGet job with another Komac hash fails" \
+	"publish-channel.yml does not set KOMAC_VERSION and KOMAC_SHA256" check_versions komac-sha256
+
+copy no-komac-version
+cat > "$tmp/no-komac-version/.github/workflows/extra.yml" <<'WORKFLOW'
+jobs:
+  winget:
+    steps:
+      - run: scripts/install-komac.sh "$RUNNER_TEMP/komac"
+WORKFLOW
+expect_error "a workflow that installs Komac without KOMAC_VERSION fails" \
+	"extra.yml does not set KOMAC_VERSION and KOMAC_SHA256" check_versions no-komac-version
+
+copy other-komac
+cat > "$tmp/other-komac/.github/workflows/extra.yml" <<'WORKFLOW'
+env:
+  KOMAC_VERSION: 'v2.0.0'
+WORKFLOW
+expect_error "a workflow that names another Komac fails" \
+	"extra.yml uses a Komac other than" check_versions other-komac
+
 finish

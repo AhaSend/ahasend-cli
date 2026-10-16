@@ -22,6 +22,12 @@ GO_TOOLCHAIN := $(shell sed -n 's/^toolchain go//p' go.mod)
 GORELEASER_VERSION := v2.18.3
 GORELEASER := GOTOOLCHAIN=go$(GO_TOOLCHAIN) go run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
+# The Komac release that opens the WinGet PRs, and the SHA-256 of its linux
+# x64 archive; scripts/install-komac.sh installs it in the workflows, which
+# set both, and check-versions checks that they name these
+KOMAC_VERSION := v2.17.1
+KOMAC_SHA256 := e694e79cd451afabf47bead66ed34586fef4814f7b94e4b61a098f419978d5d7
+
 # Build flags
 LDFLAGS = -ldflags "-X github.com/AhaSend/ahasend-cli/internal/version.Version=$(VERSION) \
 	-X github.com/AhaSend/ahasend-cli/internal/version.BuildTime=$(BUILD_TIME) \
@@ -128,14 +134,15 @@ notices-check: ## Check that THIRD_PARTY_NOTICES is current
 # A workflow that sets up Go sets GO_VERSION to the toolchain and passes it to
 # every go-version; a workflow that runs GoReleaser sets GORELEASER_VERSION and
 # passes it to the version input of every goreleaser-action step, which this
-# awk program checks.
+# awk program checks; a workflow that runs scripts/install-komac.sh sets
+# KOMAC_VERSION and KOMAC_SHA256.
 GORELEASER_ACTION_CHECK := \
 	/uses: goreleaser\/goreleaser-action/ { step = 1; next } \
 	step && /^ *- / { exit 1 } \
 	step && /^ *version:/ { if ($$0 !~ /version: \$$\{\{ env\.GORELEASER_VERSION \}\}$$/) exit 1; step = 0 } \
 	END { if (step) exit 1 }
 
-check-versions: ## Check that the Dockerfile and workflows use go.mod's toolchain and GORELEASER_VERSION
+check-versions: ## Check that the Dockerfile and workflows use go.mod's toolchain, GORELEASER_VERSION and Komac
 	@grep -q "golang:$(GO_TOOLCHAIN)-alpine" Dockerfile || \
 		{ echo "Dockerfile does not build with Go $(GO_TOOLCHAIN), the toolchain of go.mod" >&2; exit 1; }
 	@for workflow in .github/workflows/*.yml; do \
@@ -159,6 +166,15 @@ check-versions: ## Check that the Dockerfile and workflows use go.mod's toolchai
 		fi; \
 		if grep -E '^ *GORELEASER_VERSION:' $$workflow | grep -qv "GORELEASER_VERSION: '$(GORELEASER_VERSION)'$$"; then \
 			echo "$$workflow uses a GoReleaser other than $(GORELEASER_VERSION), the version of the Makefile" >&2; exit 1; \
+		fi; \
+		if grep -q 'scripts/install-komac.sh' $$workflow && \
+			{ ! grep -q "^ *KOMAC_VERSION: '$(KOMAC_VERSION)'$$" $$workflow || \
+				! grep -q "^ *KOMAC_SHA256: '$(KOMAC_SHA256)'$$" $$workflow; }; then \
+			echo "$$workflow does not set KOMAC_VERSION and KOMAC_SHA256 to the Komac of the Makefile" >&2; exit 1; \
+		fi; \
+		if grep -E '^ *KOMAC_(VERSION|SHA256):' $$workflow | \
+			grep -qvE "KOMAC_VERSION: '$(KOMAC_VERSION)'$$|KOMAC_SHA256: '$(KOMAC_SHA256)'$$"; then \
+			echo "$$workflow uses a Komac other than $(KOMAC_VERSION) with SHA-256 $(KOMAC_SHA256), the Komac of the Makefile" >&2; exit 1; \
 		fi; \
 	done
 

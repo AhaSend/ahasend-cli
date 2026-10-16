@@ -14,4 +14,7 @@ if [ "$kind" != prerelease ]; then
 	echo homebrew
 	echo scoop
 	echo aur
+	echo winget
+	echo chocolatey
+	echo npm
 fi

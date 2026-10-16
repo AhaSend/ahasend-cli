@@ -8,7 +8,10 @@ cd "$tmp/repo"
 
 all="homebrew
 scoop
-aur"
+aur
+winget
+chocolatey
+npm"
 expect_output "a latest tag publishes every channel" "$all" "$root/scripts/channels.sh" v1.3.0
 expect_output "an older tag publishes every channel" "$all" "$root/scripts/channels.sh" v1.2.3
 expect_output "a pre-release publishes none" "" "$root/scripts/channels.sh" v1.3.1-rc.1

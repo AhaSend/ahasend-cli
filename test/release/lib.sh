@@ -113,6 +113,16 @@ bare_repo() {
 	git -C "$dir.work" push -q "$dir" "$branch"
 }
 
+# skip_unless VARIABLE WHY ends the test file, printing why it is skipped,
+# unless VARIABLE is set. The tests that need the network or Verdaccio use it,
+# so make test-scripts stays offline; packaging.yml sets the variables.
+skip_unless() {
+	if eval "[ -z \"\${$1:-}\" ]"; then
+		echo "skip: $2; set $1 to run it"
+		exit 0
+	fi
+}
+
 finish() {
 	if [ "$failures" -ne 0 ]; then
 		echo "$failures check(s) failed"

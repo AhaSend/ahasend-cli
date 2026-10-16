@@ -1,0 +1,24 @@
+VERIFICATION
+
+Verification is intended to assist the Chocolatey moderators and community
+in verifying that this package's contents are trustworthy.
+
+tools/ahasend.exe is the asset ahasend-windows-amd64.exe of the AhaSend CLI
+release v@VERSION@, which AhaSend publishes on GitHub:
+
+  @RELEASES_URL@/download/v@VERSION@/ahasend-windows-amd64.exe
+
+Its SHA-256 is:
+
+  @SHA256@
+
+The release's checksums.txt lists the same SHA-256:
+
+  @RELEASES_URL@/download/v@VERSION@/checksums.txt
+
+To check tools/ahasend.exe, compare its SHA-256 with the one above, for
+example with `Get-FileHash tools\ahasend.exe` in PowerShell, or compare it
+with a download of the asset.
+
+tools/LICENSE.txt and tools/THIRD_PARTY_NOTICES.txt are the release's
+LICENSE and THIRD_PARTY_NOTICES assets.

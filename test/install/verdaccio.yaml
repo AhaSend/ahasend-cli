@@ -1,0 +1,20 @@
+# A Verdaccio registry for the npm tests. It has no uplinks, so it serves
+# only the packages a test publishes and never reaches registry.npmjs.org.
+# The tests copy this file into a temporary folder, which then holds the
+# storage and the users.
+storage: ./storage
+auth:
+  htpasswd:
+    file: ./htpasswd
+uplinks: {}
+# Each platform package holds a binary of about 20 MB
+max_body_size: 100mb
+packages:
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+log:
+  type: stdout
+  format: pretty
+  level: warn

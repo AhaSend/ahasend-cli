@@ -14,6 +14,7 @@ on:
       - 'install.sh'
       - 'install.ps1'
       - 'test/install/**'
+      - 'test/release/**'
       - '.github/workflows/**'
 
 env:
@@ -22,9 +23,17 @@ env:
   GOTOOLCHAIN: 'go1.27.2'
   # GORELEASER_VERSION of the Makefile; make check-versions checks it
   GORELEASER_VERSION: 'v2.18.3'
+  # KOMAC_VERSION and KOMAC_SHA256 of the Makefile; make check-versions checks
+  # them
+  KOMAC_VERSION: 'v2.17.1'
+  KOMAC_SHA256: 'e694e79cd451afabf47bead66ed34586fef4814f7b94e4b61a098f419978d5d7'
   # The channel tests serve the fake release here, and the snapshot's
   # formula, manifest and AUR files download from it
   FAKE_RELEASE_URL: 'http://127.0.0.1:8484'
+  # The npm tests' registry and package managers
+  VERDACCIO_VERSION: '5.33.0'
+  PNPM_VERSION: '10.34.6'
+  BUN_VERSION: '1.4.2'
 
 permissions:
   contents: read
@@ -45,6 +54,12 @@ jobs:
         run: |
           shellcheck -x -s sh install.sh scripts/*.sh test/install/*.sh test/release/*.sh
           checkbashisms install.sh scripts/*.sh test/install/*.sh test/release/*.sh
+
+      - name: Check the Node scripts
+        run: |
+          for script in scripts/*.mjs npm/cli/bin/ahasend.js test/install/*.mjs test/install/*.cjs; do
+            node --check "$script"
+          done
 
       # Windows PowerShell 5.1 reads a download without a charset as
       # ISO-8859-1, so install.ps1 must be ASCII
@@ -97,6 +112,24 @@ jobs:
           mkdir "$RUNNER_TEMP/channels"
           cp -R dist/homebrew dist/scoop dist/aur "$RUNNER_TEMP/channels/"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # As the npm job of publish-channel.yml does, from the fake release
+      - name: Pack the npm packages
+        run: |
+          CGO_ENABLED=0 go build -o "$RUNNER_TEMP/fake-release" ./test/install/fake-release
+          sh test/install/npm-pack.sh "$RUNNER_TEMP/release" "$RUNNER_TEMP/fake-release" "$RUNNER_TEMP/npm-tarballs"
+
+      - name: Upload the npm packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarballs
+          path: ${{ runner.temp }}/npm-tarballs
+          retention-days: 1
+
       # The install scripts need only checksums.txt and the raw binaries
       - name: Upload the fake release
         uses: actions/upload-artifact@v4
@@ -109,8 +142,9 @@ jobs:
             ${{ runner.temp }}/release/*/ahasend-windows-*
           retention-days: 1
 
-      # The channel tests need the generated files and the archives; the
-      # artifact holds channels/ and release/v99.0.0/
+      # The channel tests need the generated files, the archives, and the
+      # assets the WinGet and Chocolatey scripts read; the artifact holds
+      # channels/ and release/v99.0.0/
       - name: Upload the channel files
         uses: actions/upload-artifact@v4
         with:
@@ -119,6 +153,10 @@ jobs:
             ${{ runner.temp }}/channels
             ${{ runner.temp }}/release/v99.0.0/*.tar.gz
             ${{ runner.temp }}/release/v99.0.0/*.zip
+            ${{ runner.temp }}/release/v99.0.0/checksums.txt
+            ${{ runner.temp }}/release/v99.0.0/ahasend-windows-amd64.exe
+            ${{ runner.temp }}/release/v99.0.0/LICENSE
+            ${{ runner.temp }}/release/v99.0.0/THIRD_PARTY_NOTICES
           retention-days: 1
 
   install-sh:
@@ -373,6 +411,156 @@ jobs:
               echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder &&
               sudo -u builder --preserve-env=AHASEND_RELEASES_URL \
                 sh test/install/aur.sh /files/channels /files/release /fake-release'
+
+  winget:
+    name: WinGet (windows-latest)
+    needs: fake-release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download the channel files
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-files
+          path: ${{ runner.temp }}/channel-files
+
+      - name: Build the fake release server
+        run: go build -o "$env:RUNNER_TEMP\fake-release.exe" ./test/install/fake-release
+
+      - name: Fill in the manifests
+        shell: bash
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          scripts/winget-manifest.sh v99.0.0 "$RUNNER_TEMP/channel-files/release/v99.0.0" "$RUNNER_TEMP/winget"
+
+      - name: Test the WinGet manifests
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          test/install/winget.ps1 -Manifests "$env:RUNNER_TEMP\winget" `
+            -Release "$env:RUNNER_TEMP\channel-files\release" -Server "$env:RUNNER_TEMP\fake-release.exe"
+
+  chocolatey:
+    name: Chocolatey (windows-latest)
+    needs: fake-release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download the channel files
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-files
+          path: ${{ runner.temp }}/channel-files
+
+      - name: Fill in the package
+        shell: bash
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          scripts/choco-package.sh v99.0.0 "$RUNNER_TEMP/channel-files/release/v99.0.0" "$RUNNER_TEMP/chocolatey"
+
+      - name: Test the Chocolatey package
+        env:
+          AHASEND_RELEASES_URL: ${{ env.FAKE_RELEASE_URL }}
+        run: |
+          test/install/chocolatey.ps1 -Package "$env:RUNNER_TEMP\chocolatey" `
+            -Release "$env:RUNNER_TEMP\channel-files\release"
+
+  npm:
+    name: npm (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: fake-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: '24'
+          - os: ubuntu-24.04-arm
+            node: '24'
+          - os: macos-latest
+            node: '24'
+          - os: macos-15-intel
+            node: '24'
+          - os: windows-latest
+            node: '24'
+          - os: ubuntu-latest
+            node: '18'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Download the npm packages
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-tarballs
+          path: ${{ runner.temp }}/npm-tarballs
+
+      # Verdaccio 5 runs on Node 18 too
+      - name: Install Verdaccio, pnpm and bun
+        run: |
+          npm install --prefix "$RUNNER_TEMP/verdaccio" "verdaccio@$VERDACCIO_VERSION"
+          npm install -g "pnpm@$PNPM_VERSION" "bun@$BUN_VERSION"
+
+      - name: Test the npm packages
+        run: node test/install/npm.mjs "$RUNNER_TEMP/npm-tarballs" "$RUNNER_TEMP/verdaccio/node_modules/verdaccio/bin/verdaccio"
+
+  # The script tests that need the network or Verdaccio, which make
+  # test-scripts skips
+  script-tests:
+    name: Script tests (network and Verdaccio)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Komac and Verdaccio
+        run: |
+          scripts/install-komac.sh "$RUNNER_TEMP/komac"
+          echo "$RUNNER_TEMP/komac" >> "$GITHUB_PATH"
+          npm install --prefix "$RUNNER_TEMP/verdaccio" "verdaccio@$VERDACCIO_VERSION"
+
+      # Komac reads GITHUB_TOKEN; the run's token reads public repositories
+      - name: Test the WinGet and Chocolatey checks
+        env:
+          RELEASE_TESTS_NETWORK: '1'
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh test/release/run.sh test/release/channel_published_network_test.sh
+
+      - name: Test npm-publish.mjs
+        run: |
+          VERDACCIO="$RUNNER_TEMP/verdaccio/node_modules/verdaccio/bin/verdaccio" \
+            sh test/release/run.sh test/release/npm_publish_test.sh
 
   # The two builds that scripts/check-rebuild.sh compares before a channel
   # publishes, each on its own runner in a full clone of this commit, for a
