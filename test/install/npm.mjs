@@ -277,7 +277,7 @@ try {
       missing.stderr.includes('@ahasend/cli-') &&
       missing.stderr.includes('is not installed') &&
       missing.stderr.includes('optional dependencies') &&
-      missing.stderr.includes('https://ahasend.com/docs/cli/installation'),
+      /: https:\/\/ahasend\.com\/docs\/cli\/installation\r?$/m.test(missing.stderr),
     output(missing),
   );
 

@@ -21,18 +21,16 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
 )
 
-// smallRSAKey is a 512-bit RSA key, too small for a DKIM key. It is test data
-// only.
-const smallRSAKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIBOgIBAAJBAL2JkIa/pNDII6qq7Et+6CocFZ4+hxB4AqMwoy70DH3MTTAXQxtE
-9S1SvIzAZc3V/WJqmCCNF8xAz13uzDluFzkCAwEAAQJAPrIW/yO8kp1pguZoJG71
-wBwrIH3Bcran9LA9gmYTDbcpVyGU//e8nXenc9FIoNFR7tst95egSxdypTmN0FXT
-UwIhAOrubhLdm2HkADLZb5P9uaOR+DG/1wGSgdXwdunIVukPAiEAzoj52QsI4l/V
-PXlfU9cFA2+Kmrq/VaYXEnRhTKubqzcCIQC4gGoH/OxD07joNmVvd0ssj7247G2h
-uXqoFwJ8la7TtwIgXt4OHYLzDsBEO5t/jQwsElruyInVDyteV6y7cLM2qtsCIAd0
-IoD3Qi1Qj2YI54M13PydS1NYUOVlwo7EGvi4nNT0
------END RSA PRIVATE KEY-----
-`
+// smallRSAKeyPEM returns a new 512-bit RSA key, too small for a DKIM key, as
+// a PKCS #1 PEM block. Go makes an RSA key under 1024 bits only when GODEBUG
+// allows it.
+func smallRSAKeyPEM(t *testing.T) string {
+	t.Helper()
+	t.Setenv("GODEBUG", "rsa1024min=0")
+	key, err := rsa.GenerateKey(rand.Reader, 512)
+	require.NoError(t, err)
+	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
+}
 
 // pkcs8PEM returns key as a PKCS #8 PEM block.
 func pkcs8PEM(t *testing.T, key any) string {
@@ -79,7 +77,7 @@ func TestCreateRejectsADKIMKeyTheAPIDoesNotTakeBeforeAuthenticating(t *testing.T
 	}{
 		"not PEM":      {"not a key", "no PEM private key found"},
 		"not RSA":      {pkcs8PEM(t, ecKey), "not an RSA private key"},
-		"too few bits": {smallRSAKey, "the key has 512 bits; the API takes RSA keys of at least 1024"},
+		"too few bits": {smallRSAKeyPEM(t), "the key has 512 bits; the API takes RSA keys of at least 1024"},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
