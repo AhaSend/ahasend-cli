@@ -1,0 +1,20 @@
+{
+  "name": "@ahasend/cli",
+  "version": "0.0.0",
+  "description": "The AhaSend CLI: send email and manage your AhaSend account from the command line",
+  "keywords": ["ahasend", "cli", "email", "smtp", "transactional-email"],
+  "homepage": "https://ahasend.com/docs/cli",
+  "bugs": "https://github.com/AhaSend/ahasend-cli/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AhaSend/ahasend-cli.git"
+  },
+  "bin": {
+    "ahasend": "bin/ahasend.js"
+  },
+  "files": ["bin/ahasend.js", "LICENSE", "THIRD_PARTY_NOTICES"],
+  "engines": {
+    "node": ">=18"
+  }
+}

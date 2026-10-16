@@ -1,0 +1,224 @@
+# GoReleaser builds the release assets and publishes the GitHub release; see
+# .github/workflows/release.yml. Run `make release-snapshot` to build them
+# locally into dist/, and scripts/goreleaser-check.sh to check this file.
+version: 2
+
+project_name: ahasend
+
+before:
+  hooks:
+    # Writes completions/, which the archives and packages ship
+    - scripts/completions.sh
+
+# GIT_COMMIT and BUILD_TIME come from scripts/build-info.sh, so every build of
+# a commit prints the same version. CGO_ENABLED=0, -trimpath and the commit
+# time as the files' time keep the builds reproducible.
+builds:
+  - id: unix
+    binary: ahasend
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    env: &build_env
+      - CGO_ENABLED=0
+    flags: &build_flags
+      - -trimpath
+    ldflags: &build_ldflags
+      - -X github.com/AhaSend/ahasend-cli/internal/version.Version=v{{ .Version }}
+      - -X github.com/AhaSend/ahasend-cli/internal/version.BuildTime={{ .Env.BUILD_TIME }}
+      - -X github.com/AhaSend/ahasend-cli/internal/version.GitCommit={{ .Env.GIT_COMMIT }}
+    mod_timestamp: &build_mod_timestamp '{{ .CommitTimestamp }}'
+  - id: windows
+    binary: ahasend
+    goos: [windows]
+    goarch: [amd64, arm64]
+    env: *build_env
+    flags: *build_flags
+    ldflags: *build_ldflags
+    mod_timestamp: *build_mod_timestamp
+
+# Every file in an archive has a fixed owner, mode and time, so the archives
+# of two builds of one commit are the same
+archives:
+  # The raw binaries, with the same names in every release
+  - id: raw
+    ids: [unix, windows]
+    formats: [binary]
+    name_template: 'ahasend-{{ .Os }}-{{ .Arch }}'
+  - id: unix-tar
+    ids: [unix]
+    formats: [tar.gz]
+    name_template: 'ahasend_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    builds_info: &binary_info
+      owner: root
+      group: root
+      mode: 0755
+      mtime: '{{ .CommitDate }}'
+    files:
+      - src: LICENSE
+        info: &file_info
+          owner: root
+          group: root
+          mode: 0644
+          mtime: '{{ .CommitDate }}'
+      - src: THIRD_PARTY_NOTICES
+        info: *file_info
+      - src: completions/*
+        info: *file_info
+  - id: windows-zip
+    ids: [windows]
+    formats: [zip]
+    name_template: 'ahasend_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    builds_info: *binary_info
+    files:
+      - src: LICENSE
+        info: *file_info
+      - src: THIRD_PARTY_NOTICES
+        info: *file_info
+
+nfpms:
+  - ids: [unix]
+    formats: [deb, rpm]
+    # The conventional names, but with the tag's version as it is: nfpm's
+    # own names turn a pre-release's -rc.1 into ~rc.1, a character GitHub
+    # renames in asset names. GoReleaser adds the extension.
+    file_name_template: >-
+      {{- if eq .Format "deb" }}ahasend_{{ .Version }}_{{ .Arch }}
+      {{- else }}ahasend-{{ .Version }}-1.{{ if eq .Arch "amd64" }}x86_64{{ else }}aarch64{{ end }}
+      {{- end }}
+    vendor: AhaSend
+    homepage: https://ahasend.com
+    maintainer: AhaSend <info@ahasend.com>
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+    bindir: /usr/bin
+    mtime: '{{ .CommitDate }}'
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/ahasend/LICENSE
+        file_info: *file_info
+      - src: THIRD_PARTY_NOTICES
+        dst: /usr/share/doc/ahasend/THIRD_PARTY_NOTICES
+        file_info: *file_info
+      - src: completions/ahasend.bash
+        dst: /usr/share/bash-completion/completions/ahasend
+        file_info: *file_info
+      - src: completions/ahasend.fish
+        dst: /usr/share/fish/vendor_completions.d/ahasend.fish
+        file_info: *file_info
+      # Debian and Fedora read zsh completions from different folders
+      - src: completions/_ahasend
+        dst: /usr/share/zsh/vendor-completions/_ahasend
+        packager: deb
+        file_info: *file_info
+      - src: completions/_ahasend
+        dst: /usr/share/zsh/site-functions/_ahasend
+        packager: rpm
+        file_info: *file_info
+    rpm:
+      # nfpm records the machine's host name otherwise
+      buildhost: ahasend-release
+
+# The Homebrew formula, Scoop manifest and AUR files. GoReleaser only writes
+# them into dist/: skip_upload keeps it from ever pushing them, the release
+# job skips them, and publish-channel.yml pushes them with
+# scripts/push-channel.sh once its build matches the release.
+# AHASEND_RELEASES_URL points their downloads at another server, such as a
+# test's fake release.
+brews:
+  - name: ahasend
+    # The raw binaries would match too, and GoReleaser allows one file per
+    # platform
+    ids: [unix-tar]
+    # GoReleaser never pushes it, but writes no formula without a repository
+    repository:
+      owner: AhaSend
+      name: homebrew-tap
+    directory: Formula
+    skip_upload: true
+    url_template: &download_url '{{ envOrDefault "AHASEND_RELEASES_URL" "https://github.com/AhaSend/ahasend-cli/releases" }}/download/v{{ .Version }}/{{ .ArtifactName }}'
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+    install: |
+      bin.install "ahasend"
+      bash_completion.install "completions/ahasend.bash" => "ahasend"
+      zsh_completion.install "completions/_ahasend"
+      fish_completion.install "completions/ahasend.fish"
+      doc.install "LICENSE", "THIRD_PARTY_NOTICES"
+    test: |
+      assert_match "AhaSend CLI v#{version}", shell_output("#{bin}/ahasend --version")
+
+scoops:
+  - name: ahasend
+    ids: [windows-zip]
+    repository:
+      owner: AhaSend
+      name: scoop-bucket
+    skip_upload: true
+    url_template: *download_url
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+
+aurs:
+  - name: ahasend-bin
+    # For the same reason as brews
+    ids: [unix-tar]
+    skip_upload: true
+    url_template: *download_url
+    homepage: https://ahasend.com
+    description: Command-line interface for the AhaSend email API
+    license: Apache-2.0
+    maintainers:
+      - AhaSend <info@ahasend.com>
+    provides: [ahasend]
+    conflicts: [ahasend]
+    package: |
+      install -Dm755 ./ahasend "${pkgdir}/usr/bin/ahasend"
+      install -Dm644 ./completions/ahasend.bash "${pkgdir}/usr/share/bash-completion/completions/ahasend"
+      install -Dm644 ./completions/_ahasend "${pkgdir}/usr/share/zsh/site-functions/_ahasend"
+      install -Dm644 ./completions/ahasend.fish "${pkgdir}/usr/share/fish/vendor_completions.d/ahasend.fish"
+      install -Dm644 ./LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+      install -Dm644 ./THIRD_PARTY_NOTICES "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES"
+
+# The files every release has besides the built ones; checksums.txt covers
+# them, in a snapshot too
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+  extra_files: &extra_files
+    - glob: ./LICENSE
+    - glob: ./THIRD_PARTY_NOTICES
+    - glob: ./install.sh
+    - glob: ./install.ps1
+
+snapshot:
+  # SNAPSHOT_VERSION gives a test snapshot a stable version, such as 99.0.0
+  version_template: '{{ envOrDefault "SNAPSHOT_VERSION" (printf "%s-snapshot+%s" (incpatch .Version) .ShortCommit) }}'
+
+release:
+  # Named here, so a run in a clone whose origin is elsewhere knows the
+  # repository
+  github:
+    owner: AhaSend
+    name: ahasend-cli
+  name_template: 'AhaSend CLI {{ .Tag }}'
+  # A tag with a -suffix is a pre-release, as scripts/release-kind.sh says
+  prerelease: auto
+  # true or false from scripts/make-latest.sh, so only the newest stable tag
+  # becomes the latest release
+  make_latest: '{{ .Env.MAKE_LATEST }}'
+  # A re-run of the release job, after a later step failed, uploads the same
+  # files again; the builds are reproducible, so they do not change
+  replace_existing_artifacts: true
+  extra_files: *extra_files
+  footer: |
+    ## Installation
+
+    See the [installation instructions](https://ahasend.com/docs/cli/installation).
+
+    ## Checking a download
+
+    `checksums.txt` has the SHA-256 of every asset. Download it next to the
+    files, then run `sha256sum --ignore-missing -c checksums.txt` on Linux,
+    or `shasum -a 256 --ignore-missing -c checksums.txt` on macOS.

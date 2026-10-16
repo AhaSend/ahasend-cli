@@ -160,6 +160,9 @@ commands. Read **Breaking changes** before upgrading scripts written for v0.2.0.
 - `stats` and `messages list` send only the filters you give.
 - Hidden prompts handle Backspace, Ctrl+U and a pasted CRLF line ending, and
   restore the terminal when stopped by a signal; `smtp send` hides its password.
+- `ahasend --version` shows the build time in RFC 3339, such as
+  `2026-10-14T09:00:00Z`. It is the time of the release's commit, so every
+  download of a release prints the same version.
 
 ### Deprecated
 

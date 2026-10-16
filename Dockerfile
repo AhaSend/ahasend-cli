@@ -1,6 +1,6 @@
 # Build stage, on the platform of the build machine, cross-compiling for the
 # platform of the image. The Go release is the toolchain line of go.mod
-# (make check-go-version checks it).
+# (make check-versions checks it).
 FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine AS builder
 
 # Install build dependencies
@@ -18,8 +18,7 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the binary with the version stamp and flags the Makefile gives
-# release builds
+# Build the binary with the version stamp and flags the release builds use
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev

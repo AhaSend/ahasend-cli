@@ -1,0 +1,16 @@
+# Uses brews and archives.format, which goreleaser-check.sh does not accept
+version: 2
+project_name: fixture
+builds:
+  - binary: fixture
+archives:
+  - format: tar.gz
+# Named, so the check needs no git remote
+release:
+  github:
+    owner: example
+    name: fixture
+brews:
+  - repository:
+      owner: example
+      name: homebrew-tap

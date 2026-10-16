@@ -1,0 +1,14 @@
+# Uses brews, the one deprecated property goreleaser-check.sh accepts
+version: 2
+project_name: fixture
+builds:
+  - binary: fixture
+# Named, so the check needs no git remote
+release:
+  github:
+    owner: example
+    name: fixture
+brews:
+  - repository:
+      owner: example
+      name: homebrew-tap

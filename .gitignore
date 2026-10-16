@@ -7,3 +7,6 @@
 /ahasend
 coverage.out
 /THIRD_PARTY_NOTICES.tmp
+/dist/
+/completions/
+coverage.html
