@@ -17,8 +17,8 @@ const packages = {
 };
 
 const otherChannels =
-  'You can also install ahasend with Homebrew, the install scripts, Scoop, WinGet,\n' +
-  'Chocolatey, the AUR or a .deb or .rpm package: https://ahasend.com/docs/cli/installation';
+  'You can also install ahasend with Homebrew, the install scripts, Scoop, a .deb\n' +
+  'or .rpm package, or a binary download: https://ahasend.com/docs/cli/installation';
 
 function fail(message) {
   process.stderr.write(`ahasend: ${message}\n`);
