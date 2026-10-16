@@ -56,11 +56,36 @@ func (h *jsonHandler) HandleCreateSMTP(credential *responses.SMTPCredential, con
 	return h.printAPIResponse(credential)
 }
 
+// smtpSendJSON and smtpTestJSON are the JSON output of smtp send, a sent
+// message or a test's result, with the keys of its CSV output: no API answers
+// smtp send, so it prints its own result.
+type smtpSendJSON struct {
+	Success   bool   `json:"success"`
+	MessageID string `json:"message_id"`
+}
+
+type smtpTestJSON struct {
+	TestMode      bool   `json:"test_mode"`
+	Success       bool   `json:"success"`
+	Connected     bool   `json:"connected"`
+	Authenticated bool   `json:"authenticated"`
+	Error         string `json:"error"`
+}
+
 func (h *jsonHandler) HandleSMTPSend(result *SMTPSendResult, config ResultConfig) error {
 	if result == nil {
 		return h.HandleEmpty("No send result available")
 	}
-	return h.printJSON(result)
+	if result.TestMode {
+		return h.printJSON(smtpTestJSON{
+			TestMode:      true,
+			Success:       result.Success,
+			Connected:     result.Connected,
+			Authenticated: result.Authenticated,
+			Error:         result.Error,
+		})
+	}
+	return h.printJSON(smtpSendJSON{Success: result.Success, MessageID: result.MessageID})
 }
 
 func (h *tableHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentialsResponse, config ListConfig) error {

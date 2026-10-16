@@ -14,6 +14,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/prompt"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"gopkg.in/gomail.v2"
 )
@@ -50,8 +51,9 @@ set them; --header cannot set one whose flag is given.
 --header cannot set the headers the command builds itself: From, Sender,
 To, Cc, Bcc and Subject, which the flags set and the SMTP envelope is built
 from, and Mime-Version, Content-Type and Content-Transfer-Encoding. It may
-set Date and Message-ID. Header names ignore case, and each may be given
-once.
+set Date and Message-ID. Without a Message-ID, the command sets one, a UUID
+at the domain of --from, and prints it; messages get finds the message by
+it. Header names ignore case, and each may be given once.
 
 When the server refuses any recipient, nothing is sent, and the error names
 the recipient.
@@ -180,6 +182,7 @@ func runSMTPSend(cmd *cobra.Command, args []string) error {
 	}).Debug("Sending email via SMTP with gomail")
 
 	// Send the email
+	messageID := ensureMessageID(&send.message)
 	session, err := connectSMTP(send.host, send.port)
 	if err == nil {
 		if err = session.logIn(send.username, send.password); err != nil {
@@ -198,7 +201,7 @@ func runSMTPSend(cmd *cobra.Command, args []string) error {
 		return &smtpError{action: "SMTP send failed", err: sessionFailure(err)}
 	}
 
-	return handler.HandleSMTPSend(&printer.SMTPSendResult{Success: true}, printer.ResultConfig{
+	return handler.HandleSMTPSend(&printer.SMTPSendResult{Success: true, MessageID: messageID}, printer.ResultConfig{
 		SuccessMessage: "Email sent successfully via SMTP",
 	})
 }
@@ -406,6 +409,24 @@ func parseServer(server string) (string, int, error) {
 		return "", 0, validation.InvalidValueError("--server", server, "the port must be a number from 1 to 65535")
 	}
 	return host, port, nil
+}
+
+// ensureMessageID returns the Message-ID of m: the one --header gave, or a
+// new one, <uuid@the domain of --from>, which it adds to m's headers. AhaSend
+// keeps the Message-ID a message has, so messages get finds the message by
+// it.
+func ensureMessageID(m *smtpMessage) string {
+	for name, value := range m.headers {
+		if strings.EqualFold(name, "Message-ID") {
+			return value
+		}
+	}
+	id := fmt.Sprintf("<%s@%s>", uuid.NewString(), m.from[strings.LastIndex(m.from, "@")+1:])
+	if m.headers == nil {
+		m.headers = map[string]string{}
+	}
+	m.headers["Message-ID"] = id
+	return id
 }
 
 // buildGomailMessage builds the MIME message of m.
