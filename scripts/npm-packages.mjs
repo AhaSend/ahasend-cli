@@ -9,7 +9,9 @@
 //                        filled in, and the asset ahasend-<goos>-<goarch> as
 //                        bin/ahasend (bin/ahasend.exe on Windows)
 //
-// Every package also gets the assets LICENSE and THIRD_PARTY_NOTICES. The
+// Every package also gets a README.md, npm/cli/README.md for the wrapper and
+// npm/platform/README.md filled in for the others, which npm packs whatever
+// "files" lists, and the assets LICENSE and THIRD_PARTY_NOTICES. The
 // binaries and the launcher get mode 755, which `npm pack` keeps when it runs
 // on macOS or Linux. Usage: scripts/npm-packages.mjs <tag> <assets-dir> <out>
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,12 +19,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const platforms = [
-  { os: 'darwin', cpu: 'arm64', asset: 'ahasend-darwin-arm64' },
-  { os: 'darwin', cpu: 'x64', asset: 'ahasend-darwin-amd64' },
-  { os: 'linux', cpu: 'arm64', asset: 'ahasend-linux-arm64' },
-  { os: 'linux', cpu: 'x64', asset: 'ahasend-linux-amd64' },
-  { os: 'win32', cpu: 'arm64', asset: 'ahasend-windows-arm64.exe' },
-  { os: 'win32', cpu: 'x64', asset: 'ahasend-windows-amd64.exe' },
+  { os: 'darwin', cpu: 'arm64', asset: 'ahasend-darwin-arm64', system: 'macOS on Apple Silicon' },
+  { os: 'darwin', cpu: 'x64', asset: 'ahasend-darwin-amd64', system: 'macOS on Intel' },
+  { os: 'linux', cpu: 'arm64', asset: 'ahasend-linux-arm64', system: 'Linux on ARM64' },
+  { os: 'linux', cpu: 'x64', asset: 'ahasend-linux-amd64', system: 'Linux on x86_64' },
+  { os: 'win32', cpu: 'arm64', asset: 'ahasend-windows-arm64.exe', system: 'Windows on ARM64' },
+  { os: 'win32', cpu: 'x64', asset: 'ahasend-windows-amd64.exe', system: 'Windows on x64' },
 ];
 const licenceFiles = ['LICENSE', 'THIRD_PARTY_NOTICES'];
 
@@ -55,7 +57,9 @@ const wrapper = readJSON(join(templates, 'cli', 'package.json'));
 wrapper.version = version;
 wrapper.optionalDependencies = {};
 
-for (const { os, cpu, asset } of platforms) {
+const platformReadme = readFileSync(join(templates, 'platform', 'README.md'), 'utf8');
+
+for (const { os, cpu, asset, system } of platforms) {
   const json = readJSON(join(templates, 'platform', 'package.json'));
   const binary = os === 'win32' ? 'bin/ahasend.exe' : 'bin/ahasend';
   json.name = `@ahasend/cli-${os}-${cpu}`;
@@ -67,6 +71,8 @@ for (const { os, cpu, asset } of platforms) {
 
   const dir = join(out, `cli-${os}-${cpu}`);
   writePackage(dir, json);
+  writeFileSync(join(dir, 'README.md'),
+    platformReadme.replaceAll('@PACKAGE@', json.name).replaceAll('@SYSTEM@', system));
   copyFileSync(join(assets, asset), join(dir, binary));
   if (os !== 'win32') {
     chmodSync(join(dir, binary), 0o755);
@@ -76,6 +82,7 @@ for (const { os, cpu, asset } of platforms) {
 
 const dir = join(out, 'cli');
 writePackage(dir, wrapper);
+copyFileSync(join(templates, 'cli', 'README.md'), join(dir, 'README.md'));
 copyFileSync(join(templates, 'cli', 'bin', 'ahasend.js'), join(dir, 'bin', 'ahasend.js'));
 chmodSync(join(dir, 'bin', 'ahasend.js'), 0o755);
 console.log(`Wrote the seven npm packages of ${version} into ${out}`);

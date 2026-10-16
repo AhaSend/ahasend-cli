@@ -64,7 +64,7 @@ for pkg_dir in "$tmp"/npm/*/; do
 	expect_output "$pkg: files lists the binary and the licence files" "$binary LICENSE THIRD_PARTY_NOTICES" \
 		jq -r '.files | join(" ")' "$json"
 	tar -tvzf "$tarball" > "$tmp/list"
-	for file in LICENSE THIRD_PARTY_NOTICES "$binary"; do
+	for file in README.md LICENSE THIRD_PARTY_NOTICES "$binary"; do
 		expect_success "$pkg: the tarball holds $file" grep -q " package/$file\$" "$tmp/list"
 	done
 	case $pkg in
@@ -73,6 +73,12 @@ for pkg_dir in "$tmp"/npm/*/; do
 		expect_success "$pkg: $binary has mode 755" grep -q "^-rwxr-xr-x .* package/$binary\$" "$tmp/list"
 		;;
 	esac
+done
+expect_success "the wrapper's README is npm/cli/README.md" cmp npm/cli/README.md "$tmp/npm/cli/README.md"
+for pkg_dir in "$tmp"/npm/cli-*/; do
+	pkg=$(basename "$pkg_dir")
+	expect_success "$pkg: the README names the package" grep -q "^# @ahasend/$pkg\$" "$pkg_dir/README.md"
+	expect_output "$pkg: the README has no placeholder left" "" sh -c "grep -o '@[A-Z]*@' '$pkg_dir/README.md' || true"
 done
 expect_output "the wrapper pins the six platform packages to its version" \
 	"@ahasend/cli-darwin-arm64@99.0.0 @ahasend/cli-darwin-x64@99.0.0 @ahasend/cli-linux-arm64@99.0.0 @ahasend/cli-linux-x64@99.0.0 @ahasend/cli-win32-arm64@99.0.0 @ahasend/cli-win32-x64@99.0.0" \

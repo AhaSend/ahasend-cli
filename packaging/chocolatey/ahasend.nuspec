@@ -16,9 +16,31 @@
     <bugTrackerUrl>https://github.com/AhaSend/ahasend-cli/issues</bugTrackerUrl>
     <tags>ahasend cli email smtp transactional-email</tags>
     <summary>Send email and manage your AhaSend account from the command line.</summary>
-    <description>The AhaSend CLI sends email through AhaSend, the transactional email service, and manages domains, webhooks, routes, sub-accounts, contacts, templates and campaigns, with JSON, table, CSV and plain text output.
+    <description>The AhaSend CLI sends email through [AhaSend](https://ahasend.com), the transactional email service, and manages domains, webhooks, routes, suppressions, SMTP credentials, API keys, sub-accounts, contacts, lists, templates and campaigns, with JSON, table, CSV and plain text output.
 
-The package installs the `ahasend` command.</description>
+The package installs the `ahasend` command. It works on Windows x64, and on ARM64 under emulation.
+
+## Usage
+
+```powershell
+# Log in with an API key from https://dash.ahasend.com
+ahasend auth login
+
+# Check the key and the connection
+ahasend ping
+
+# Send a test email in sandbox mode, from a domain you verified
+ahasend messages send --from you@yourdomain.com --to recipient@example.com --subject "Hello" --text "It works." --sandbox
+
+# See every command
+ahasend --help
+```
+
+## Links
+
+- [Documentation](https://ahasend.com/docs/cli)
+- [Command reference](https://github.com/AhaSend/ahasend-cli/blob/main/USAGE.mdx)
+- [Report a problem](https://github.com/AhaSend/ahasend-cli/issues)</description>
     <releaseNotes>@RELEASES_URL@/tag/v@VERSION@</releaseNotes>
   </metadata>
   <files>
