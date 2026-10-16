@@ -482,7 +482,12 @@ none of them.
   `scripts/npm-packages.mjs <tag> <assets-dir> <out>` copies each binary in
   (mode 755 for macOS and Linux; the job runs on Linux, so the mode holds)
   with the licence files, and writes the version into all seven
-  `package.json` files.
+  `package.json` files. Each package gets a `README.md`, which npm packs
+  whatever `files` lists and shows as the package's page:
+  `npm/cli/README.md` for the wrapper, and `npm/platform/README.md` with the
+  package's name and system filled in for the others, which point to the
+  wrapper. Their links are absolute, because the npm page does not resolve
+  relative ones.
 - The job uses Node 24 with an exact npm 11 release no older than 11.5.1,
   pinned in the workflow, because trusted publishing needs npm 11.5.1, which
   not every runner image ships.
@@ -896,7 +901,9 @@ from a release's assets, and `scripts/channels.sh` lists them.
   tarballs:
   - all seven filled-in `package.json` files have the `repository.url`,
     `license` and `files` in Channel details, and each packed tarball holds
-    the licence files and, for macOS and Linux, a binary with mode 755;
+    a `README.md`, the licence files and, for macOS and Linux, a binary with
+    mode 755; the wrapper's README is `npm/cli/README.md`, and each platform
+    README names its package and has no placeholder left;
   - publish the seven packed packages to Verdaccio, then
     `npm install -g @ahasend/cli` from it and check `ahasend --version`;
   - check that `npx @ahasend/cli --version` works, and that pnpm and bun

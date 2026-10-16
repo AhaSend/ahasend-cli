@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The npm packages have a README, which npmjs.com shows on each package's page.
+
 ## [0.3.0] - 2026-10-16
 
 This release adds the `contacts`, `lists`, `templates` and `campaigns`
