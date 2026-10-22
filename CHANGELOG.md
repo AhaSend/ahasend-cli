@@ -10,6 +10,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - The Chocolatey package has the AhaSend icon.
+- `webhooks listen` prints on stderr the warnings the stream sends when it
+  connects, such as that the API key does not have the read scope of an
+  event family the webhook turns on, so those events are not sent.
 
 ## [0.3.1] - 2026-10-16
 

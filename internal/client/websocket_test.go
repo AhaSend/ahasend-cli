@@ -630,3 +630,43 @@ func TestPingsKeepAQuietStreamOpen(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "s1", msg.SessionID)
 }
+
+func TestReadMessageDecodesTheWarningsOfAConnectedFrame(t *testing.T) {
+	wsClient := streamTestServer(t, func(conn *websocket.Conn) {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"connected","session_id":"s1","stream":"webhook:wh-1",`+
+			`"timestamp":1761000000,"warnings":["no suppressions:read scope","no domains:read scope"]}`))
+		_, _, _ = conn.ReadMessage()
+	})
+
+	msg, err := wsClient.ReadMessage()
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"no suppressions:read scope", "no domains:read scope"}, msg.Warnings)
+}
+
+func TestReadMessageDecodesAConnectedFrameWithoutWarnings(t *testing.T) {
+	wsClient := streamTestServer(t, func(conn *websocket.Conn) {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"connected","session_id":"s1","timestamp":1761000000}`))
+		_, _, _ = conn.ReadMessage()
+	})
+
+	msg, err := wsClient.ReadMessage()
+
+	require.NoError(t, err)
+	assert.Empty(t, msg.Warnings)
+}
+
+func TestReadMessageDecodesAnEventWithMetadata(t *testing.T) {
+	wsClient := streamTestServer(t, func(conn *websocket.Conn) {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"event","timestamp":1761000000,"event":{"type":"webhook",`+
+			`"stream_id":"wh-1","account_id":"acc-1","data":{"type":"message.opened"},"metadata":{"domain":"example.com"},"timestamp":1}}`))
+		_, _, _ = conn.ReadMessage()
+	})
+
+	msg, err := wsClient.ReadMessage()
+
+	require.NoError(t, err)
+	require.NotNil(t, msg.Event)
+	assert.Equal(t, map[string]string{"domain": "example.com"}, msg.Event.Metadata)
+	assert.JSONEq(t, `{"type":"message.opened"}`, string(msg.Event.Data))
+}

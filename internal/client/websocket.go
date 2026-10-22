@@ -33,6 +33,10 @@ type WebSocketMessage struct {
 	SessionID string `json:"session_id,omitempty"`
 	Stream    string `json:"stream,omitempty"`
 	Timestamp int64  `json:"timestamp"`
+	// Warnings are what the connected frame of a webhook stream says the
+	// stream will not send, such as the events of a family whose read scope
+	// the API key lacks. Route streams, and older servers, send none.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type Event struct {
