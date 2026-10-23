@@ -3585,6 +3585,13 @@ ahasend webhooks listen --events message.opened,message.clicked \
 The API key needs the `webhooks:write:all` scope, for the request that starts
 the stream and for the stream itself.
 
+The stream sends only the events that the API key's scopes can read. For each
+family of events the webhook turns on, message, suppression or domain, whose
+read scope the key does not have, the server sends a warning when the
+connection starts, and the command prints it on stderr, such as
+`Warning: The API key does not have the suppressions:read scope, so suppression events are not sent to this stream`.
+A key with no read scope connects but receives no events.
+
 Without `--webhook-id`, the API creates a webhook named
 `DevMode webhook for <API key label>`. It stays after the command ends:
 `webhooks list` does not show it, and the API deletes it only once 100

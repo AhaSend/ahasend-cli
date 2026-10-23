@@ -128,6 +128,73 @@ func TestListen_ShowsKeptEventsUntilTheServerCloses(t *testing.T) {
 	assert.Equal(t, "\nWebSocket connection closed\n", stderr.String())
 }
 
+// connectedWithWarnings is the connected frame of a webhook stream whose API
+// key lacks the read scope of two event families the webhook turned on.
+const connectedWithWarnings = `{"type":"connected","session_id":"sess-1","stream":"webhook:wh-1","timestamp":0,` +
+	`"warnings":["The API key does not have the suppressions:read scope, so suppression events are not sent to this stream",` +
+	`"The API key does not have the domains:read scope, so domain events are not sent to this stream"]}`
+
+func TestListen_PrintsTheWarningsOfTheConnectedFrameOnStderr(t *testing.T) {
+	wsURL := streamServer(t, websocket.CloseNormalClosure, connectedWithWarnings, openedEvent)
+	cmd, stdout, stderr := confirmCommand(t, "")
+
+	err := Listen(cmd, streamClient(t), Listener{Kind: "webhook", Title: "Webhook", WsURL: wsURL, Waiting: "events", SlimOutput: true})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Warning: The API key does not have the suppressions:read scope, so suppression events are not sent to this stream\n"+
+		"Warning: The API key does not have the domains:read scope, so domain events are not sent to this stream\n"+
+		"\nWebSocket connection closed\n", stderr.String())
+	assert.Contains(t, stdout.String(), "Session established: sess-1\n")
+	assert.Contains(t, stdout.String(), "] message.opened\n")
+	assert.NotContains(t, stdout.String(), "Warning")
+}
+
+func TestListen_PrintsTheWarningsOfEveryConnectedFrame(t *testing.T) {
+	wsURL := streamServer(t, websocket.CloseNormalClosure, connectedWithWarnings, connectedWithWarnings)
+	cmd, _, stderr := confirmCommand(t, "")
+
+	err := Listen(cmd, streamClient(t), Listener{Kind: "webhook", Title: "Webhook", WsURL: wsURL, Waiting: "events"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, strings.Count(stderr.String(), "Warning: The API key does not have the suppressions:read scope"))
+}
+
+func TestListen_PrintsNoWarningForAConnectedFrameWithoutWarnings(t *testing.T) {
+	wsURL := streamServer(t, websocket.CloseNormalClosure, connectedMessage, `{"type":"connected","session_id":"sess-2","timestamp":0,"warnings":[]}`)
+	cmd, stdout, stderr := confirmCommand(t, "")
+
+	err := Listen(cmd, streamClient(t), Listener{Kind: "webhook", Title: "Webhook", WsURL: wsURL, Waiting: "events"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "\nWebSocket connection closed\n", stderr.String())
+	assert.NotContains(t, stdout.String(), "Warning")
+}
+
+func TestListen_EscapesTheWarningsOfTheConnectedFrame(t *testing.T) {
+	wsURL := streamServer(t, websocket.CloseNormalClosure, `{"type":"connected","session_id":"sess-1","timestamp":0,"warnings":["no scope\u001b]0;x\u0007"]}`)
+	cmd, _, stderr := confirmCommand(t, "")
+
+	err := Listen(cmd, streamClient(t), Listener{Kind: "webhook", Title: "Webhook", WsURL: wsURL, Waiting: "events"})
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr.String(), "Warning: no scope")
+	assert.NotContains(t, stderr.String(), "\x1b")
+	assert.NotContains(t, stderr.String(), "\x07")
+}
+
+func TestListen_ShowsAnEventWithMetadata(t *testing.T) {
+	event := `{"type":"event","timestamp":0,"event":{"type":"webhook","stream_id":"wh-1","account_id":"acc-1",` +
+		`"data":{"type":"message.opened","recipient":"a@example.com"},"metadata":{"domain":"example.com"},"timestamp":1}}`
+	wsURL := streamServer(t, websocket.CloseNormalClosure, event)
+	cmd, stdout, stderr := confirmCommand(t, "")
+
+	err := Listen(cmd, streamClient(t), Listener{Kind: "webhook", Title: "Webhook", WsURL: wsURL, Waiting: "events", SlimOutput: true})
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "] message.opened\n")
+	assert.Equal(t, "\nWebSocket connection closed\n", stderr.String())
+}
+
 func TestListen_FullOutputPrintsTheEventData(t *testing.T) {
 	wsURL := streamServer(t, websocket.CloseGoingAway, openedEvent)
 	cmd, stdout, _ := confirmCommand(t, "")

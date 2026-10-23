@@ -42,7 +42,12 @@ The command runs until Ctrl+C or until the connection closes. It exits 0
 when the server closes the connection normally, and 7 when the connection
 drops or the server closes it with an error; it does not reconnect. A
 message it cannot read, such as one that is not JSON, is skipped with a
-warning on stderr.`,
+warning on stderr.
+
+The stream sends only the events the API key's scopes can read. When the
+webhook turns on events whose read scope the key does not have, such as
+suppressions:read, the command prints the server's warning on stderr as it
+connects.`,
 		Example: `  # Listen for all webhook events
   ahasend webhooks listen
 

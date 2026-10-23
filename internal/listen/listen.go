@@ -210,6 +210,9 @@ func showStream(ctx context.Context, wsClient *client.WebSocketClient, l Listene
 		case "connected":
 			color.New(color.FgGreen).Fprintf(out, "Session established: %s\n", printer.EscapeControl(msg.SessionID))
 			fmt.Fprintln(out, strings.Repeat("─", 60))
+			for _, warning := range msg.Warnings {
+				fmt.Fprintf(errOut, "Warning: %s\n", printer.EscapeControl(warning))
+			}
 
 		case "event", "replay":
 			if msg.Event == nil {
