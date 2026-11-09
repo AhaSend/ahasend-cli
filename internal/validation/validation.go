@@ -83,9 +83,9 @@ func ParseUUIDField(fieldName, value string) (uuid.UUID, error) {
 	return id, nil
 }
 
-// ParseMessageID checks a message ID argument, which is a UUID or the
-// Message-ID messages send returns: a UUID and a domain in angle brackets,
-// such as <uuid@example.com>. It returns the ID to send to the API.
+// ParseMessageID checks a message ID argument, which is a UUID or a UUID and
+// a domain in angle brackets, such as <uuid@example.com>. It returns the ID
+// to send to the API.
 func ParseMessageID(fieldName, value string) (string, error) {
 	if value == "" {
 		return "", errors.NewValidationError(fieldName+" cannot be empty", nil)
@@ -99,7 +99,7 @@ func ParseMessageID(fieldName, value string) (string, error) {
 	inner, closed := strings.CutSuffix(inner, ">")
 	local, domain, found := strings.Cut(inner, "@")
 	if _, err := uuid.Parse(local); !bracketed || !closed || !found || err != nil || !IsDomainName(domain) {
-		return "", InvalidValueError(fieldName, value, "not a UUID or <uuid@domain>")
+		return "", InvalidValueError(fieldName, value, "not a UUID")
 	}
 	return value, nil
 }

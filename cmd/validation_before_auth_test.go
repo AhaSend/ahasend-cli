@@ -93,7 +93,7 @@ var localValidationErrors = []struct {
 		`invalid --schedule value "2020-01-01T00:00:00Z": the time is in the past`},
 	{[]string{"routes", "trigger", "abc"}, `invalid route ID value "abc": not a UUID`},
 	{[]string{"smtp", "get", "abc"}, `invalid credential ID value "abc": not a UUID`},
-	{[]string{"messages", "cancel", "abc", "--force"}, `invalid message ID value "abc": not a UUID or <uuid@domain>`},
+	{[]string{"messages", "cancel", "abc", "--force"}, `invalid message ID value "abc": not a UUID`},
 	{[]string{"domains", "update", "example.com", "--dkim-selector", "not_a_label"},
 		`invalid --dkim-selector value "not_a_label": must be one DNS label of 1-62 letters, digits and hyphens, without a leading or trailing hyphen`},
 	{[]string{"stats", "bounces", "--from-time", "soon"},

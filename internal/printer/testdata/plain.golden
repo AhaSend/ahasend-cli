@@ -387,7 +387,7 @@ Opens: 0
 Clicks: 0
 Attempts: 0
 Bounce Notification: No
-Message ID: <id@example.com>
+Message-ID: <id@example.com>
 Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 Retain Until: 2026-09-10 10:30:00 UTC+2
 === message list
@@ -419,7 +419,7 @@ Opens: 0
 Clicks: 0
 Attempts: 0
 Bounce Notification: No
-Message ID: <id@example.com>
+Message-ID: <id@example.com>
 Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 Retain Until: 2026-09-10 10:30:00 UTC+2
 Content Size: 11 bytes
@@ -1226,7 +1226,7 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Showing 1 SMTP credential
 === smtp sent
 
-Message ID: <id>
+Message-ID: <id>
 === smtp test
 SMTP Test Result:
   Connection: Successful

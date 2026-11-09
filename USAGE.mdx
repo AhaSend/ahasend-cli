@@ -3263,7 +3263,7 @@ ahasend messages list --limit 50 --after <cursor>
   `example.com`.
 - `--subject`: Filter by subject text; the API matches every subject that
   contains it, case-sensitively
-- `--message-id`: Filter by message ID header
+- `--message-id`: Filter by the Message-ID header, with its angle brackets
 - `--status`: Filter by status: `received`, `delivered`, `opened`, `clicked`,
   `deferred`, `bounced`, `failed` or `suppressed`, or `sandbox delivered`,
   `sandbox deferred`, `sandbox failed`, `sandbox bounced` or
@@ -3274,7 +3274,7 @@ ahasend messages list --limit 50 --after <cursor>
   [Repeatable Flags](#repeatable-flags))
 - `--from-time`, `--to-time`: Filter by creation time, as a
   [time value](#time-values) such as `24h` or `7d`
-- `--show-details`: Add each message's message ID header, direction, domain
+- `--show-details`: Add each message's Message-ID header, direction, domain
   ID, attempts, tags, bounce class and retention time to plain and CSV
   output, and its direction, attempts and bounce class to the table
 - `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
@@ -3287,17 +3287,12 @@ and creation time.
 #### `ahasend messages get`
 
 Show one message, including its content, status, delivery details and the
-template it was sent from. The message ID is the message's UUID, or its
-Message-ID, such as `<550e8400-e29b-41d4-a716-446655440000@example.com>`
-(quote it in the shell), which `messages send` prints as the `ID` of each
-message and the message carries in its `Message-ID` header.
-Another value fails with `invalid message ID value "<id>": not a UUID or <uuid@domain>` and exit code 4.
+template it was sent from. The message ID is the message's `id`, which
+`messages send` prints as the `ID` of each message.
+Another value fails with `invalid message ID value "<id>": not a UUID` and exit code 4.
 
 ```bash
 ahasend messages get <message-id>
-
-# By the Message-ID messages send returned
-ahasend messages get "<550e8400-e29b-41d4-a716-446655440000@example.com>"
 
 # Save the message content to a file
 ahasend messages get <message-id> --output json | jq -r .content > message.txt
@@ -3316,9 +3311,9 @@ content. CSV output has a column for every field the table shows, followed by
 #### `ahasend messages cancel`
 
 Cancel one or more scheduled messages before they are sent. Each message ID
-is a UUID or a Message-ID, as for
+is the message's `id`, as for
 [`messages get`](#ahasend-messages-get); another value fails with
-`invalid message ID value "<id>": not a UUID or <uuid@domain>` and exit code 4. The command asks for [confirmation](#confirmation-prompts)
+`invalid message ID value "<id>": not a UUID` and exit code 4. The command asks for [confirmation](#confirmation-prompts)
 unless `--force` is given.
 
 The API stops a message that still waits in the delivery queue, such as one
@@ -4294,7 +4289,11 @@ and exits with code 7 for a network failure or a timeout. Outside
 A sent message's output shows its Message-ID: the one `--header` gave, or
 the one the command sets, a UUID at the domain of `--from`, such as
 `<0d371db4-00d0-5eec-851c-e1db1e2b190d@example.com>`. AhaSend keeps it, so
-[`messages get`](#ahasend-messages-get) finds the message by it.
+[`messages list`](#ahasend-messages-list) finds the message by it:
+
+```bash
+ahasend messages list --message-id '<0d371db4-00d0-5eec-851c-e1db1e2b190d@example.com>'
+```
 
 `--output json` prints the CLI's own result object, not an API response,
 with the same keys as CSV output: `success` and `message_id` for a send,

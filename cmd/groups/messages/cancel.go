@@ -28,10 +28,8 @@ scheduled for later delivery, and it is not sent. The API answers success for
 any message it finds, including one already delivered, which the cancel
 leaves as it is; check a message's status with 'ahasend messages get'.
 
-The message ID is the message's UUID, or its Message-ID, such as
-<550e8400-e29b-41d4-a716-446655440000@example.com>. Get it from:
-- The output of messages send, which shows each message's Message-ID as its
-  ID
+The message ID is the message's id. Get it from:
+- The output of messages send, which shows each message's ID
 - The messages list command with appropriate filters
 
 Cancel asks for confirmation unless --force is set. Ctrl+C while several
@@ -39,9 +37,6 @@ messages are cancelled stops before the next one: the command shows the
 messages it cancelled or failed to cancel and exits with code 130.`,
 		Example: `  # Cancel a scheduled message
   ahasend messages cancel 550e8400-e29b-41d4-a716-446655440000
-
-  # Cancel a message by the Message-ID messages send returned
-  ahasend messages cancel "<550e8400-e29b-41d4-a716-446655440000@example.com>"
 
   # Cancel multiple scheduled messages
   ahasend messages cancel 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001

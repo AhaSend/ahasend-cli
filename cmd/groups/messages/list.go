@@ -20,7 +20,7 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List messages",
 		Long: `List messages, with cursor pagination. Filter by sender, recipient,
-subject, status, message ID, tag and date range.
+subject, status, Message-ID header, tag and date range.
 
 --sender matches the sender address exactly. --recipient and --subject match
 every message whose recipient or subject contains the value, case-sensitively:
@@ -82,7 +82,7 @@ For relative times, you can use:
 	cmd.Flags().String("sender", "", "Filter by sender email address (must be from your domain)")
 	cmd.Flags().String("recipient", "", "Filter by recipient: addresses that contain the value, such as @example.com")
 	cmd.Flags().String("subject", "", "Filter by subject text (matches subjects that contain it)")
-	cmd.Flags().String("message-id", "", "Filter by message ID header")
+	cmd.Flags().String("message-id", "", "Filter by the Message-ID header, with its angle brackets")
 	cmdutil.AddRepeatableOneOfFlag(cmd, "status", "Filter by message status: %s (can be used multiple times)", messageStatuses)
 	cmdutil.AddRepeatableFlag(cmd, "tag", "Filter by tag, at most 20, none with a comma (can be used multiple times)")
 	cmdutil.AddFlagAlias(cmd, "tags", "tag")

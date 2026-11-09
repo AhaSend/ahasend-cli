@@ -17,17 +17,12 @@ func NewGetCommand() *cobra.Command {
 		Long: `Get detailed information about a specific message including its content,
 status, delivery details, and engagement metrics.
 
-The message ID is the message's UUID, or its Message-ID, such as
-<550e8400-e29b-41d4-a716-446655440000@example.com>, which messages send
-prints as the ID of each message and the message carries in its Message-ID
-header.
+The message ID is the message's id, which messages send prints as the ID of
+each message.
 
 The output includes the raw message content.`,
 		Example: `  # Get message details
   ahasend messages get 550e8400-e29b-41d4-a716-446655440000
-
-  # Get a message by the Message-ID messages send returned
-  ahasend messages get "<550e8400-e29b-41d4-a716-446655440000@example.com>"
 
   # Get message details with JSON output
   ahasend messages get 550e8400-e29b-41d4-a716-446655440000 --output json

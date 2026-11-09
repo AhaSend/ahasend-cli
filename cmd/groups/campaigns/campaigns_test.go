@@ -505,7 +505,7 @@ func testCampaignSend(warnings ...string) *responses.CampaignSend {
 }
 
 func TestSendScheduleSendsSendAtAndIdempotencyKey(t *testing.T) {
-	sendAt := time.Date(2026, 11, 1, 9, 0, 0, 0, time.UTC)
+	sendAt := time.Date(2099, 11, 1, 9, 0, 0, 0, time.UTC)
 	var captured requests.SendCampaignRequest
 	mockClient := &mocks.MockClient{}
 	mockClient.On("SendCampaign", uuid.MustParse(testCampaignID), mock.AnythingOfType("requests.SendCampaignRequest"),
@@ -515,12 +515,12 @@ func TestSendScheduleSendsSendAtAndIdempotencyKey(t *testing.T) {
 		}).Return(testCampaignSend(), nil)
 	testutil.InjectClient(t, mockClient)
 
-	_, err := testutil.RunPlain(t, NewSendCommand(), testCampaignID, "--schedule", "2026-11-01T09:00:00Z", "--force",
+	_, err := testutil.RunPlain(t, NewSendCommand(), testCampaignID, "--schedule", "2099-11-01T09:00:00Z", "--force",
 		"--idempotency-key", "send-key")
 	require.NoError(t, err)
 	require.NotNil(t, captured.SendAt)
 	assert.True(t, sendAt.Equal(*captured.SendAt))
-	assert.Equal(t, map[string]any{"send_at": "2026-11-01T09:00:00Z"}, testutil.WireJSON(t, captured))
+	assert.Equal(t, map[string]any{"send_at": "2099-11-01T09:00:00Z"}, testutil.WireJSON(t, captured))
 	mockClient.AssertExpectations(t)
 }
 
@@ -591,11 +591,11 @@ func TestSendDeclinedMakesNoCall(t *testing.T) {
 	authCalled := testutil.RefuseAuth(t)
 
 	stdout, stderr, err := testutil.RunCommand(t, NewSendCommand(), "plain", "n\n", testCampaignID,
-		"--schedule", "2026-11-01T09:00:00+02:00")
+		"--schedule", "2099-11-01T09:00:00+02:00")
 	require.Error(t, err)
 	assert.Equal(t, "operation cancelled", err.Error())
 	assert.Contains(t, stderr, "send campaign "+testCampaignID)
-	assert.Contains(t, stderr, "at 2026-11-01 09:00:00 UTC+2?")
+	assert.Contains(t, stderr, "at 2099-11-01 09:00:00 UTC+2?")
 	assert.Empty(t, stdout)
 	assert.False(t, *authCalled)
 }

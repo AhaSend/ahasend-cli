@@ -164,7 +164,7 @@ func (h *tableHandler) HandleSMTPSend(result *SMTPSendResult, config ResultConfi
 	}
 	h.renderFieldTable([][]string{
 		{"Status", "Sent"},
-		{"Message ID", result.MessageID},
+		{"Message-ID", result.MessageID},
 		{"Delivery", "Message queued for delivery"},
 	})
 	return nil
@@ -234,7 +234,7 @@ func (h *plainHandler) HandleSMTPSend(result *SMTPSendResult, config ResultConfi
 	if _, err := fmt.Fprintln(h.writer, config.SuccessMessage); err != nil {
 		return err
 	}
-	return writeLabelLines(h.writer, "", [][]string{{"Message ID", result.MessageID}})
+	return writeLabelLines(h.writer, "", [][]string{{"Message-ID", result.MessageID}})
 }
 
 func (h *csvHandler) HandleSMTPList(response *responses.PaginatedSMTPCredentialsResponse, config ListConfig) error {

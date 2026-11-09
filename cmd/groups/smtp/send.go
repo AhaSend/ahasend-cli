@@ -52,8 +52,9 @@ set them; --header cannot set one whose flag is given.
 To, Cc, Bcc and Subject, which the flags set and the SMTP envelope is built
 from, and Mime-Version, Content-Type and Content-Transfer-Encoding. It may
 set Date and Message-ID. Without a Message-ID, the command sets one, a UUID
-at the domain of --from, and prints it; messages get finds the message by
-it. Header names ignore case, and each may be given once.
+at the domain of --from, and prints it. 'ahasend messages list --message-id'
+with the printed Message-ID, quoted in the shell, lists the message sent to
+each recipient. Header names ignore case, and each may be given once.
 
 When the server refuses any recipient, nothing is sent, and the error names
 the recipient.
@@ -413,8 +414,8 @@ func parseServer(server string) (string, int, error) {
 
 // ensureMessageID returns the Message-ID of m: the one --header gave, or a
 // new one, <uuid@the domain of --from>, which it adds to m's headers. AhaSend
-// keeps the Message-ID a message has, so messages get finds the message by
-// it.
+// keeps the Message-ID a message has, so messages list --message-id lists
+// the message sent to each recipient by it.
 func ensureMessageID(m *smtpMessage) string {
 	for name, value := range m.headers {
 		if strings.EqualFold(name, "Message-ID") {

@@ -113,7 +113,7 @@ func TestMessageIDsAreCheckedBeforeAuthenticating(t *testing.T) {
 		_, stderr, err := testutil.RunCommand(t, command(), "plain", "y\n", "abc")
 
 		require.Error(t, err)
-		assert.Equal(t, `invalid message ID value "abc": not a UUID or <uuid@domain>`, err.Error())
+		assert.Equal(t, `invalid message ID value "abc": not a UUID`, err.Error())
 		assert.Equal(t, 4, clierrors.GetExitCode(err))
 		assert.NotContains(t, stderr, "(y/N)")
 		assert.False(t, *called)

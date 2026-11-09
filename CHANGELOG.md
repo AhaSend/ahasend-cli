@@ -14,6 +14,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
   connects, such as that the API key does not have the read scope of an
   event family the webhook turns on, so those events are not sent.
 
+### Changed
+
+- `messages get` and `messages cancel` help describe the message ID as the
+  message's `id`, a UUID, which `messages send` prints. The error for an ID
+  that is not valid now ends in `not a UUID`.
+- `smtp send` help says to find a sent message with `messages list
+  --message-id` and the Message-ID the command printed.
+- `smtp send`, `messages get` and `messages list --show-details` label the
+  Message-ID header `Message-ID`, not `Message ID`.
+- The `messages list --message-id` help says it filters by the Message-ID
+  header, with its angle brackets.
+
 ## [0.3.1] - 2026-10-16
 
 This release changes no command. It adds package pages for the install channels.

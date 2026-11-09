@@ -39,11 +39,11 @@ func TestSendCommand_OutputFormats(t *testing.T) {
 		{"table", func(t *testing.T, stdout string) {
 			assert.True(t, strings.HasPrefix(stdout, "Email sent successfully via SMTP\n\n"), stdout)
 			assert.Regexp(t, `│ Status +│ Sent +│`, stdout)
-			assert.Regexp(t, `│ Message ID +│ `+generatedMessageID+` +│`, stdout)
+			assert.Regexp(t, `│ Message-ID +│ `+generatedMessageID+` +│`, stdout)
 			assert.Regexp(t, `│ Delivery +│ Message queued for delivery +│`, stdout)
 		}},
 		{"plain", func(t *testing.T, stdout string) {
-			assert.Regexp(t, `^Email sent successfully via SMTP\nMessage ID: `+generatedMessageID+`\n$`, stdout)
+			assert.Regexp(t, `^Email sent successfully via SMTP\nMessage-ID: `+generatedMessageID+`\n$`, stdout)
 		}},
 		{"json", func(t *testing.T, stdout string) {
 			assert.Regexp(t, `^\{\n  "success": true,\n  "message_id": "`+generatedMessageID+`"\n\}\n$`, stdout)

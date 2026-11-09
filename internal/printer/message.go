@@ -49,7 +49,7 @@ var messageHeaders = map[string]string{
 	"delivered_at": "Delivered",
 	"opens":        "Opens",
 	"clicks":       "Clicks",
-	"message_id":   "Message ID",
+	"message_id":   "Message-ID",
 	"direction":    "Direction",
 	"domain_id":    "Domain ID",
 	"attempts":     "Attempts",
