@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
+This release moves the CLI to AhaSend Go SDK v0.6.0. It adds segments,
+segment audiences for campaigns, AhaML designs and the contact webhook events.
+Read the breaking changes before you upgrade scripts.
+
 ### Breaking changes
 
 - `templates get` shows a template's working copy, the draft while it has
@@ -379,6 +385,7 @@ on stderr
 Notes for v0.2.0 and earlier are on the
 [GitHub releases page](https://github.com/AhaSend/ahasend-cli/releases).
 
-[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.2.0...v0.3.0
