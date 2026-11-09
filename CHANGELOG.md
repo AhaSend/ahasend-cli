@@ -17,12 +17,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - `messages get` and `messages cancel` help describe the message ID as the
-  message's `id`, a UUID, which `messages send` prints. An ID that is not
-  valid fails with `invalid message ID value "<id>": not a UUID`, no longer
-  with `not a UUID or <uuid@domain>`.
+  message's `id`, a UUID, which `messages send` prints. The error for an ID
+  that is not valid now ends in `not a UUID`.
 - `smtp send` help says to find a sent message with `messages list
   --message-id` and the Message-ID the command printed.
-- `smtp send` labels the Message-ID it prints `Message-ID`, not `Message ID`.
+- `smtp send`, `messages get` and `messages list --show-details` label the
+  Message-ID header `Message-ID`, not `Message ID`.
 - The `messages list --message-id` help says it filters by the Message-ID
   header, with its angle brackets.
 
