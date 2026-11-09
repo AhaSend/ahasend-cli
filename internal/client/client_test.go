@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/AhaSend/ahasend-cli/internal/version"
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 )
 
 func TestNewClient_Success(t *testing.T) {
@@ -636,10 +638,10 @@ func TestClient_PingAndWebhookMethodsCallTheirEndpoints(t *testing.T) {
 		{"ping", http.MethodGet, "/v2/ping", `{"message":"OK"}`,
 			func(c *Client) error { _, err := c.Ping(); return err }},
 		{"list webhooks", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
-			func(c *Client) error { _, err := c.ListWebhooks(common.PaginationParams{}, nil); return err }},
+			func(c *Client) error { _, err := c.ListWebhooks(common.PaginationParams{}, nil, nil); return err }},
 		{"list webhooks with pagination", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
 			func(c *Client) error {
-				_, err := c.ListWebhooks(common.PaginationParams{Limit: &limit, After: &cursor}, nil)
+				_, err := c.ListWebhooks(common.PaginationParams{Limit: &limit, After: &cursor}, nil, nil)
 				return err
 			}},
 		{"create webhook", http.MethodPost, webhookPath, `{"object":"webhook"}`,
@@ -688,10 +690,219 @@ func TestClient_ListWebhooksSendsTheEnabledFilter(t *testing.T) {
 	})
 	defer cleanup()
 
-	_, err := client.ListWebhooks(common.PaginationParams{}, ahasend.Bool(true))
+	_, err := client.ListWebhooks(common.PaginationParams{}, ahasend.Bool(true), nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "true", query)
+}
+
+// TestClient_ListWebhooksFiltersByEachEvent checks that the list filter of
+// each webhook event sends its on_<name> query parameter alone, as true, and
+// that no two events send the same one.
+func TestClient_ListWebhooksFiltersByEachEvent(t *testing.T) {
+	accountID := uuid.New()
+	filters := map[string]string{}
+	for _, event := range webhooks.Events {
+		t.Run(event.Name, func(t *testing.T) {
+			eventFilters := url.Values{}
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				for key, values := range r.URL.Query() {
+					if strings.HasPrefix(key, "on_") {
+						eventFilters[key] = values
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+			})
+			defer cleanup()
+
+			_, err := client.ListWebhooks(common.PaginationParams{}, nil, []string{event.Name})
+
+			require.NoError(t, err)
+			assert.Equal(t, url.Values{"on_" + event.Name: {"true"}}, eventFilters)
+			for key := range eventFilters {
+				assert.NotContains(t, filters, key, "%s and %s send the same filter", filters[key], event.Name)
+				filters[key] = event.Name
+			}
+		})
+	}
+}
+
+// TestClient_ListWebhooksSendsEveryFilterInOneGet checks the method, path,
+// query and body of a list with the enabled filter, two event filters and a
+// limit.
+func TestClient_ListWebhooksSendsEveryFilterInOneGet(t *testing.T) {
+	accountID := uuid.New()
+	limit := int32(5)
+	var method, path, query string
+	var body []byte
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+		body, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{Limit: &limit}, ahasend.Bool(false), []string{"contact_created", "delivered"})
+
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodGet, method)
+	assert.Equal(t, "/v2/accounts/"+accountID.String()+"/webhooks", path)
+	assert.Equal(t, "enabled=false&limit=5&on_contact_created=true&on_delivered=true", query)
+	assert.Empty(t, body)
+}
+
+func TestClient_ListWebhooksRefusesAnUnknownEventWithoutARequest(t *testing.T) {
+	accountID := uuid.New()
+	requested := false
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		requested = true
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{}, nil, []string{"message.delivered"})
+
+	require.EqualError(t, err, `internal error: "message.delivered" is not a webhook event to filter by`)
+	assert.False(t, requested)
+}
+
+// TestClient_TemplateReadsCallTheirEndpoints checks that GetTemplate reads a
+// template's working copy and GetPublishedTemplate its published copy, each
+// with a GET that has no query and no body.
+func TestClient_TemplateReadsCallTheirEndpoints(t *testing.T) {
+	accountID, templateID := uuid.New(), uuid.New()
+	templatePath := "/v2/accounts/" + accountID.String() + "/templates/" + templateID.String()
+	tests := []struct {
+		name string
+		path string
+		call func(*Client) (*responses.Template, error)
+	}{
+		{"working copy", templatePath,
+			func(c *Client) (*responses.Template, error) { return c.GetTemplate(templateID) }},
+		{"published copy", templatePath + "/published",
+			func(c *Client) (*responses.Template, error) { return c.GetPublishedTemplate(templateID) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var method, path, query string
+			var body []byte
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+				body, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"template","name":"Welcome"}`))
+			})
+			defer cleanup()
+
+			template, err := tt.call(client)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.MethodGet, method)
+			assert.Equal(t, tt.path, path)
+			assert.Empty(t, query)
+			assert.Empty(t, body)
+			assert.Equal(t, "Welcome", template.Name)
+		})
+	}
+}
+
+// TestClient_SegmentMethodsCallTheirEndpoints checks the method, path, query,
+// body and idempotency key of each segment request, and that its answer is
+// read.
+func TestClient_SegmentMethodsCallTheirEndpoints(t *testing.T) {
+	accountID, segmentID := uuid.New(), uuid.New()
+	segmentsPath := "/v2/accounts/" + accountID.String() + "/segments"
+	segmentPath := segmentsPath + "/" + segmentID.String()
+	limit, after, before := int32(25), "next-page", "previous-page"
+	timezone, empty := "Europe/Berlin", ""
+	plan := "pro"
+	definition := common.SegmentDefinition{
+		SchemaVersion: common.SegmentSchemaVersion,
+		Match:         common.SegmentMatchAll,
+		Conditions: []common.SegmentRule{{Condition: &common.SegmentCondition{
+			Field: "attributes.plan", Op: common.SegmentOpEqual, Value: &common.SegmentValue{String: &plan},
+		}}},
+	}
+	definitionJSON := `{"schema_version":1,"match":"all","conditions":[{"field":"attributes.plan","op":"equal","value":"pro"}]}`
+	segmentBody := `{"object":"segment","id":"` + segmentID.String() + `","name":"Pro"}`
+	segmentsBody := `{"object":"list","data":[` + segmentBody + `],"pagination":{"has_more":false}}`
+
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		query       string
+		body        string
+		idempotency string
+		response    string
+		call        func(*Client) (any, error)
+	}{
+		{"GetSegments", http.MethodGet, segmentsPath, "after=next-page&limit=25", "", "", segmentsBody,
+			func(c *Client) (any, error) {
+				return c.GetSegments(requests.GetSegmentsParams{Limit: &limit, After: &after})
+			}},
+		{"GetSegment", http.MethodGet, segmentPath, "", "", "", segmentBody,
+			func(c *Client) (any, error) { return c.GetSegment(segmentID) }},
+		{"CreateSegment", http.MethodPost, segmentsPath, "",
+			`{"name":"Pro","definition":` + definitionJSON + `,"timezone":"Europe/Berlin"}`, "create-pro", segmentBody,
+			func(c *Client) (any, error) {
+				return c.CreateSegment(requests.CreateSegmentRequest{Name: "Pro", Definition: definition, Timezone: &timezone},
+					api.WithIdempotencyKey("create-pro"))
+			}},
+		{"UpdateSegment", http.MethodPut, segmentPath, "", `{"description":"","definition":` + definitionJSON + `}`, "",
+			segmentBody,
+			func(c *Client) (any, error) {
+				return c.UpdateSegment(segmentID, requests.UpdateSegmentRequest{Description: &empty, Definition: &definition})
+			}},
+		{"DeleteSegment", http.MethodDelete, segmentPath, "", "", "", `{"message":"Segment deleted"}`,
+			func(c *Client) (any, error) { return c.DeleteSegment(segmentID) }},
+		{"PreviewSegment", http.MethodPost, segmentsPath + "/preview", "",
+			`{"definition":` + definitionJSON + `,"timezone":""}`, "", `{"object":"segment_preview","count":3,"contacts":[]}`,
+			func(c *Client) (any, error) {
+				return c.PreviewSegment(requests.PreviewSegmentRequest{Definition: definition, Timezone: &empty})
+			}},
+		{"GetSegmentContacts", http.MethodGet, segmentPath + "/contacts", "before=previous-page&limit=100", "", "",
+			`{"object":"list","data":[{"object":"segment_contact","email":"a@example.com"}],"pagination":{"has_more":false}}`,
+			func(c *Client) (any, error) {
+				return c.GetSegmentContacts(segmentID, requests.GetSegmentContactsParams{Before: &before})
+			}},
+		{"GetContactSegments", http.MethodGet,
+			"/v2/accounts/" + accountID.String() + "/contacts/user+tag@example.com/segments", "limit=100", "", "", segmentsBody,
+			func(c *Client) (any, error) {
+				return c.GetContactSegments("user+tag@example.com", requests.GetContactSegmentsParams{})
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var method, path, query, idempotency string
+			var body []byte
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+				idempotency = r.Header.Get("Idempotency-Key")
+				body, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.response))
+			})
+			defer cleanup()
+
+			result, err := tt.call(client)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.method, method)
+			assert.Equal(t, tt.path, path)
+			assert.Equal(t, tt.query, query)
+			if tt.body == "" {
+				assert.Empty(t, body)
+			} else {
+				assert.JSONEq(t, tt.body, string(body))
+			}
+			if tt.idempotency != "" {
+				assert.Equal(t, tt.idempotency, idempotency)
+			}
+		})
+	}
 }
 
 // TestSendRequestsAreSentOnce checks that the send methods leave retries to
@@ -793,6 +1004,7 @@ func TestDeleteRequestsAreSentOnce(t *testing.T) {
 		"delete contact":           func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
 		"delete list":              func(c *Client) error { _, err := c.DeleteList(id); return err },
 		"remove list member":       func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
+		"delete segment":           func(c *Client) error { _, err := c.DeleteSegment(id); return err },
 		"delete template":          func(c *Client) error { _, err := c.DeleteTemplate(id); return err },
 		"discard template draft":   func(c *Client) error { _, err := c.DiscardTemplateDraft(id); return err },
 		"delete campaign":          func(c *Client) error { _, err := c.DeleteCampaign(id); return err },

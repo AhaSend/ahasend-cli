@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	stderrors "errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/AhaSend/ahasend-go/api"
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
+	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -616,6 +618,89 @@ func TestReadContent_RegenerateTextWithTextFileRejected(t *testing.T) {
 	assertValidationError(t, err, "--regenerate-text and --text-file cannot be used together")
 }
 
+func TestReadContent_ReadsMarkup(t *testing.T) {
+	markup := "<Email version=\"1\">\n  <Paragraph>Hi</Paragraph>\n</Email>\n"
+	content, err := ReadContent(parsed(t, AddUpdateContentFlags, "--markup-file", testutil.WriteTempFile(t, "design.ahaml", markup)))
+	require.NoError(t, err)
+	require.NotNil(t, content)
+	assert.Equal(t, markup, *content.Markup)
+	assert.Nil(t, content.MJML)
+	assert.Nil(t, content.HTML)
+	assert.Nil(t, content.Text)
+}
+
+func TestReadContent_MarkupWithMJMLOrHTMLRejected(t *testing.T) {
+	path := testutil.WriteTempFile(t, "content", "x")
+	for _, other := range []string{"mjml-file", "html-file"} {
+		t.Run(other, func(t *testing.T) {
+			_, err := ReadContent(parsed(t, AddCreateContentFlags, "--markup-file", path, "--"+other, path))
+			assertValidationError(t, err, "--markup-file and --"+other+" cannot be used together")
+		})
+	}
+}
+
+func TestReadContent_EmptyMarkupFileRejected(t *testing.T) {
+	_, err := ReadContent(parsed(t, AddCreateContentFlags, "--markup-file", testutil.WriteTempFile(t, "content", "")))
+	assertValidationError(t, err, "--markup-file is empty")
+}
+
+func TestReadContent_MarkupTakesATextFileOrRegeneratesTheText(t *testing.T) {
+	markup := testutil.WriteTempFile(t, "design.ahaml", "<Email/>")
+	content, err := ReadContent(parsed(t, AddCreateContentFlags, "--markup-file", markup,
+		"--text-file", testutil.WriteTempFile(t, "content", "Hi")))
+	require.NoError(t, err)
+	assert.Equal(t, "<Email/>", *content.Markup)
+	assert.Equal(t, "Hi", *content.Text)
+
+	content, err = ReadContent(parsed(t, AddUpdateContentFlags, "--markup-file", markup, "--regenerate-text"))
+	require.NoError(t, err)
+	assert.Equal(t, "<Email/>", *content.Markup)
+	assert.Equal(t, "", *content.Text)
+}
+
+func TestMarkupEditor_MarkupMakesTheEditorSimple(t *testing.T) {
+	markup, simple := "<Email/>", "simple"
+	content := &requests.TemplateContentInput{Markup: &markup}
+
+	editor, err := MarkupEditor(content, nil)
+	require.NoError(t, err)
+	assert.Equal(t, &simple, editor)
+
+	editor, err = MarkupEditor(content, &simple)
+	require.NoError(t, err)
+	assert.Equal(t, &simple, editor)
+}
+
+func TestMarkupEditor_OtherEditorWithMarkupRejected(t *testing.T) {
+	markup := "<Email/>"
+	for _, other := range []string{"advanced", "html"} {
+		t.Run(other, func(t *testing.T) {
+			_, err := MarkupEditor(&requests.TemplateContentInput{Markup: &markup}, &other)
+			assertValidationError(t, err, "--editor "+other+" cannot be used with --markup-file, which holds a Simple Editor design")
+		})
+	}
+}
+
+func TestMarkupEditor_ContentWithoutMarkupKeepsTheEditor(t *testing.T) {
+	mjml, html := "<mjml></mjml>", "html"
+	for name, content := range map[string]*requests.TemplateContentInput{"no content": nil, "MJML": {MJML: &mjml}} {
+		t.Run(name, func(t *testing.T) {
+			editor, err := MarkupEditor(content, nil)
+			require.NoError(t, err)
+			assert.Nil(t, editor)
+
+			editor, err = MarkupEditor(content, &html)
+			require.NoError(t, err)
+			assert.Equal(t, &html, editor)
+		})
+	}
+}
+
+func TestReadTemplateEditor_NeedsAnEditorWithoutADesignFile(t *testing.T) {
+	_, err := ReadTemplateEditor(parsed(t, AddCreateContentFlags), nil)
+	assertValidationError(t, err, "--editor is needed when there is no --markup-file, --mjml-file or --html-file")
+}
+
 func TestContentFlags_EditorOnCreateOnly(t *testing.T) {
 	create := parsed(t, AddCreateContentFlags)
 	assert.NotNil(t, create.Flags().Lookup("editor"))
@@ -624,6 +709,95 @@ func TestContentFlags_EditorOnCreateOnly(t *testing.T) {
 	update := parsed(t, AddUpdateContentFlags)
 	assert.Nil(t, update.Flags().Lookup("editor"))
 	assert.NotNil(t, update.Flags().Lookup("regenerate-text"))
+}
+
+// Markup ----------------------------------------------------------------------
+
+// markupCommand returns a command with --markup whose parent has the global
+// --output, parsed from args, writing its stdout to out.
+func markupCommand(t *testing.T, out io.Writer, args ...string) *cobra.Command {
+	t.Helper()
+	root := &cobra.Command{Use: "root"}
+	root.PersistentFlags().String("output", "plain", "")
+	cmd := &cobra.Command{Use: "get"}
+	AddMarkupFlag(cmd)
+	root.AddCommand(cmd)
+	cmd.SetOut(out)
+	require.NoError(t, cmd.ParseFlags(args))
+	return cmd
+}
+
+func TestReadMarkupFlag(t *testing.T) {
+	markup, err := ReadMarkupFlag(markupCommand(t, io.Discard))
+	require.NoError(t, err)
+	assert.False(t, markup)
+
+	markup, err = ReadMarkupFlag(markupCommand(t, io.Discard, "--markup"))
+	require.NoError(t, err)
+	assert.True(t, markup)
+
+	_, err = ReadMarkupFlag(markupCommand(t, io.Discard, "--markup", "--output", "plain"))
+	assertValidationError(t, err, "--markup and --output cannot be used together")
+
+	_, err = ReadMarkupFlag(markupCommand(t, io.Discard, "--output", "plain", "--markup=false"))
+	assertValidationError(t, err, "--output and --markup cannot be used together")
+}
+
+func TestWriteMarkup_FailsForContentWithoutAhaML(t *testing.T) {
+	mjml := &responses.TemplateContent{MJML: "<mjml></mjml>", HTML: "<p>Hi</p>"}
+	failed := &responses.TemplateContent{HTML: "<p>Hi</p>",
+		MarkupError: &responses.MarkupError{Code: "html_block", Message: "the design\nholds an HTML block"}}
+	tests := map[string]struct {
+		content *responses.TemplateContent
+		message string
+	}{
+		"no content":     {nil, "campaign template 77777777-7777-4777-8777-777777777777 has no content"},
+		"a markup error": {failed, `the design could not be read as AhaML: html_block: the design\u000aholds an HTML block`},
+		"an MJML design": {mjml, "campaign template 77777777-7777-4777-8777-777777777777 has no AhaML: " +
+			"only a Simple Editor design has one"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var out bytes.Buffer
+			err := WriteMarkup(markupCommand(t, &out, "--markup"), "campaign template", "77777777-7777-4777-8777-777777777777",
+				test.content)
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.Equal(t, 1, errors.GetExitCode(err))
+			assert.Empty(t, out.String())
+		})
+	}
+}
+
+// controlMarkup is AhaML that holds a control character, an escape sequence
+// that would color a terminal.
+const controlMarkup = "<Email version=\"1\">\n  <Paragraph>\x1b[31mred</Paragraph>\n</Email>\n"
+
+func TestWriteMarkup_WritesTheMarkupByteForByteToAPipe(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	markup := controlMarkup
+
+	err = WriteMarkup(markupCommand(t, writer, "--markup"), "template", "id", &responses.TemplateContent{Markup: &markup})
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	written, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	assert.Equal(t, controlMarkup, string(written))
+}
+
+func TestWriteMarkup_EscapesTheMarkupForATerminal(t *testing.T) {
+	terminal := testutil.NewTerminal(t)
+	shown := terminal.Shown(t)
+	markup := controlMarkup
+
+	err := WriteMarkup(markupCommand(t, terminal.Stdin, "--markup"), "template", "id", &responses.TemplateContent{Markup: &markup})
+	require.NoError(t, err)
+
+	// The terminal shows each newline as a carriage return and a newline.
+	want := "<Email version=\"1\">\r\n  <Paragraph>\\u001b[31mred</Paragraph>\r\n</Email>\r\n"
+	assert.Eventually(t, func() bool { return shown() == want }, 3*time.Second, 5*time.Millisecond, "shown: %q", shown())
 }
 
 // Sender ----------------------------------------------------------------------

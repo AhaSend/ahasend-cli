@@ -122,10 +122,30 @@ var localValidationErrors = []struct {
 	{append(sendArgs("--text", "Hi"), "--header", `"X-Test: a`),
 		`invalid --header value "\"X-Test: a": a value with a comma or a double quote must be in double quotes, ` +
 			`with each double quote in it doubled, such as '"a, ""b"""'`},
-	// Limits the API checks: 50 lists, each scope once, a subdomain label,
-	// and send times
-	{[]string{"campaigns", "create", "--name", "Fall", "--list-id", listIDs(51)}, "--list-id takes at most 50 lists, got 51"},
-	{[]string{"campaigns", "update", rawTestID, "--list-id", listIDs(51)}, "--list-id takes at most 50 lists, got 51"},
+	// The API refuses MJML beside AhaML and ignores HTML beside it, and a
+	// campaign template's design replaces both.
+	{[]string{"templates", "create", "--name", "Fall", "--markup-file", "a.ahaml", "--mjml-file", "a.mjml"},
+		"--markup-file and --mjml-file cannot be used together"},
+	{[]string{"campaigns", "update", rawTestID, "--markup-file", "a.ahaml", "--html-file", "a.html"},
+		"--markup-file and --html-file cannot be used together"},
+	{[]string{"campaigns", "templates", "update", rawTestID, "--markup-file", "a.ahaml", "--mjml-file", "a.mjml"},
+		"--markup-file and --mjml-file cannot be used together"},
+	{[]string{"campaigns", "create", "--name", "Fall", "--campaign-template-id", rawTestID, "--markup-file", "a.ahaml"},
+		"--campaign-template-id and --markup-file cannot be used together"},
+	// Limits the API checks: 50 lists and 10 segments, included and
+	// excluded together, each scope once, a subdomain label, and send times
+	{[]string{"campaigns", "create", "--name", "Fall", "--list-id", listIDs(51)},
+		"--list-id and --exclude-list-id take at most 50 lists in all, got 51"},
+	{[]string{"campaigns", "update", rawTestID, "--exclude-list-id", listIDs(51)},
+		"--list-id and --exclude-list-id take at most 50 lists in all, got 51"},
+	{[]string{"campaigns", "create", "--name", "Fall", "--segment-id", listIDs(10), "--exclude-segment-id", rawTestID},
+		"--segment-id and --exclude-segment-id take at most 10 segments in all, got 11"},
+	{[]string{"campaigns", "update", rawTestID, "--exclude-segment-id", listIDs(11)},
+		"--segment-id and --exclude-segment-id take at most 10 segments in all, got 11"},
+	// An emptied set cannot also be given
+	{[]string{"campaigns", "update", rawTestID, "--clear-lists", "--list-id", rawTestID},
+		"--clear-lists and --list-id cannot be used together"},
+	{[]string{"segments", "get", "abc"}, `invalid segment ID value "abc": not a UUID`},
 	{[]string{"apikeys", "create", "--label", "ci", "--scope", "messages:send:all", "--scope", "messages:send:all"},
 		`invalid --scope value "messages:send:all": given more than once`},
 	{[]string{"apikeys", "update", rawTestID, "--scope", "messages:send:{Example.com}", "--scope", "messages:send:{example.com}"},
@@ -201,6 +221,9 @@ var enumValidationErrors = []struct {
 	{[]string{"webhooks", "create", "--name", "Hook", "--url", "https://example.com", "--scope", "all"},
 		"--scope must be one of: global, scoped"},
 	{[]string{"webhooks", "update", rawTestID, "--scope", "all"}, "--scope must be one of: global, scoped"},
+	{[]string{"webhooks", "create", "--name", "Hook", "--url", "https://example.com", "--all-events", "--origins", "nobody"},
+		"--origins must be one of: recipient, api, dashboard, system"},
+	{[]string{"webhooks", "update", rawTestID, "--origins", "nobody"}, "--origins must be one of: recipient, api, dashboard, system"},
 	{[]string{"smtp", "create", "--name", "App", "--scope", "all"}, "--scope must be one of: global, scoped"},
 	{[]string{"messages", "send", "--from", "a@example.com", "--to", "b@example.com", "--subject", "Hi", "--text", "Hi",
 		"--sandbox", "--sandbox-result", "explode"},
@@ -279,6 +302,37 @@ func TestLocalValidationErrorsExitFourBeforeAuthenticating(t *testing.T) {
 	}
 }
 
+// TestMarkupCannotBeUsedWithOutput checks that --markup, which writes the
+// markup alone, is a validation error with --output in every format, before
+// the command authenticates.
+func TestMarkupCannotBeUsedWithOutput(t *testing.T) {
+	const message = "--markup and --output cannot be used together"
+	for _, command := range [][]string{
+		{"templates", "get", rawTestID},
+		{"templates", "get", rawTestID, "--published"},
+		{"campaigns", "get", rawTestID},
+		{"campaigns", "templates", "get", rawTestID},
+	} {
+		for _, format := range []string{"json", "table"} {
+			t.Run(strings.Join(command, " ")+" "+format, func(t *testing.T) {
+				called := testutil.RefuseAuth(t)
+
+				stdout, stderr, code := runRoot(t, slices.Concat(command, []string{"--markup", "--output", format})...)
+
+				assert.Equal(t, 4, code, "stderr: %s", stderr)
+				if format == "json" {
+					assert.JSONEq(t, `{"error":true,"message":"`+message+`"}`, stdout)
+					assert.Empty(t, stderr)
+				} else {
+					assert.Empty(t, stdout)
+					assert.Equal(t, "Error: "+message+"\n", stderr)
+				}
+				assert.False(t, *called, "the command must not authenticate")
+			})
+		}
+	}
+}
+
 // idempotentCommands are valid runs of every command that has
 // --idempotency-key, which the key's length alone can fail.
 var idempotentCommands = map[string][]string{
@@ -298,6 +352,7 @@ var idempotentCommands = map[string][]string{
 	"lists members add":           {rawTestID, "--email", "user@example.com"},
 	"messages send":               {"--from", "a@example.com", "--to", "b@example.com", "--subject", "Hi", "--text", "Hi"},
 	"routes create":               {"--name", "Inbound", "--url", "https://example.com/hook", "--recipient", "*@example.com"},
+	"segments create":             {"--name", "Engaged", "--definition-file", "definition.json"},
 	"smtp create":                 {"--name", "App"},
 	"subaccounts api-keys create": {rawTestID, "--label", "ci", "--scope", "messages:send:all"},
 	"subaccounts create":          {"--name", "Acme", "--website", "acme.example.com"},
@@ -325,6 +380,7 @@ var badIdempotencyKeys = map[string]string{
 func TestEveryIdempotencyKeyIsCheckedBeforeAuthenticating(t *testing.T) {
 	t.Chdir(t.TempDir())
 	require.NoError(t, os.WriteFile("contacts.json", []byte(`{"data":[{"email":"user@example.com"}]}`), 0o600))
+	require.NoError(t, os.WriteFile("definition.json", []byte(`{"schema_version":1,"match":"all","conditions":[]}`), 0o600))
 	for _, leaf := range leafCommands() {
 		if leaf.Flags().Lookup("idempotency-key") == nil {
 			continue
@@ -403,6 +459,8 @@ func TestEveryNameAndLabelLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{"smtp", "create", "--name", long},
 		{"lists", "create", "--name", long},
 		{"lists", "update", rawTestID, "--name", long},
+		{"segments", "create", "--definition-file", "definition.json", "--name", long},
+		{"segments", "update", rawTestID, "--name", long},
 		{"templates", "create", "--editor", "simple", "--name", long},
 		{"templates", "update", rawTestID, "--name", long},
 		{"campaigns", "create", "--name", long},
@@ -434,6 +492,7 @@ func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 	name := "  " + strings.Repeat("é", 255) + "\t\n"
 	description := " " + strings.Repeat("é", 1000) + " "
 	text := func(max int) string { return " " + strings.Repeat("é", max-2) + "\r\né\n" }
+	definition := testutil.WriteTempFile(t, "definition.json", `{"schema_version":1,"match":"all","conditions":[]}`)
 	tests := [][]string{
 		{"subaccounts", "create", "--website", "acme.example.com", "--name", name},
 		{"subaccounts", "update", rawTestID, "--name", name},
@@ -441,6 +500,10 @@ func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 		{"lists", "update", rawTestID, "--name", name},
 		{"lists", "create", "--name", "News", "--description", description},
 		{"lists", "update", rawTestID, "--description", description},
+		{"segments", "create", "--definition-file", definition, "--name", name},
+		{"segments", "update", rawTestID, "--name", name},
+		{"segments", "create", "--definition-file", definition, "--name", "Engaged", "--description", description},
+		{"segments", "update", rawTestID, "--description", description},
 		{"templates", "create", "--editor", "simple", "--name", name},
 		{"templates", "update", rawTestID, "--name", name},
 		{"templates", "create", "--editor", "simple", "--name", "Fall", "--subject", text(998)},
@@ -461,7 +524,7 @@ func TestLengthsAreCountedAsTheAPICountsThem(t *testing.T) {
 		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}
 			for _, method := range []string{"CreateSubAccount", "UpdateSubAccount", "CreateList", "UpdateList",
-				"CreateTemplate", "UpdateTemplate", "CreateCampaign", "UpdateCampaign", "DuplicateCampaign",
+				"CreateSegment", "UpdateSegment", "CreateTemplate", "UpdateTemplate", "CreateCampaign", "UpdateCampaign", "DuplicateCampaign",
 				"CreateCampaignTemplate", "UpdateCampaignTemplate"} {
 				expectAnyArgs(mockClient, method, nil, rawAPIError(400))
 			}
@@ -493,6 +556,8 @@ func TestEveryTextLengthIsCheckedBeforeAuthenticating(t *testing.T) {
 		{[]string{"campaigns", "update", rawTestID, "--preheader"}, 500},
 		{[]string{"lists", "create", "--name", "News", "--description"}, 1000},
 		{[]string{"lists", "update", rawTestID, "--description"}, 1000},
+		{[]string{"segments", "create", "--definition-file", "definition.json", "--name", "Engaged", "--description"}, 1000},
+		{[]string{"segments", "update", rawTestID, "--description"}, 1000},
 		{[]string{"suppressions", "create", "a@example.com", "--expires", "30d", "--reason"}, 255},
 		{[]string{"subaccounts", "suspend", rawTestID, "--force", "--reason"}, 500},
 	}
@@ -526,6 +591,8 @@ func TestEveryBlankTextValueIsAnEmptyValue(t *testing.T) {
 		{[]string{"subaccounts", "api-keys", "create", rawTestID, "--scope", "messages:send:all", "--label", blank}, "--label cannot be empty"},
 		{[]string{"lists", "create", "--name", blank}, "--name cannot be empty"},
 		{[]string{"lists", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
+		{[]string{"segments", "create", "--definition-file", "definition.json", "--name", blank}, "--name cannot be empty"},
+		{[]string{"segments", "update", rawTestID, "--name", blank}, "--name cannot be empty"},
 		{[]string{"webhooks", "create", "--url", "https://example.com/hook", "--name", blank}, "--name cannot be empty"},
 		{[]string{"webhooks", "create", "--name", "Hook", "--url", blank}, "--url cannot be empty"},
 		{[]string{"webhooks", "update", rawTestID, "--name", blank}, "--name cannot be empty"},

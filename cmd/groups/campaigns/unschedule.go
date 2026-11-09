@@ -14,7 +14,7 @@ func NewUnscheduleCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unschedule <campaign-id>",
 		Short: "Return a validating or scheduled campaign to draft",
-		Long: `Return a validating or scheduled campaign to draft, cancelling its list
+		Long: `Return a validating or scheduled campaign to draft, cancelling its audience
 validation or its scheduled send. A campaign that has queued mail cannot be
 unscheduled.`,
 		Example: `  # Return a scheduled campaign to draft

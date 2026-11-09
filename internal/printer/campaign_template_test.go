@@ -134,7 +134,7 @@ func TestCampaignTemplateCSVWritesOneRowPerTemplate(t *testing.T) {
 	require.NoError(t, testHandler(t, "csv", &output, os.Stderr).HandleSingleCampaignTemplate(&template, SingleConfig{}))
 	headers, rows := readCSV(t, output.String())
 	require.Len(t, rows, 1)
-	assert.Equal(t, campaignTemplateListFields, headers)
+	assert.Equal(t, campaignTemplateDetailFields, headers)
 	row := rows[0]
 	assert.Equal(t, "Newsletter", row["name"])
 	assert.Equal(t, "<p>News</p>", row["html"])

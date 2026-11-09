@@ -182,14 +182,26 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"batch list members", func(h ResponseHandler) error {
 			return h.HandleBatchListMembers(recorded[responses.BatchAddListContactsResponse](), SingleConfig{})
 		}},
+		{"segment list", func(h ResponseHandler) error {
+			return h.HandleSegmentList(recorded[responses.PaginatedSegmentsResponse](), ListConfig{})
+		}},
+		{"single segment", func(h ResponseHandler) error {
+			return h.HandleSingleSegment(recorded[responses.Segment](), SingleConfig{})
+		}},
+		{"segment detail", func(h ResponseHandler) error {
+			return h.HandleSegmentDetail(recorded[responses.SegmentDetail](), SingleConfig{})
+		}},
+		{"segment preview", func(h ResponseHandler) error {
+			return h.HandleSegmentPreview(recorded[responses.SegmentPreview](), SingleConfig{})
+		}},
+		{"segment member list", func(h ResponseHandler) error {
+			return h.HandleSegmentMemberList(recorded[responses.PaginatedSegmentContactsResponse](), ListConfig{})
+		}},
 		{"template list", func(h ResponseHandler) error {
 			return h.HandleTemplateList(recorded[responses.PaginatedTemplatesResponse](), ListConfig{})
 		}},
 		{"single template", func(h ResponseHandler) error {
 			return h.HandleSingleTemplate(recorded[responses.Template](), SingleConfig{})
-		}},
-		{"template draft", func(h ResponseHandler) error {
-			return h.HandleTemplateDraft(recorded[responses.TemplateDraft](), SingleConfig{})
 		}},
 		{"template version list", func(h ResponseHandler) error {
 			return h.HandleTemplateVersionList(recorded[responses.TemplateVersionsResponse](), ListConfig{})

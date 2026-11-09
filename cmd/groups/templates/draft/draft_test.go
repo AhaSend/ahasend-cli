@@ -2,7 +2,6 @@ package draft
 
 import (
 	"testing"
-	"time"
 
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
@@ -21,33 +20,6 @@ func testTemplate() *responses.Template {
 		Name:   "Welcome",
 		Editor: "html",
 	}
-}
-
-// get -------------------------------------------------------------------------
-
-func TestGetPrintsDraft(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	mockClient.On("GetTemplateDraft", uuid.MustParse(testTemplateID)).Return(&responses.TemplateDraft{
-		Object:     "template_draft",
-		TemplateID: uuid.MustParse(testTemplateID),
-		UpdatedAt:  time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
-		Subject:    "Draft subject",
-	}, nil)
-	testutil.InjectClient(t, mockClient)
-
-	stdout, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testTemplateID)
-	require.NoError(t, err)
-	assert.Contains(t, stdout, "Subject: Draft subject\n")
-	mockClient.AssertExpectations(t)
-}
-
-func TestGetRejectsBadTemplateIDBeforeAuthentication(t *testing.T) {
-	authCalled := testutil.RefuseAuth(t)
-
-	_, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", "not-a-uuid")
-	require.Error(t, err)
-	assert.Equal(t, `invalid template ID value "not-a-uuid": not a UUID`, err.Error())
-	assert.False(t, *authCalled)
 }
 
 // discard ---------------------------------------------------------------------

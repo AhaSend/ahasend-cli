@@ -21,16 +21,20 @@ func NewCreateCommand() *cobra.Command {
 sends fail until the draft is published; --publish publishes it in the same
 request.
 
-Content comes from files: --mjml-file for an advanced template or --html-file
-for an html template, and --text-file for the plain text version, which is
-otherwise made from the HTML. --editor is needed when there is neither an MJML
-nor an HTML file.`,
+Content comes from files: --markup-file for the AhaML of a simple template,
+--mjml-file for an advanced template or --html-file for an html template, and
+--text-file for the plain text version, which is otherwise made from the HTML.
+--markup-file makes the editor simple. --editor is needed when there is no
+markup, MJML or HTML file.`,
 		Example: `  # Create and publish an advanced template
   ahasend templates create --name Welcome --subject "Welcome, {{ first_name }}" \
     --mjml-file welcome.mjml --from hello@example.com --from-name "Example" --publish
 
   # Create an html template with its own text version
   ahasend templates create --name Receipt --html-file receipt.html --text-file receipt.txt
+
+  # Create a simple template from its AhaML
+  ahasend templates create --name Digest --markup-file digest.ahaml
 
   # Create a simple template from text only
   ahasend templates create --name Notice --editor simple --text-file notice.txt`,

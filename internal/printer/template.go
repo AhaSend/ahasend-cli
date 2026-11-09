@@ -24,6 +24,10 @@ var templateFields = []string{
 // and CSV output show.
 var templateListFields = slices.Concat(templateFields, templateContentColumns)
 
+// templateDetailFields are the CSV columns of a single template: those of a
+// template of a list, then the warnings of a write that carried AhaML.
+var templateDetailFields = slices.Concat(templateListFields, []string{"markup_warnings"})
+
 // templateTableColumns are the fields a table of templates shows.
 var templateTableColumns = []string{"name", "id", "editor", "subject", "has_draft", "updated_at"}
 
@@ -43,8 +47,8 @@ var templateHeaders = map[string]string{
 }
 
 // templateContentColumns are the CSV columns of the content of a template, a
-// campaign template, a campaign, a draft or a version.
-var templateContentColumns = []string{"mjml", "html", "text", "text_is_custom"}
+// campaign template, a campaign or a version.
+var templateContentColumns = []string{"mjml", "markup", "markup_error", "html", "text", "text_is_custom"}
 
 func (h *jsonHandler) HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error {
 	return h.printAPIResponse(response)
@@ -65,7 +69,8 @@ func (h *tableHandler) HandleSingleTemplate(template *responses.Template, config
 	if _, err := fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage); err != nil {
 		return err
 	}
-	h.renderFieldTable(append(templateDetailRows(template), templateContentRows(template.Content)...))
+	h.renderFieldTable(slices.Concat(templateDetailRows(template), templateContentRows(template.Content),
+		markupWarningsRows(template.MarkupWarnings)))
 	return nil
 }
 
@@ -80,7 +85,10 @@ func (h *plainHandler) HandleSingleTemplate(template *responses.Template, config
 	if _, err := fmt.Fprintln(h.writer, config.SuccessMessage); err != nil {
 		return err
 	}
-	return h.renderTemplateDetails(template)
+	if err := h.renderTemplateDetails(template); err != nil {
+		return err
+	}
+	return writeMarkupWarnings(h.writer, template.MarkupWarnings)
 }
 
 func (h *plainHandler) renderTemplateDetails(template *responses.Template) error {
@@ -98,7 +106,13 @@ func (h *csvHandler) HandleSingleTemplate(template *responses.Template, config S
 	if template == nil {
 		return nil
 	}
-	return h.writeFieldMaps(templateListFields, templateCSVFields(template))
+	values := templateCSVFields(template)
+	warnings, err := formatMarkupWarningsCSV(template.MarkupWarnings)
+	if err != nil {
+		return err
+	}
+	values["markup_warnings"] = warnings
+	return h.writeFieldMaps(templateDetailFields, values)
 }
 
 // templateCSVFields maps each template field to its CSV value.
@@ -157,18 +171,43 @@ func formatSenderAddress(address *common.SenderAddress) string {
 	return fmt.Sprintf("%s <%s>", *address.Name, address.Email)
 }
 
-// formatTemplateVariables formats each variable as its name followed by
-// whether a send must supply a value for it.
+// formatTemplateVariables formats each variable as its name followed, in
+// parentheses, by its kind and whether a send must supply a value for it:
+// "first_name (required)", "vip (condition; optional)" or
+// "items (list of name/price; required)". The variables are joined with
+// ", ", so a variable holds no comma.
 func formatTemplateVariables(variables []responses.TemplateVariable) []string {
 	items := make([]string, len(variables))
 	for i, variable := range variables {
+		required := "optional"
 		if variable.Required {
-			items[i] = variable.Name + " (required)"
+			required = "required"
+		}
+		if kind := formatTemplateVariableKind(variable); kind != "" {
+			items[i] = fmt.Sprintf("%s (%s; %s)", variable.Name, kind, required)
 		} else {
-			items[i] = variable.Name + " (optional)"
+			items[i] = fmt.Sprintf("%s (%s)", variable.Name, required)
 		}
 	}
 	return items
+}
+
+// formatTemplateVariableKind returns the kind of a variable: "" for a value,
+// and for a variable with no kind; "list of" its item fields joined with "/"
+// for a list, or "list" when it has none; any other kind as the API names
+// it.
+func formatTemplateVariableKind(variable responses.TemplateVariable) string {
+	switch variable.Kind {
+	case "", responses.TemplateVariableKindValue:
+		return ""
+	case responses.TemplateVariableKindList:
+		if len(variable.ItemFields) == 0 {
+			return responses.TemplateVariableKindList
+		}
+		return "list of " + strings.Join(variable.ItemFields, "/")
+	default:
+		return variable.Kind
+	}
 }
 
 // templateContentRows returns a row for each content field the API returned,
@@ -184,20 +223,19 @@ func templateContentRows(content *responses.TemplateContent) [][]string {
 	return append(rows, []string{"Text Is Custom", formatBooleanStatus(content.TextIsCustom)})
 }
 
-// templateVariablesRow returns the variables row of a template, a draft or a
-// version.
+// templateVariablesRow returns the variables row of a template version.
 func templateVariablesRow(variables []responses.TemplateVariable) []string {
 	return []string{"Variables", formatStringSlice(formatTemplateVariables(variables))}
 }
 
 // templateBodyRows returns the variables row followed by the content rows of
-// a template, a draft or a version.
+// a template version.
 func templateBodyRows(variables []responses.TemplateVariable, content *responses.TemplateContent) [][]string {
 	return append([][]string{templateVariablesRow(variables)}, templateContentRows(content)...)
 }
 
-// writeTemplateBody writes the variables and then the content of a template,
-// a draft or a version as plain lines.
+// writeTemplateBody writes the variables and then the content of a template
+// version as plain lines.
 func writeTemplateBody(w io.Writer, variables []responses.TemplateVariable, content *responses.TemplateContent) error {
 	if err := writeLabelLines(w, "", [][]string{templateVariablesRow(variables)}); err != nil {
 		return err
@@ -206,14 +244,14 @@ func writeTemplateBody(w io.Writer, variables []responses.TemplateVariable, cont
 }
 
 // writeTemplateContent writes each content field the API returned as a
-// "label:" line followed by its indented lines, or nothing when the response
-// holds no content.
+// "label:" line followed by its indented lines, without a blank line for the
+// newline that ends the value, or nothing when the response holds no content.
 func writeTemplateContent(w io.Writer, content *responses.TemplateContent) error {
 	if content == nil {
 		return nil
 	}
 	for _, field := range templateContentFields(content) {
-		if err := writeIndentedList(w, field[0], strings.Split(field[1], "\n")); err != nil {
+		if err := writeIndentedList(w, field[0], strings.Split(strings.TrimSuffix(field[1], "\n"), "\n")); err != nil {
 			return err
 		}
 	}
@@ -222,15 +260,30 @@ func writeTemplateContent(w io.Writer, content *responses.TemplateContent) error
 }
 
 // templateContentFields returns the label and value of each non-empty content
-// field.
+// field: the MJML, the markup, the markup error, the HTML and the text.
 func templateContentFields(content *responses.TemplateContent) [][2]string {
 	var fields [][2]string
-	for _, field := range [][2]string{{"MJML", content.MJML}, {"HTML", content.HTML}, {"Text", content.Text}} {
+	for _, field := range [][2]string{
+		{"MJML", content.MJML},
+		{"Markup", formatOptionalString(content.Markup)},
+		{"Markup Error", formatMarkupError(content.MarkupError)},
+		{"HTML", content.HTML},
+		{"Text", content.Text},
+	} {
 		if field[1] != "" {
 			fields = append(fields, field)
 		}
 	}
 	return fields
+}
+
+// formatMarkupError formats why a design has no markup as "code: message" on
+// one line, or "" when it has none.
+func formatMarkupError(markupError *responses.MarkupError) string {
+	if markupError == nil {
+		return ""
+	}
+	return EscapeControl(markupError.Code) + ": " + EscapeControl(markupError.Message)
 }
 
 // templateContentCSVFields maps each of templateContentColumns to its CSV
@@ -244,11 +297,15 @@ func templateContentCSVFields(content *responses.TemplateContent) map[string]str
 	return values
 }
 
-// templateContentCSVCells returns the mjml, html, text and text_is_custom
-// cells, empty when the response holds no content.
+// templateContentCSVCells returns the cells of templateContentColumns, the
+// mjml, markup, markup_error, html, text and text_is_custom cells, empty
+// when the response holds no content.
 func templateContentCSVCells(content *responses.TemplateContent) []string {
 	if content == nil {
-		return []string{"", "", "", ""}
+		return make([]string, len(templateContentColumns))
 	}
-	return []string{content.MJML, content.HTML, content.Text, formatBool(content.TextIsCustom)}
+	return []string{
+		content.MJML, formatOptionalString(content.Markup), formatMarkupError(content.MarkupError),
+		content.HTML, content.Text, formatBool(content.TextIsCustom),
+	}
 }

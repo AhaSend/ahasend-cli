@@ -18,7 +18,8 @@ func NewDeleteCommand() *cobra.Command {
 		Use:   "delete <list-id>",
 		Short: "Delete a contact list",
 		Long: `Delete a contact list. The API refuses while a campaign that still needs the
-list refers to it. Delete asks for confirmation unless --force is set.`,
+list refers to it, and while a segment refers to it, naming those segments.
+Delete asks for confirmation unless --force is set.`,
 		Example: `  # Delete a contact list
   ahasend lists delete 123e4567-e89b-12d3-a456-426614174000
 

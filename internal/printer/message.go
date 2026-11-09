@@ -64,8 +64,11 @@ var messageHeaders = map[string]string{
 }
 
 // deliveryAttemptHeaders name the columns of a table of a message's delivery
-// attempts, and the rows of each attempt in plain output.
-var deliveryAttemptHeaders = []any{"Time", "Status", "Log"}
+// attempts, and the rows of each attempt in plain output. Only the attempt of
+// an out-of-band bounce has a report message ID, so a table shows its column
+// only when an attempt has one, and plain output leaves the row out of an
+// attempt without one.
+var deliveryAttemptHeaders = []any{"Time", "Status", "Log", "Report Message ID"}
 
 func (h *jsonHandler) HandleMessageList(response *responses.PaginatedMessagesResponse, config ListConfig) error {
 	return h.printAPIResponse(response)
@@ -117,7 +120,15 @@ func (h *tableHandler) HandleSingleMessage(message *responses.Message, config Si
 	if _, err := fmt.Fprintf(h.writer, "\nDelivery Attempts:\n"); err != nil {
 		return err
 	}
-	h.renderTable(deliveryAttemptHeaders, deliveryAttemptRows(message)...)
+	columns := len(deliveryAttemptHeaders)
+	if !slices.ContainsFunc(message.DeliveryAttempts, hasReportMessageID) {
+		columns-- // no Report Message ID column
+	}
+	attempts := deliveryAttemptRows(message)
+	for i := range attempts {
+		attempts[i] = attempts[i][:columns]
+	}
+	h.renderTable(deliveryAttemptHeaders[:columns], attempts...)
 	return nil
 }
 
@@ -294,14 +305,19 @@ func messageDisplayFields(message *responses.Message) map[string]string {
 	}
 }
 
-// deliveryAttemptRows returns the time, status and log of each delivery
-// attempt of message, the columns of deliveryAttemptHeaders.
+// deliveryAttemptRows returns the time, status, log and report message ID of
+// each delivery attempt of message, the columns of deliveryAttemptHeaders.
 func deliveryAttemptRows(message *responses.Message) [][]string {
 	rows := make([][]string, len(message.DeliveryAttempts))
 	for i, attempt := range message.DeliveryAttempts {
-		rows[i] = []string{formatTime(attempt.Time), attempt.Status, attempt.Log}
+		rows[i] = []string{formatTime(attempt.Time), attempt.Status, attempt.Log, formatOptionalUUID(attempt.ReportMessageID)}
 	}
 	return rows
+}
+
+// hasReportMessageID reports whether attempt names a bounce report message.
+func hasReportMessageID(attempt responses.DeliveryEvent) bool {
+	return attempt.ReportMessageID != nil
 }
 
 // messageDetailRows returns the rows of a message's detail view, without its
@@ -320,24 +336,28 @@ func messageListView(config ListConfig) (fields, columns []string) {
 }
 
 // sentMessageFields are the fields of each message of a send, which the
-// table, plain and CSV output show in this order.
-var sentMessageFields = []string{"recipient", "id", "status", "error"}
+// table, plain and CSV output show in this order: id is what messages get and
+// messages cancel take, and message_id_header what messages list
+// --message-id takes.
+var sentMessageFields = []string{"recipient", "id", "message_id_header", "status", "error"}
 
 // sentMessageHeaders names the table column or plain row of each field of a
 // message of a send.
 var sentMessageHeaders = map[string]string{
-	"recipient": "Recipient",
-	"id":        "ID",
-	"status":    "Status",
-	"error":     "Error",
+	"recipient":         "Recipient",
+	"id":                "ID",
+	"message_id_header": "Message-ID",
+	"status":            "Status",
+	"error":             "Error",
 }
 
 // sentMessageValues maps each field of one message of a send to its value.
 func sentMessageValues(message *responses.CreateSingleMessageResponse) map[string]string {
 	return map[string]string{
-		"recipient": message.Recipient.Email,
-		"id":        formatOptionalString(message.ID),
-		"status":    message.Status,
-		"error":     formatOptionalString(message.Error),
+		"recipient":         message.Recipient.Email,
+		"id":                formatOptionalString(message.ID),
+		"message_id_header": formatOptionalString(message.MessageIDHeader),
+		"status":            message.Status,
+		"error":             formatOptionalString(message.Error),
 	}
 }

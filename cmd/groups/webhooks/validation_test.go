@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -44,15 +45,37 @@ func TestCommandsRejectBadInputBeforeAuthenticating(t *testing.T) {
 		{"create with events and all events", NewCreateCommand,
 			[]string{"--name", "Events", "--url", "https://example.com/hook", "--scope", "global", "--events", "delivered", "--all-events"},
 			"--events and --all-events cannot be used together"},
+		{"create with events and all contact events", NewCreateCommand,
+			[]string{"--name", "Events", "--url", "https://example.com/hook", "--events", "delivered", "--all-contact-events"},
+			"--events and --all-contact-events cannot be used together"},
+		{"create with an unknown origin", NewCreateCommand,
+			[]string{"--name", "Events", "--url", "https://example.com/hook", "--all-events", "--origins", "nobody"},
+			"--origins must be one of: recipient, api, dashboard, system"},
+		{"create with an empty origin", NewCreateCommand,
+			[]string{"--name", "Events", "--url", "https://example.com/hook", "--all-events", "--origins", ""},
+			"--origins cannot be empty"},
 		{"get with a bad ID", NewGetCommand, []string{"abc"}, `invalid webhook ID value "abc": not a UUID`},
 		{"update with a bad ID", NewUpdateCommand, []string{"abc", "--name", "x"}, `invalid webhook ID value "abc": not a UUID`},
 		{"update with nothing to update", NewUpdateCommand, []string{testWebhookID},
-			"at least one of --name, --url, --enabled, --events, --all-events, --clear-events, --scope or --domains must be provided"},
+			"at least one of --name, --url, --enabled, --events, --all-events, --all-contact-events, --clear-events, " +
+				"--origins, --all-origins, --scope or --domains must be provided"},
 		{"update with an empty name", NewUpdateCommand, []string{testWebhookID, "--name", ""}, "--name cannot be empty"},
 		{"update with an empty event", NewUpdateCommand, []string{testWebhookID, "--events", ""},
 			"--events cannot be empty; use --clear-events to clear it"},
 		{"update with events and clear events", NewUpdateCommand, []string{testWebhookID, "--events", "delivered", "--clear-events"},
 			"--events and --clear-events cannot be used together"},
+		{"update with clear events and all events", NewUpdateCommand, []string{testWebhookID, "--clear-events", "--all-events"},
+			"--clear-events and --all-events cannot be used together"},
+		{"update with clear events and all contact events", NewUpdateCommand, []string{testWebhookID, "--clear-events", "--all-contact-events"},
+			"--clear-events and --all-contact-events cannot be used together"},
+		{"update with events and all contact events", NewUpdateCommand, []string{testWebhookID, "--events", "delivered", "--all-contact-events"},
+			"--events and --all-contact-events cannot be used together"},
+		{"update with events and all events", NewUpdateCommand, []string{testWebhookID, "--events", "delivered", "--all-events"},
+			"--events and --all-events cannot be used together"},
+		{"update with origins and all origins", NewUpdateCommand, []string{testWebhookID, "--origins", "api", "--all-origins"},
+			"--origins and --all-origins cannot be used together"},
+		{"update with an unknown origin", NewUpdateCommand, []string{testWebhookID, "--origins", "nobody"},
+			"--origins must be one of: recipient, api, dashboard, system"},
 		{"update with a bad URL", NewUpdateCommand, []string{testWebhookID, "--url", "ftp://example.com"},
 			"--url must be an HTTP or HTTPS URL with a host, such as https://example.com/webhook"},
 		{"listen with a bad forward URL", NewListenCommand, []string{"--forward-to", "localhost:3000"},
@@ -63,11 +86,17 @@ func TestCommandsRejectBadInputBeforeAuthenticating(t *testing.T) {
 			"--skip-verify needs --forward-to"},
 		{"trigger with a bad ID", NewTriggerCommand, []string{"abc", "--all-events"}, `invalid webhook ID value "abc": not a UUID`},
 		{"trigger without events", NewTriggerCommand, []string{testWebhookID},
-			"at least one of --events or --all-events must be provided"},
+			"at least one of --events, --all-events or --all-contact-events must be provided"},
+		{"trigger with events and all contact events", NewTriggerCommand, []string{testWebhookID, "--events", "delivered", "--all-contact-events"},
+			"--events and --all-contact-events cannot be used together"},
+		{"trigger with events and all events", NewTriggerCommand, []string{testWebhookID, "--events", "delivered", "--all-events"},
+			"--events and --all-events cannot be used together"},
 		{"trigger with an unknown event", NewTriggerCommand, []string{testWebhookID, "--events", "message.sent"},
 			`"message.sent" is not an event; --events must be one of: reception, delivered,`},
 		{"listen with a bad webhook ID", NewListenCommand, []string{"--webhook-id", "abc"}, `invalid webhook ID value "abc": not a UUID`},
 		{"listen with an unknown event", NewListenCommand, []string{"--events", "sent"}, `"sent" is not an event; --events must be one of: reception, delivered,`},
+		{"list with an unknown event", NewListCommand, []string{"--events", "sent"}, `"sent" is not an event; --events must be one of: reception, delivered,`},
+		{"list with an empty event", NewListCommand, []string{"--events", ""}, "--events cannot be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -213,7 +242,7 @@ func TestUpdateClearDomainsCannotBeUsedWithDomains(t *testing.T) {
 
 func TestListCSVShowsTheEventsOfEachWebhook(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil)).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
+	mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil), ([]string)(nil)).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
 		`{"object":"list","data":[{"object":"webhook","id":"`+testWebhookID+`","name":"Events","url":"https://example.com/hook","enabled":true,"on_delivered":true,"on_bounced":true}],"pagination":{"has_more":false}}`), nil)
 	testutil.InjectClient(t, mockClient)
 
@@ -222,7 +251,7 @@ func TestListCSVShowsTheEventsOfEachWebhook(t *testing.T) {
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	require.Len(t, lines, 2)
-	assert.Equal(t, "name,id,url,enabled,events,scope,domains,created_at,updated_at,"+
+	assert.Equal(t, "name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,"+
 		"success_count,error_count,errors_since_last_success,last_request_at", lines[0])
 	assert.Contains(t, lines[1], "delivered")
 	assert.Contains(t, lines[1], "bounced")
@@ -231,7 +260,7 @@ func TestListCSVShowsTheEventsOfEachWebhook(t *testing.T) {
 func TestListEnabledFalseAsksForDisabledWebhooks(t *testing.T) {
 	disabled := false
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListWebhooks", common.PaginationParams{}, &disabled).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
+	mockClient.On("ListWebhooks", common.PaginationParams{}, &disabled, ([]string)(nil)).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
 		`{"object":"list","data":[],"pagination":{"has_more":false}}`), nil)
 	testutil.InjectClient(t, mockClient)
 
@@ -243,7 +272,7 @@ func TestListEnabledFalseAsksForDisabledWebhooks(t *testing.T) {
 
 func TestListTablePutsTheNameThenTheID(t *testing.T) {
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil)).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
+	mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil), ([]string)(nil)).Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t,
 		`{"object":"list","data":[{"object":"webhook","id":"`+testWebhookID+`","name":"Events","url":"https://example.com/hook","enabled":true}],"pagination":{"has_more":false}}`), nil)
 	testutil.InjectClient(t, mockClient)
 
@@ -252,4 +281,54 @@ func TestListTablePutsTheNameThenTheID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Regexp(t, `(?m)^│\s+NAME\s+│\s+ID\s+│`, stdout)
 	assert.Contains(t, stdout, testWebhookID)
+}
+
+// TestListEventsAsksForTheWebhooksWithEveryEventOn checks that --events of
+// webhooks list passes the Name of each event it names, by Name or Type, to
+// the client, which filters by them.
+func TestListEventsAsksForTheWebhooksWithEveryEventOn(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil), []string{"contact_created", "delivered"}).
+		Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t, `{"object":"list","data":[],"pagination":{"has_more":false}}`), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, _, err := testutil.RunCommand(t, NewListCommand(), "plain", "", "--events", "contact.created", "--events", "delivered")
+
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateSendsTheOriginsGivenAndNoneWithout(t *testing.T) {
+	assert.Equal(t, []string{"api", "system"}, createdRequest(t, "--all-events", "--origins", "api", "--origins", "system").Origins)
+	assert.Equal(t, []string{"recipient", "dashboard"}, createdRequest(t, "--all-events", "--origins", "recipient,dashboard").Origins)
+
+	without := createdRequest(t, "--all-events")
+	assert.Nil(t, without.Origins)
+	data, err := json.Marshal(without)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), `"origins"`)
+}
+
+func TestUpdateOriginsReplaceTheOriginsAndAllOriginsSendsEveryOne(t *testing.T) {
+	assert.Equal(t, []string{"api"}, updatedRequest(t, "--origins", "api").Origins)
+	assert.Equal(t, []string{"recipient", "api", "dashboard", "system"}, updatedRequest(t, "--all-origins").Origins)
+	assert.Nil(t, updatedRequest(t, "--name", "Events").Origins)
+}
+
+// TestCreateWithAllContactEventsAsksForNoEvents checks that
+// --all-contact-events alone is an event flag, so create on a terminal does
+// not ask for the events.
+func TestCreateWithAllContactEventsAsksForNoEvents(t *testing.T) {
+	t.Cleanup(prompt.TreatStdinAsTerminalForTesting())
+	var sent requests.CreateWebhookRequest
+	mockClient := &mocks.MockClient{}
+	testutil.CaptureRequest(mockClient, "CreateWebhook", &sent, mocks.APIResponse[responses.Webhook](t, webhookBody))
+	testutil.InjectClient(t, mockClient)
+
+	_, stderr, err := testutil.RunCommand(t, NewCreateCommand(), "json", "",
+		"--name", "Events", "--url", "https://example.com/hook", "--all-contact-events")
+
+	require.NoError(t, err)
+	assert.NotContains(t, stderr, "Events to send")
+	assert.True(t, sent.OnContactCreated && sent.OnContactComplained && !sent.OnDelivered, "%+v", sent)
 }

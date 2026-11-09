@@ -25,12 +25,17 @@ once. --publish publishes the whole draft, and on its own only publishes.
 --subject "" and --preheader "" clear those fields. --from replaces the sender
 address and name together, and --clear-from removes the sender and the
 reply-to. --clear-reply-to removes the reply-to. --regenerate-text makes the
-text version again from the HTML. The editor cannot change.`,
+text version again from the HTML. The editor cannot change: --markup-file
+replaces the design of a simple template, --mjml-file that of an advanced
+one and --html-file that of an html one.`,
 		Example: `  # Change the subject in the draft
   ahasend templates update 123e4567-e89b-12d3-a456-426614174000 --subject "Welcome aboard"
 
   # Replace the design and publish it
   ahasend templates update 123e4567-e89b-12d3-a456-426614174000 --mjml-file welcome.mjml --publish
+
+  # Write back an edited AhaML design
+  ahasend templates update 123e4567-e89b-12d3-a456-426614174000 --markup-file design.ahaml
 
   # Make the text version again from the HTML
   ahasend templates update 123e4567-e89b-12d3-a456-426614174000 --regenerate-text
@@ -95,8 +100,9 @@ func runTemplatesUpdate(cmd *cobra.Command, args []string) error {
 	}
 	if request.Name == nil && request.Subject == nil && request.Preheader == nil &&
 		request.From == nil && request.ReplyTo == nil && request.Content == nil && !request.Publish {
-		return errors.NewValidationError("at least one of --name, --subject, --preheader, --mjml-file, --html-file, "+
-			"--text-file, --regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --publish must be provided", nil)
+		return errors.NewValidationError("at least one of --name, --subject, --preheader, --markup-file, --mjml-file, "+
+			"--html-file, --text-file, --regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --publish "+
+			"must be provided", nil)
 	}
 
 	idempotency, err := cmdutil.IdempotencyOptions(cmd)

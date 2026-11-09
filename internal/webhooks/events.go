@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,20 +16,48 @@ import (
 type Event struct {
 	Name string
 	Type string
+	// Contact marks a contact event, which the API allows only for an
+	// account with the marketing features and an API key with the contact
+	// read scopes.
+	Contact bool
 }
 
-// Events lists every webhook event type.
+// Events lists every webhook event type, in the order the CLI shows them.
 var Events = []Event{
-	{"reception", "message.reception"},
-	{"delivered", "message.delivered"},
-	{"transient_error", "message.transient_error"},
-	{"failed", "message.failed"},
-	{"bounced", "message.bounced"},
-	{"suppressed", "message.suppressed"},
-	{"opened", "message.opened"},
-	{"clicked", "message.clicked"},
-	{"suppression_created", "suppression.created"},
-	{"dns_error", "domain.dns_error"},
+	{Name: "reception", Type: "message.reception"},
+	{Name: "delivered", Type: "message.delivered"},
+	{Name: "transient_error", Type: "message.transient_error"},
+	{Name: "failed", Type: "message.failed"},
+	{Name: "bounced", Type: "message.bounced"},
+	{Name: "suppressed", Type: "message.suppressed"},
+	{Name: "opened", Type: "message.opened"},
+	{Name: "clicked", Type: "message.clicked"},
+	{Name: "unsubscribed", Type: "message.unsubscribed"},
+	{Name: "complained", Type: "message.complained"},
+	{Name: "suppression_created", Type: "suppression.created"},
+	{Name: "suppression_deleted", Type: "suppression.deleted"},
+	{Name: "dns_error", Type: "domain.dns_error"},
+	{Name: "contact_created", Type: "contact.created", Contact: true},
+	{Name: "contact_updated", Type: "contact.updated", Contact: true},
+	{Name: "contact_deleted", Type: "contact.deleted", Contact: true},
+	{Name: "contact_added_to_list", Type: "contact.added_to_list", Contact: true},
+	{Name: "contact_removed_from_list", Type: "contact.removed_from_list", Contact: true},
+	{Name: "contact_subscribed", Type: "contact.subscribed", Contact: true},
+	{Name: "contact_unsubscribed", Type: "contact.unsubscribed", Contact: true},
+	{Name: "contact_complained", Type: "contact.complained", Contact: true},
+}
+
+// SelectEvents returns the events the event flags select: events, the ones
+// --events named, then, in the order of Events, every event but the contact
+// events when all is set, and every contact event when allContact is set.
+func SelectEvents(events []Event, all, allContact bool) []Event {
+	selected := slices.Clone(events)
+	for _, event := range Events {
+		if (all && !event.Contact) || (allContact && event.Contact) {
+			selected = append(selected, event)
+		}
+	}
+	return selected
 }
 
 // ParseEvents returns the event each value names, by its Name or its Type in
@@ -48,7 +77,7 @@ func ParseEvents(values []string) ([]Event, error) {
 			names = "are not events"
 		}
 		return nil, errors.NewValidationError(fmt.Sprintf("%s %s; --events must be one of: %s, or the same events as %s",
-			strings.Join(unknown, ", "), names, strings.Join(eventNames(Events), ", "), strings.Join(EventTypes(Events), ", ")), nil)
+			strings.Join(unknown, ", "), names, strings.Join(EventNames(Events), ", "), strings.Join(EventTypes(Events), ", ")), nil)
 	}
 
 	var events []Event
@@ -78,28 +107,23 @@ func FindEvent(value string) (Event, bool) {
 // EventValues returns the values --events takes: the Name of each event,
 // then its Type.
 func EventValues() []string {
-	return append(EventNames(), EventTypes(Events)...)
+	return append(EventNames(Events), EventTypes(Events)...)
 }
 
-// EventNames returns the Name of every event.
-func EventNames() []string {
-	return eventNames(Events)
-}
-
-// eventNames returns the Name of each event.
-func eventNames(events []Event) []string {
-	names := make([]string, len(events))
-	for i, event := range events {
-		names[i] = event.Name
+// EventNames returns the Name of each event, or nil when there are none.
+func EventNames(events []Event) []string {
+	var names []string
+	for _, event := range events {
+		names = append(names, event.Name)
 	}
 	return names
 }
 
-// EventTypes returns the Type of each event.
+// EventTypes returns the Type of each event, or nil when there are none.
 func EventTypes(events []Event) []string {
-	types := make([]string, len(events))
-	for i, event := range events {
-		types[i] = event.Type
+	var types []string
+	for _, event := range events {
+		types = append(types, event.Type)
 	}
 	return types
 }

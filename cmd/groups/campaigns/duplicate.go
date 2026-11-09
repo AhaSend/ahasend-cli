@@ -18,8 +18,13 @@ func NewDuplicateCommand() *cobra.Command {
 		Use:   "duplicate <campaign-id>",
 		Short: "Copy a campaign into a new draft",
 		Long: `Make a new draft from a campaign in any status. The copy gets the campaign's
-design, subject, preview text, sender and the lists that still exist. Without
---name it is named "Copy of" and the campaign's name.`,
+design, subject, preview text, sender, reply-to, and the lists and segments,
+included and excluded, that still exist. Without --name it is named
+"Copy of" and the campaign's name.
+
+While a segment of the audience is building, the API waits for it and can
+then refuse with 409; run the command again, with the same --idempotency-key
+or a new one. "segments get" shows a segment's state.`,
 		Example: `  # Duplicate a campaign
   ahasend campaigns duplicate 123e4567-e89b-12d3-a456-426614174000
 

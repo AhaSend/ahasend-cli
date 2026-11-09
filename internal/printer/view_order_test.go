@@ -83,15 +83,19 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	message.SentAt = &sent
 	message.DeliveryAttempts = []responses.DeliveryEvent{{Time: styleTime, Status: "delivered", Log: "250 OK"}}
 	credential, subAccount := styleSMTP(), styleSubAccount()
-	draft, version := templateDraftFixture(), templateVersionDetailFixture()
+	version := templateVersionDetailFixture()
 	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
+	segment, segmentDetail := segmentFixture(), segmentDetailFixture()
 	template, campaign, campaignTemplate := templateFixture(), campaignFixture(), campaignTemplateFixture()
+	simpleTemplate, simpleCampaign := simpleTemplateFixture(), simpleCampaignFixture()
+	simpleCampaignTemplate := simpleCampaignTemplateFixture()
+	failedVersion := templateVersionDetailFixture()
+	failedVersion.Content = markupErrorContentFixture()
 	views := map[string]func(ResponseHandler) error{
 		"api key":          func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
 		"created api key":  func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
 		"updated api key":  func(h ResponseHandler) error { return h.HandleUpdateAPIKey(&key, ResultConfig{}) },
 		"message":          func(h ResponseHandler) error { return h.HandleSingleMessage(&message, SingleConfig{}) },
-		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
 		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
 		"domain":           func(h ResponseHandler) error { return h.HandleSingleDomain(&domain, SingleConfig{}) },
 		"webhook":          func(h ResponseHandler) error { return h.HandleSingleWebhook(&webhook, SingleConfig{}) },
@@ -103,10 +107,20 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		"contact":          func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
 		"list":             func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
 		"list member":      func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"segment":          func(h ResponseHandler) error { return h.HandleSingleSegment(&segment, SingleConfig{}) },
+		"segment detail":   func(h ResponseHandler) error { return h.HandleSegmentDetail(&segmentDetail, SingleConfig{}) },
 		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign template": func(h ResponseHandler) error {
 			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
+		},
+		"template with markup": func(h ResponseHandler) error { return h.HandleSingleTemplate(&simpleTemplate, SingleConfig{}) },
+		"campaign with markup": func(h ResponseHandler) error { return h.HandleSingleCampaign(&simpleCampaign, SingleConfig{}) },
+		"campaign template with markup": func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(&simpleCampaignTemplate, SingleConfig{})
+		},
+		"template version with a markup error": func(h ResponseHandler) error {
+			return h.HandleSingleTemplateVersion(&failedVersion, SingleConfig{})
 		},
 	}
 	for name, render := range views {
@@ -134,9 +148,13 @@ func TestSummaryViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		Currency: "USD", AllocationMethod: "reception", AllocationNote: "By reception",
 		BillingPeriod: responses.SubAccountUsageBillingPeriod{Start: styleTime, End: styleTime},
 	}
+	count := 12
+	preview := segmentPreviewFixture(&count)
+	preview.Contacts = preview.Contacts[:1]
 	views := map[string]func(ResponseHandler) error{
 		"auth status":       func(h ResponseHandler) error { return h.HandleAuthStatus(status) },
 		"sub-account usage": func(h ResponseHandler) error { return h.HandleSubAccountUsage(usage, SingleConfig{}) },
+		"segment preview":   func(h ResponseHandler) error { return h.HandleSegmentPreview(preview, SingleConfig{}) },
 	}
 	for name, render := range views {
 		t.Run(name, func(t *testing.T) {

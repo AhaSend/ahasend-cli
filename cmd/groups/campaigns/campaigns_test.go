@@ -17,6 +17,7 @@ import (
 	"github.com/AhaSend/ahasend-go/models/requests"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,27 @@ const (
 	testListID     = "55555555-5555-4555-8555-555555555555"
 	testListID2    = "66666666-6666-4666-8666-666666666666"
 	testTemplateID = "77777777-7777-4777-8777-777777777777"
+	testSegmentID  = "88888888-8888-4888-8888-888888888888"
+	testSegmentID2 = "99999999-9999-4999-8999-999999999999"
 )
+
+// testAudienceCampaign returns a campaign whose audience has a list, a
+// segment, an excluded list and an excluded segment.
+func testAudienceCampaign() *responses.Campaign {
+	campaign := testCampaign()
+	campaign.SegmentIDs = []uuid.UUID{uuid.MustParse(testSegmentID)}
+	campaign.ExcludeListIDs = []uuid.UUID{uuid.MustParse(testListID2)}
+	campaign.ExcludeSegmentIDs = []uuid.UUID{uuid.MustParse(testSegmentID2)}
+	return campaign
+}
+
+// audienceRows are the plain lines of testAudienceCampaign's audience.
+const audienceRows = "Lists: " + testListID + "\nSegments: " + testSegmentID + "\nExcluded Lists: " + testListID2 +
+	"\nExcluded Segments: " + testSegmentID2 + "\n"
+
+// audienceCSV are the CSV cells of testAudienceCampaign's audience, from
+// list_ids on.
+const audienceCSV = testListID + "," + testSegmentID + "," + testListID2 + "," + testSegmentID2 + ","
 
 func testCampaign() *responses.Campaign {
 	subject := "October news"
@@ -69,6 +90,22 @@ func notReadyError() *api.APIError {
 const notReadySendText = "failed to send campaign: campaign is not ready to send\n" +
 	"sender_missing: Add a sender\n" +
 	"lists_missing: Choose at least one list"
+
+// uncheckedError returns the 400 the API answers a send or test of a
+// campaign whose text could not be checked, and that has no list.
+func uncheckedError() *api.APIError {
+	return &api.APIError{
+		StatusCode: 400,
+		Message:    "campaign is not ready to send",
+		Raw: []byte(`{"message":"campaign is not ready to send","issues":[` +
+			`{"code":"lists_missing","message":"Choose at least one list"},` +
+			`{"code":"text_unchecked","message":"The text could not be checked. Try again in a moment."}]}`),
+	}
+}
+
+// uncheckedIssues are the issue lines of uncheckedError.
+const uncheckedIssues = "lists_missing: Choose at least one list\n" +
+	"text_unchecked: The text could not be checked. Try again in a moment.\n"
 
 // list ------------------------------------------------------------------------
 
@@ -144,6 +181,68 @@ func TestGetShowsDraftIssues(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestGetShowsTheAudience(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetCampaign", uuid.MustParse(testCampaignID)).Return(testAudienceCampaign(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	plain, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testCampaignID)
+	require.NoError(t, err)
+	assert.Contains(t, plain, "\n"+audienceRows)
+	csv, _, err := testutil.RunCommand(t, NewGetCommand(), "csv", "", testCampaignID)
+	require.NoError(t, err)
+	assert.Contains(t, csv, "list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,")
+	assert.Contains(t, csv, ","+audienceCSV)
+}
+
+// testMarkup is the AhaML of a Simple Editor design, with the trailing
+// newline the API ends it with.
+const testMarkup = "<Email version=\"1\">\n  <Paragraph>October news</Paragraph>\n</Email>\n"
+
+func TestGetMarkupWritesTheMarkupAlone(t *testing.T) {
+	campaign := testCampaign()
+	markup := testMarkup
+	campaign.Content = &responses.TemplateContent{Markup: &markup, HTML: "<p>October news</p>"}
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetCampaign", uuid.MustParse(testCampaignID)).Return(campaign, nil)
+	testutil.InjectClient(t, mockClient)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testCampaignID, "--markup")
+	require.NoError(t, err)
+	assert.Equal(t, testMarkup, stdout)
+	assert.Empty(t, stderr)
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetMarkupFailsWithoutAhaML(t *testing.T) {
+	withError := testCampaign()
+	withError.Content = &responses.TemplateContent{HTML: "<p>Hi</p>",
+		MarkupError: &responses.MarkupError{Code: "renderer_unavailable", Message: "try again later"}}
+	html := testCampaign()
+	html.Content = &responses.TemplateContent{HTML: "<p>Hi</p>"}
+	tests := map[string]struct {
+		campaign *responses.Campaign
+		message  string
+	}{
+		"markup error": {withError, "the design could not be read as AhaML: renderer_unavailable: try again later"},
+		"HTML design":  {html, "campaign " + testCampaignID + " has no AhaML: only a Simple Editor design has one"},
+		"no content":   {testCampaign(), "campaign " + testCampaignID + " has no content"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("GetCampaign", uuid.MustParse(testCampaignID)).Return(test.campaign, nil)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testCampaignID, "--markup")
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.Equal(t, 1, clierrors.GetExitCode(err))
+			assert.Empty(t, stdout)
+		})
+	}
+}
+
 func TestGetRejectsBadCampaignIDBeforeAuthentication(t *testing.T) {
 	authCalled := testutil.RefuseAuth(t)
 
@@ -183,6 +282,88 @@ func TestCreateWithTwoListIDsSendsBothAndIdempotencyKey(t *testing.T) {
 
 	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "October", "--list-id", testListID,
 		"--list-id", testListID2, "--mjml-file", testutil.WriteTempFile(t, "body.mjml", mjml), "--idempotency-key", "create-key")
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+// TestCreateSendsSegmentsAndExclusions checks that the audience flags reach
+// the request, each in its set.
+func TestCreateSendsSegmentsAndExclusions(t *testing.T) {
+	var captured requests.CreateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	testutil.CaptureRequest(mockClient, "CreateCampaign", &captured, testCampaign())
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "Win back", "--segment-id", testSegmentID,
+		"--exclude-list-id", testListID, "--exclude-segment-id", testSegmentID2)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{
+		"name":                "Win back",
+		"segment_ids":         []any{testSegmentID},
+		"exclude_list_ids":    []any{testListID},
+		"exclude_segment_ids": []any{testSegmentID2},
+	}, testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
+// TestAudienceLimitsCountIncludedAndExcludedTogether checks the limits of
+// 50 lists and 10 segments, included and excluded together, before
+// authentication, on create and update.
+func TestAudienceLimitsCountIncludedAndExcludedTogether(t *testing.T) {
+	ids := func(prefix string, from, count int) string {
+		values := make([]string, count)
+		for i := range values {
+			values[i] = fmt.Sprintf("%s-0000-4000-8000-%012d", prefix, from+i)
+		}
+		return strings.Join(values, ",")
+	}
+	lists := []string{"--list-id", ids("00000000", 0, 41), "--exclude-list-id", ids("00000000", 41, 10)}
+	segments := []string{"--segment-id", ids("11111111", 0, 10), "--exclude-segment-id", ids("11111111", 10, 1)}
+	tests := []struct {
+		args    []string
+		message string
+	}{
+		{lists, "--list-id and --exclude-list-id take at most 50 lists in all, got 51"},
+		{segments, "--segment-id and --exclude-segment-id take at most 10 segments in all, got 11"},
+	}
+	for _, test := range tests {
+		for name, command := range map[string]func() *cobra.Command{"create": NewCreateCommand, "update": NewUpdateCommand} {
+			t.Run(name+" "+test.args[0], func(t *testing.T) {
+				args := append([]string{"--name", "Fall"}, test.args...)
+				if name == "update" {
+					args = append([]string{testCampaignID}, test.args...)
+				}
+				authCalled := testutil.RefuseAuth(t)
+
+				_, err := testutil.RunPlain(t, command(), args...)
+
+				require.Error(t, err)
+				assert.Equal(t, test.message, err.Error())
+				assert.Equal(t, 4, clierrors.GetExitCode(err))
+				assert.False(t, *authCalled)
+			})
+		}
+	}
+}
+
+// TestAudienceLimitsCountAnIDGivenTwiceOnce checks that the CLI counts an ID
+// given to both an ID flag and its exclude flag once. The API refuses such an
+// ID for being in both sets.
+func TestAudienceLimitsCountAnIDGivenTwiceOnce(t *testing.T) {
+	ids := make([]string, 0, 10)
+	for i := range 10 {
+		ids = append(ids, fmt.Sprintf("11111111-0000-4000-8000-%012d", i))
+	}
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateCampaign", mock.MatchedBy(func(request requests.CreateCampaignRequest) bool {
+		return len(request.SegmentIDs) == 10 && len(request.ExcludeSegmentIDs) == 1
+	})).Return(testCampaign(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "October", "--segment-id", strings.Join(ids, ","),
+		"--exclude-segment-id", ids[0])
+
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -231,6 +412,20 @@ func TestCreateSendsEveryContentAndSenderField(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestCreateWithMarkupFileSendsMarkupAndTheSimpleEditor(t *testing.T) {
+	var captured requests.CreateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	testutil.CaptureRequest(mockClient, "CreateCampaign", &captured, testCampaign())
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "October",
+		"--markup-file", testutil.WriteTempFile(t, "october.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"name": "October", "editor": "simple", "content": map[string]any{"markup": testMarkup}},
+		testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
 func TestCreateWithCampaignTemplateIDSendsTemplateID(t *testing.T) {
 	templateID := uuid.MustParse(testTemplateID)
 	mockClient := &mocks.MockClient{}
@@ -247,6 +442,7 @@ func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 	htmlPath := testutil.WriteTempFile(t, "body.html", "<p></p>")
 	mjmlPath := testutil.WriteTempFile(t, "body.mjml", "<mjml></mjml>")
 	textPath := testutil.WriteTempFile(t, "body.txt", "Hi")
+	markupPath := testutil.WriteTempFile(t, "body.ahaml", testMarkup)
 	tests := []struct {
 		args    []string
 		message string
@@ -260,8 +456,20 @@ func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 			"--campaign-template-id and --text-file cannot be used together"},
 		{[]string{"--name", "x", "--campaign-template-id", testTemplateID, "--editor", "html"},
 			"--campaign-template-id and --editor cannot be used together"},
+		{[]string{"--name", "x", "--campaign-template-id", testTemplateID, "--markup-file", markupPath},
+			"--campaign-template-id and --markup-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--mjml-file", mjmlPath}, "--markup-file and --mjml-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--html-file", htmlPath}, "--markup-file and --html-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--editor", "html"},
+			"--editor html cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--editor", "advanced"},
+			"--editor advanced cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "x", "--markup-file", testutil.WriteTempFile(t, "empty.ahaml", "")}, "--markup-file is empty"},
 		{[]string{"--name", "x", "--campaign-template-id", "nope"}, `invalid campaign template ID value "nope": not a UUID`},
 		{[]string{"--name", "x", "--list-id", "nope"}, `invalid list ID value "nope": not a UUID`},
+		{[]string{"--name", "x", "--segment-id", "nope"}, `invalid segment ID value "nope": not a UUID`},
+		{[]string{"--name", "x", "--exclude-list-id", "nope"}, `invalid list ID value "nope": not a UUID`},
+		{[]string{"--name", "x", "--exclude-segment-id", ""}, "--exclude-segment-id cannot be empty"},
 		{[]string{"--name", "x", "--mjml-file", mjmlPath, "--html-file", htmlPath}, "--mjml-file and --html-file cannot be used together"},
 		{[]string{"--name", "x", "--from-name", "Jane"}, "--from-name needs --from"},
 		{[]string{"--name", "x", "--from", ""}, "--from cannot be empty"},
@@ -318,6 +526,58 @@ func TestUpdateClearFromSendsNullFrom(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+// TestUpdateClearExcludeSegmentsSendsAnEmptySetAlone checks that a clear
+// flag sends its set as [] and leaves the other sets out, so the API keeps
+// them.
+func TestUpdateClearExcludeSegmentsSendsAnEmptySetAlone(t *testing.T) {
+	var captured requests.UpdateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	expectUpdate(mockClient, &captured)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewUpdateCommand(), testCampaignID, "--clear-exclude-segments")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"exclude_segment_ids": []any{}}, testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
+// TestUpdateReplacesAndEmptiesTheAudienceSets checks that each ID flag
+// replaces its set and each clear flag empties its own.
+func TestUpdateReplacesAndEmptiesTheAudienceSets(t *testing.T) {
+	tests := map[string]struct {
+		args []string
+		wire map[string]any
+	}{
+		"replace": {
+			[]string{"--list-id", testListID, "--segment-id", testSegmentID, "--exclude-list-id", testListID2,
+				"--exclude-segment-id", testSegmentID2},
+			map[string]any{"list_ids": []any{testListID}, "segment_ids": []any{testSegmentID},
+				"exclude_list_ids": []any{testListID2}, "exclude_segment_ids": []any{testSegmentID2}},
+		},
+		"empty": {
+			[]string{"--clear-lists", "--clear-segments", "--clear-exclude-lists", "--clear-exclude-segments"},
+			map[string]any{"list_ids": []any{}, "segment_ids": []any{}, "exclude_list_ids": []any{}, "exclude_segment_ids": []any{}},
+		},
+		"segments for lists": {
+			[]string{"--segment-id", testSegmentID, "--clear-lists"},
+			map[string]any{"list_ids": []any{}, "segment_ids": []any{testSegmentID}},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var captured requests.UpdateCampaignRequest
+			mockClient := &mocks.MockClient{}
+			expectUpdate(mockClient, &captured)
+			testutil.InjectClient(t, mockClient)
+
+			_, err := testutil.RunPlain(t, NewUpdateCommand(), append([]string{testCampaignID}, test.args...)...)
+			require.NoError(t, err)
+			assert.Equal(t, test.wire, testutil.WireJSON(t, captured))
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
 func TestUpdateRegenerateTextSendsNullText(t *testing.T) {
 	var captured requests.UpdateCampaignRequest
 	mockClient := &mocks.MockClient{}
@@ -351,6 +611,19 @@ func TestUpdateSendsChangedFieldsAndIdempotencyKey(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestUpdateWithMarkupFileAloneSendsTheMarkup(t *testing.T) {
+	var captured requests.UpdateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	expectUpdate(mockClient, &captured)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewUpdateCommand(), testCampaignID,
+		"--markup-file", testutil.WriteTempFile(t, "october.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"content": map[string]any{"markup": testMarkup}}, testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
 func TestUpdateSendsContentAndSender(t *testing.T) {
 	mjml := "<mjml></mjml>"
 	text := "Hi"
@@ -370,13 +643,25 @@ func TestUpdateSendsContentAndSender(t *testing.T) {
 
 func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 	textPath := testutil.WriteTempFile(t, "body.txt", "Hi")
-	atLeastOne := "at least one of --name, --subject, --preheader, --mjml-file, --html-file, --text-file, " +
-		"--regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --list-id must be provided"
+	atLeastOne := "at least one of --name, --subject, --preheader, --markup-file, --mjml-file, --html-file, --text-file, " +
+		"--regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to, --list-id, --clear-lists, --segment-id, " +
+		"--clear-segments, --exclude-list-id, --clear-exclude-lists, --exclude-segment-id or --clear-exclude-segments " +
+		"must be provided"
 	tests := []struct {
 		args    []string
 		message string
 	}{
-		{[]string{testCampaignID, "--list-id", ""}, "--list-id cannot be empty"},
+		{[]string{testCampaignID, "--list-id", ""}, "--list-id cannot be empty; use --clear-lists to clear it"},
+		{[]string{testCampaignID, "--clear-lists", "--list-id", testListID}, "--clear-lists and --list-id cannot be used together"},
+		{[]string{testCampaignID, "--clear-lists", "--list-id", "x"}, "--clear-lists and --list-id cannot be used together"},
+		{[]string{testCampaignID, "--segment-id", testSegmentID, "--clear-segments=false"},
+			"--segment-id and --clear-segments cannot be used together"},
+		{[]string{testCampaignID, "--exclude-list-id", testListID, "--clear-exclude-lists"},
+			"--exclude-list-id and --clear-exclude-lists cannot be used together"},
+		{[]string{testCampaignID, "--clear-exclude-segments", "--exclude-segment-id", testSegmentID},
+			"--clear-exclude-segments and --exclude-segment-id cannot be used together"},
+		{[]string{testCampaignID, "--clear-segments=false", "--clear-exclude-lists=false"}, atLeastOne},
+		{[]string{testCampaignID, "--segment-id", "nope"}, `invalid segment ID value "nope": not a UUID`},
 		{[]string{testCampaignID, "--list-id", testListID, "--list-id", "nope"}, `invalid list ID value "nope": not a UUID`},
 		{[]string{"not-a-uuid", "--name", "x"}, `invalid campaign ID value "not-a-uuid": not a UUID`},
 		{[]string{testCampaignID}, atLeastOne},
@@ -385,6 +670,8 @@ func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 		{[]string{testCampaignID, "--regenerate-text", "--text-file", textPath}, "--regenerate-text and --text-file cannot be used together"},
 		{[]string{testCampaignID, "--text-file", testutil.WriteTempFile(t, "empty.txt", "")}, "--text-file is empty"},
 		{[]string{testCampaignID, "--mjml-file", textPath, "--html-file", textPath}, "--mjml-file and --html-file cannot be used together"},
+		{[]string{testCampaignID, "--markup-file", textPath, "--html-file", textPath}, "--markup-file and --html-file cannot be used together"},
+		{[]string{testCampaignID, "--markup-file", testutil.WriteTempFile(t, "empty.ahaml", "")}, "--markup-file is empty"},
 		{[]string{testCampaignID, "--from-name", "Jane"}, "--from-name needs --from"},
 		{[]string{testCampaignID, "--from", ""}, "--from cannot be empty; use --clear-from to clear it"},
 		{[]string{testCampaignID, "--name", ""}, "--name cannot be empty"},
@@ -605,7 +892,7 @@ func TestSendPromptWithoutScheduleNamesCampaign(t *testing.T) {
 
 	_, stderr, err := testutil.RunCommand(t, NewSendCommand(), "plain", "\n", testCampaignID)
 	require.Error(t, err)
-	assert.Contains(t, stderr, "Are you sure you want to send campaign "+testCampaignID+" to its lists now? (y/N): ")
+	assert.Contains(t, stderr, "Are you sure you want to send campaign "+testCampaignID+" to its audience now? (y/N): ")
 }
 
 func TestSendAcceptedPromptsOnStderrOnly(t *testing.T) {
@@ -651,6 +938,57 @@ func TestSendNotReadyListsIssuesOutsideJSON(t *testing.T) {
 			assert.Equal(t, clierrors.ErrCodeValidation, cliErr.Code)
 			assert.Empty(t, stdout)
 			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSendOutputShowsTheAudience(t *testing.T) {
+	send := &responses.CampaignSend{Campaign: *testAudienceCampaign()}
+	mockClient := &mocks.MockClient{}
+	mockClient.On("SendCampaign", uuid.MustParse(testCampaignID), requests.SendCampaignRequest{}).Return(send, nil)
+	testutil.InjectClient(t, mockClient)
+
+	plain, _, err := testutil.RunCommand(t, NewSendCommand(), "plain", "", testCampaignID, "--force")
+	require.NoError(t, err)
+	assert.Contains(t, plain, "\n"+audienceRows)
+	csv, _, err := testutil.RunCommand(t, NewSendCommand(), "csv", "", testCampaignID, "--force")
+	require.NoError(t, err)
+	assert.Contains(t, csv, "list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,")
+	assert.Contains(t, csv, ","+audienceCSV)
+}
+
+// TestTextUncheckedSaysToRunTheCommandAgain checks the line a refusal with
+// the text_unchecked issue ends with: a send with --idempotency-key, whose
+// refusal the API stores, needs a new key, and a send without one and a
+// test do not.
+func TestTextUncheckedSaysToRunTheCommandAgain(t *testing.T) {
+	const again = "text_unchecked clears on its own: run the command again"
+	tests := map[string]struct {
+		command func() *cobra.Command
+		method  string
+		args    []string
+		want    string
+	}{
+		"send": {NewSendCommand, "SendCampaign", []string{testCampaignID, "--force"},
+			"failed to send campaign: campaign is not ready to send\n" + uncheckedIssues + again},
+		"send with a key": {NewSendCommand, "SendCampaign", []string{testCampaignID, "--force", "--idempotency-key", "send-1"},
+			"failed to send campaign: campaign is not ready to send\n" + uncheckedIssues + again + " with a new --idempotency-key"},
+		"test": {NewTestCommand, "TestCampaign", []string{testCampaignID, "--to", "jane@example.com"},
+			"failed to test campaign: campaign is not ready to send\n" + uncheckedIssues + again},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On(test.method, mock.Anything, mock.Anything).Return(nil, uncheckedError()).Maybe()
+			mockClient.On(test.method, mock.Anything, mock.Anything, mock.Anything).Return(nil, uncheckedError()).Maybe()
+			testutil.InjectClient(t, mockClient)
+
+			stdout, _, err := testutil.RunCommand(t, test.command(), "table", "", test.args...)
+
+			require.Error(t, err)
+			assert.Equal(t, test.want, err.Error())
+			assert.Equal(t, 4, clierrors.GetExitCode(err))
+			assert.Empty(t, stdout)
 		})
 	}
 }
@@ -940,11 +1278,12 @@ func TestStatsRejectsBadCampaignIDBeforeAuthentication(t *testing.T) {
 // recipients ------------------------------------------------------------------
 
 func testRecipientsPage() *responses.PaginatedCampaignRecipientsResponse {
+	listName := "Newsletter"
 	return &responses.PaginatedCampaignRecipientsResponse{
 		Object: "list",
 		Data: []responses.CampaignRecipient{{
 			Object: "campaign_recipient", ContactID: uuid.MustParse(testListID),
-			Email: "jane@example.com", ListName: "Newsletter", Status: "Delivered", Attempts: 1,
+			Email: "jane@example.com", ListName: &listName, Status: "Delivered", Attempts: 1,
 		}},
 	}
 }

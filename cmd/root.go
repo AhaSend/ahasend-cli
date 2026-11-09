@@ -15,6 +15,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/cmd/groups/lists"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/messages"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/routes"
+	"github.com/AhaSend/ahasend-cli/cmd/groups/segments"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/smtp"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/stats"
 	"github.com/AhaSend/ahasend-cli/cmd/groups/subaccounts"
@@ -281,6 +282,7 @@ func addCommands(root *cobra.Command) {
 	root.AddCommand(lists.NewCommand())
 	root.AddCommand(messages.NewCommand())
 	root.AddCommand(routes.NewCommand())
+	root.AddCommand(segments.NewCommand())
 	root.AddCommand(smtp.NewCommand())
 	root.AddCommand(stats.NewCommand())
 	root.AddCommand(subaccounts.NewCommand())

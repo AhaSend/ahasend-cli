@@ -32,7 +32,7 @@ type AhaSendClient interface {
 	DeleteDomain(domain string) (*common.SuccessResponse, error)
 
 	// Webhook operations
-	ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error)
+	ListWebhooks(pagination common.PaginationParams, enabled *bool, events []string) (*responses.PaginatedWebhooksResponse, error)
 	CreateWebhook(req requests.CreateWebhookRequest, opts ...api.RequestOption) (*responses.Webhook, error)
 	GetWebhook(webhookID uuid.UUID) (*responses.Webhook, error)
 	UpdateWebhook(webhookID uuid.UUID, req requests.UpdateWebhookRequest) (*responses.Webhook, error)
@@ -116,13 +116,23 @@ type AhaSendClient interface {
 	DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error)
 	GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error)
 
+	// Segment operations
+	GetSegments(params requests.GetSegmentsParams) (*responses.PaginatedSegmentsResponse, error)
+	GetSegment(segmentID uuid.UUID) (*responses.SegmentDetail, error)
+	CreateSegment(req requests.CreateSegmentRequest, opts ...api.RequestOption) (*responses.Segment, error)
+	UpdateSegment(segmentID uuid.UUID, req requests.UpdateSegmentRequest) (*responses.Segment, error)
+	DeleteSegment(segmentID uuid.UUID) (*common.SuccessResponse, error)
+	PreviewSegment(req requests.PreviewSegmentRequest) (*responses.SegmentPreview, error)
+	GetSegmentContacts(segmentID uuid.UUID, params requests.GetSegmentContactsParams) (*responses.PaginatedSegmentContactsResponse, error)
+	GetContactSegments(idOrEmail string, params requests.GetContactSegmentsParams) (*responses.PaginatedSegmentsResponse, error)
+
 	// Template operations
 	GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error)
 	GetTemplate(templateID uuid.UUID) (*responses.Template, error)
+	GetPublishedTemplate(templateID uuid.UUID) (*responses.Template, error)
 	CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
 	UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
 	DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
-	GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error)
 	DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error)
 	PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error)
 	GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error)

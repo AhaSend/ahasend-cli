@@ -20,6 +20,10 @@ status, delivery details, and engagement metrics.
 The message ID is the message's id, which messages send prints as the ID of
 each message.
 
+The delivery attempt of an out-of-band bounce, which the recipient's mail
+server reported after it accepted the message, shows the Report Message ID
+of the bounce report, which this command takes too.
+
 The output includes the raw message content.`,
 		Example: `  # Get message details
   ahasend messages get 550e8400-e29b-41d4-a716-446655440000

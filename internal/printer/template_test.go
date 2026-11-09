@@ -164,7 +164,7 @@ func TestTemplateCSVWritesOneRowPerTemplate(t *testing.T) {
 	require.NoError(t, testHandler(t, "csv", &output, os.Stderr).HandleSingleTemplate(&template, SingleConfig{}))
 	headers, rows := readCSV(t, output.String())
 	require.Len(t, rows, 1)
-	assert.Equal(t, templateListFields, headers)
+	assert.Equal(t, templateDetailFields, headers)
 	row := rows[0]
 	assert.Equal(t, "Welcome", row["name"])
 	assert.Equal(t, "Example <hello@example.com>", row["from"])
@@ -196,4 +196,24 @@ func TestTemplateRendersInEveryFormat(t *testing.T) {
 			assert.Contains(t, list.String(), "Welcome")
 		})
 	}
+}
+
+func TestTemplateVariablesShowTheirKind(t *testing.T) {
+	variables := []responses.TemplateVariable{
+		{Name: "first_name", Required: true, Kind: responses.TemplateVariableKindValue},
+		{Name: "nickname"},
+		{Name: "vip", Kind: responses.TemplateVariableKindCondition},
+		{Name: "items", Required: true, Kind: responses.TemplateVariableKindList, ItemFields: []string{"name", "price"}},
+		{Name: "tags", Kind: responses.TemplateVariableKindList},
+		{Name: "matrix", Required: true, Kind: "grid"},
+	}
+
+	assert.Equal(t, []string{
+		"first_name (required)",
+		"nickname (optional)",
+		"vip (condition; optional)",
+		"items (list of name/price; required)",
+		"tags (list; optional)",
+		"matrix (grid; required)",
+	}, formatTemplateVariables(variables))
 }

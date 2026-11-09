@@ -43,6 +43,7 @@ var ScopeGroups = []ScopeGroup{
 	{"Campaigns", []string{"campaigns:read", "campaigns:write", "campaigns:delete", "campaigns:send"}},
 	{"Contacts", []string{"contacts:read", "contacts:write", "contacts:delete"}},
 	{"Lists", []string{"lists:read", "lists:write", "lists:delete"}},
+	{"Segments", []string{"segments:read", "segments:write", "segments:delete"}},
 	{"SMTP Credentials", []string{
 		"smtp-credentials:read:all", "smtp-credentials:read:{domain}",
 		"smtp-credentials:write:all", "smtp-credentials:write:{domain}",

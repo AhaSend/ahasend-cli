@@ -16,16 +16,20 @@ func NewCreateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --name <name>",
 		Short: "Create a campaign template",
-		Long: `Create a campaign template. Content comes from files: --mjml-file for an
-advanced template or --html-file for an html template, and --text-file for the
-plain text version, which is otherwise made from the HTML. --editor is needed
-when there is neither an MJML nor an HTML file. A campaign can be made from the
-template only once it has HTML.`,
+		Long: `Create a campaign template. Content comes from files: --markup-file for the
+AhaML of a simple template, --mjml-file for an advanced template or
+--html-file for an html template, and --text-file for the plain text version,
+which is otherwise made from the HTML. --markup-file makes the editor simple.
+--editor is needed when there is no markup, MJML or HTML file. A campaign can
+be made from the template only once it has HTML.`,
 		Example: `  # Create an advanced campaign template
   ahasend campaigns templates create --name Newsletter --mjml-file newsletter.mjml
 
   # Create an html campaign template with its own text version
   ahasend campaigns templates create --name Announcement --html-file announcement.html --text-file announcement.txt
+
+  # Create a simple campaign template from its AhaML
+  ahasend campaigns templates create --name Digest --markup-file digest.ahaml
 
   # Create an empty simple campaign template
   ahasend campaigns templates create --name Blank --editor simple`,

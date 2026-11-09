@@ -27,6 +27,12 @@ particularly useful during development and integration testing.
 
 The webhook ID can be found using the 'ahasend webhooks list' command.
 
+--all-events triggers every event except the contact events: the 13 events
+any account can use. --all-contact-events triggers the 8 contact events, and
+the two can be used together.
+
+` + contactEventsHelp + `
+
 A disabled webhook gets no events: the API answers that they are queued, and
 then drops them.`,
 		Example: `  # Trigger a single event
@@ -37,18 +43,19 @@ then drops them.`,
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
     --events message.delivered --events message.opened --events message.clicked
 
-  # Trigger all available events
+  # Trigger every event except the contact events
   ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
-    --all-events`,
+    --all-events
+
+  # Trigger the contact events
+  ahasend webhooks trigger abcd1234-5678-90ef-abcd-1234567890ab \
+    --all-contact-events`,
 		Args:         cmdutil.ExactArgs(1),
 		RunE:         runWebhooksTrigger,
 		SilenceUsage: true,
 	}
 
-	// Event selection flags
-	cmdutil.AddRepeatableFlag(cmd, "events", "Event type to trigger, such as message.delivered or delivered (can be used multiple times)")
-	cmdutil.CompleteValues(cmd, "events", webhooks.EventValues())
-	cmd.Flags().Bool("all-events", false, "Select every event type")
+	addEventFlags(cmd, "Event type to trigger, such as message.delivered or delivered (can be used multiple times)")
 
 	return cmd
 }
@@ -60,34 +67,20 @@ func runWebhooksTrigger(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	events, err := cmdutil.ReadRepeatable(cmd, "events", "")
+	events, eventsGiven, err := readEventFlags(cmd, "")
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.RejectTogether(cmd, "events", "all-events"); err != nil {
-		return err
+	if !eventsGiven {
+		return errors.NewValidationError("at least one of --events, --all-events or --all-contact-events must be provided", nil)
 	}
-	allEvents, _ := cmd.Flags().GetBool("all-events")
-	if events == nil && !allEvents {
-		return errors.NewValidationError("at least one of --events or --all-events must be provided", nil)
-	}
-
-	// Set events to trigger
 	// The trigger endpoint takes the event types of the payloads
-	parsedEvents, err := webhooks.ParseEvents(events)
-	if err != nil {
-		return err
-	}
-	if allEvents {
-		parsedEvents = webhooks.Events
-	}
-	eventsToTrigger := webhooks.EventTypes(parsedEvents)
+	eventsToTrigger := webhooks.EventTypes(events)
 
 	// Log command execution
 	logger.Get().WithFields(map[string]interface{}{
 		"webhook_id": webhookID,
 		"events":     eventsToTrigger,
-		"all_events": allEvents,
 	}).Debug("Executing webhooks trigger command")
 
 	client, err := auth.GetAuthenticatedClient(cmd)

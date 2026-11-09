@@ -35,7 +35,7 @@ func (h *csvHandler) writeFieldMaps(columns []string, fieldMaps ...map[string]st
 // contentColumns are the CSV columns that hold content, such as a template's
 // HTML or a message's source. They keep their text exactly, line breaks
 // included, which CSV quoting allows.
-var contentColumns = []string{"mjml", "html", "text", "content"}
+var contentColumns = []string{"mjml", "markup", "html", "text", "content"}
 
 // writeRows writes the columns as the header row, then each row; every CSV
 // output goes through it. Each value is put on one line, except the values

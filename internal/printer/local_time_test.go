@@ -25,13 +25,14 @@ func useLocalTimeZone(t *testing.T) {
 // has none.
 var timelessViews = map[string]bool{
 	"auth result": true, "auth result without a profile": true, "empty": true,
-	"sent messages": true, "smtp sent": true, "smtp test": true, "smtp test fails": true,
+	"sent message": true, "sent messages": true, "smtp sent": true, "smtp test": true, "smtp test fails": true,
+	"segment preview": true, "uncounted segment preview": true, "segment preview without contacts": true,
 }
 
 // timelessTables are the list views whose table has no time column.
 var timelessTables = map[string]bool{
-	"campaign recipients": true, "contact list": true, "domain list": true, "two domains": true,
-	"route list": true, "webhook list": true,
+	"campaign recipients": true, "campaign recipients through a segment": true, "contact list": true,
+	"domain list": true, "two domains": true, "route list": true, "webhook list": true,
 }
 
 func TestTableAndPlainShowLocalTimeWithZone(t *testing.T) {
@@ -91,12 +92,17 @@ func TestPlainLeavesANilTimeOut(t *testing.T) {
 	assert.NotContains(t, output.String(), "Unsubscribed At")
 }
 
+// variableKindAndRequired matches the end of a template variable that has a
+// kind, such as "vip (condition; optional)": one value, not a list.
+var variableKindAndRequired = regexp.MustCompile(`; (required|optional)\)`)
+
 func TestTableAndPlainUseOneLabelForEachTimeAndNoObjectField(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		for name, r := range renders() {
 			t.Run(format+"/"+name, func(t *testing.T) {
 				// The port line of the SMTP settings is a sentence, not a list.
 				text := strings.ReplaceAll(renderWith(t, format, r.render), "(STARTTLS, recommended); 25", "")
+				text = variableKindAndRequired.ReplaceAllString(text, ")")
 				assert.NotRegexp(t, `(?m)^Object:|│ Object `, text)
 				assert.NotContains(t, text, "Created At")
 				assert.NotContains(t, text, "Updated At")

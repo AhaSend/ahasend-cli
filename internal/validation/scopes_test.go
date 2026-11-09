@@ -57,6 +57,11 @@ func TestValidateScope(t *testing.T) {
 		{name: "sub-account-api-keys write", scope: "sub-account-api-keys:write", wantErr: false},
 		{name: "sub-account-api-keys delete", scope: "sub-account-api-keys:delete", wantErr: false},
 
+		// Segment scopes
+		{name: "segments read", scope: "segments:read", wantErr: false},
+		{name: "segments write", scope: "segments:write", wantErr: false},
+		{name: "segments delete", scope: "segments:delete", wantErr: false},
+
 		// Dynamic domain scopes
 		{name: "messages send domain", scope: "messages:send:{example.com}", wantErr: false},
 		{name: "messages cancel domain", scope: "messages:cancel:{example.com}", wantErr: false},
@@ -113,6 +118,7 @@ var specScopes = []string{
 	"campaigns:read", "campaigns:write", "campaigns:delete", "campaigns:send",
 	"contacts:read", "contacts:write", "contacts:delete",
 	"lists:read", "lists:write", "lists:delete",
+	"segments:read", "segments:write", "segments:delete",
 	"smtp-credentials:read:all", "smtp-credentials:read:{domain}",
 	"smtp-credentials:write:all", "smtp-credentials:write:{domain}",
 	"smtp-credentials:delete:all", "smtp-credentials:delete:{domain}",

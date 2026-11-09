@@ -16,19 +16,19 @@ var (
 	// webhookListFields are the fields of each webhook of a list, without
 	// the secret.
 	webhookListFields = slices.Concat([]string{
-		"name", "id", "url", "enabled", "events", "scope", "domains", "created_at", "updated_at",
+		"name", "id", "url", "enabled", "events", "origins", "scope", "domains", "created_at", "updated_at",
 	}, callFields)
 	// webhookTableColumns are the fields a table of webhooks shows.
 	webhookTableColumns = []string{"name", "id", "url", "enabled", "events"}
 	// webhookDetailFields are the fields of a webhook's detail view, without
 	// the secret, which the API returns only when it creates the webhook.
 	webhookDetailFields = slices.Concat([]string{
-		"name", "id", "url", "enabled", "events", "scope", "domains", "created_at", "updated_at",
+		"name", "id", "url", "enabled", "events", "origins", "scope", "domains", "created_at", "updated_at",
 	}, callFields)
 	// createdWebhookFields are the fields of a new webhook, which has no
 	// calls yet.
 	createdWebhookFields = []string{
-		"name", "id", "url", "enabled", "events", "secret", "scope", "domains", "created_at", "updated_at",
+		"name", "id", "url", "enabled", "events", "origins", "secret", "scope", "domains", "created_at", "updated_at",
 	}
 )
 
@@ -39,6 +39,7 @@ var webhookHeaders = withCallHeaders(map[string]string{
 	"url":        "URL",
 	"enabled":    "Enabled",
 	"events":     "Events",
+	"origins":    "Origins",
 	"secret":     "Secret",
 	"scope":      "Scope",
 	"domains":    "Domains",
@@ -184,6 +185,7 @@ func webhookCSVFields(webhook *responses.Webhook, secret string) map[string]stri
 		"url":        webhook.URL,
 		"enabled":    formatBool(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
+		"origins":    formatStringSlice(webhook.Origins),
 		"secret":     secret,
 		"scope":      webhook.Scope,
 		"domains":    formatStringSlice(webhook.Domains),
@@ -204,6 +206,7 @@ func webhookDisplayFields(webhook *responses.Webhook, secret string) map[string]
 		"url":        webhook.URL,
 		"enabled":    formatBooleanStatus(webhook.Enabled),
 		"events":     formatWebhookEvents(webhook),
+		"origins":    formatOrigins(webhook.Origins),
 		"secret":     secret,
 		"scope":      webhook.Scope,
 		"domains":    formatDomains(webhook.Domains),

@@ -100,10 +100,16 @@ type ResponseHandler interface {
 	HandleSingleListMember(member *responses.ListContact, config SingleConfig) error
 	HandleBatchListMembers(response *responses.BatchAddListContactsResponse, config SingleConfig) error
 
+	// Segment responses
+	HandleSegmentList(response *responses.PaginatedSegmentsResponse, config ListConfig) error
+	HandleSingleSegment(segment *responses.Segment, config SingleConfig) error
+	HandleSegmentDetail(segment *responses.SegmentDetail, config SingleConfig) error
+	HandleSegmentPreview(preview *responses.SegmentPreview, config SingleConfig) error
+	HandleSegmentMemberList(response *responses.PaginatedSegmentContactsResponse, config ListConfig) error
+
 	// Template responses
 	HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error
 	HandleSingleTemplate(template *responses.Template, config SingleConfig) error
-	HandleTemplateDraft(draft *responses.TemplateDraft, config SingleConfig) error
 	HandleTemplateVersionList(response *responses.TemplateVersionsResponse, config ListConfig) error
 	HandleSingleTemplateVersion(version *responses.TemplateVersionDetail, config SingleConfig) error
 
@@ -231,9 +237,13 @@ type handlerBase struct {
 
 // HandleError prints err to errWriter, as table, plain and CSV output show
 // errors, escaped as EscapeDisplayText escapes, followed by what to do about
-// it, when ErrorHint knows, and returns it.
+// it, when ErrorHint knows, and returns it. An API error that refused AhaML
+// adds each of its problems on its own line, indented by two spaces.
 func (h *handlerBase) HandleError(err error) error {
 	fmt.Fprintf(h.errWriter, "Error: %v%s\n", err, ErrorHint(err))
+	for _, problem := range markupProblems(err) {
+		fmt.Fprintf(h.errWriter, "  %s\n", formatMarkupProblem(problem))
+	}
 	return err
 }
 

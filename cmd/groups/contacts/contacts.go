@@ -20,6 +20,7 @@ attribute keys must already be configured in the AhaSend dashboard.`,
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewBatchCommand())
 	cmd.AddCommand(NewMembershipsCommand())
+	cmd.AddCommand(NewSegmentsCommand())
 
 	return cmd
 }

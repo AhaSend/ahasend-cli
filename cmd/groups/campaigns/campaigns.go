@@ -11,7 +11,7 @@ func NewCommand() *cobra.Command {
 		Use:   "campaigns",
 		Short: "Manage marketing campaigns",
 		Long: `Draft, test, send, schedule and report on marketing campaigns, which send to
-contact lists.
+contact lists and segments.
 
 A campaign is a draft until it is sent; only drafts can be changed or deleted.
 The draft lists the issues that keep it from being sent. Campaign templates,

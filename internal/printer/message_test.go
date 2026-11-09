@@ -1,9 +1,12 @@
 package printer
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +21,17 @@ func deliveredMessage() responses.Message {
 		{Time: styleTime, Status: "deferred", Log: "421 try again\nlater"},
 		{Time: styleTime, Status: "delivered", Log: "250 OK"},
 	}
+	return message
+}
+
+// bouncedMessage is a message delivered and then bounced out of band: its
+// last delivery attempt names the bounce report message.
+func bouncedMessage() responses.Message {
+	message := deliveredMessage()
+	message.IsBounceNotification = false
+	report := uuid.MustParse(styleLongID)
+	message.DeliveryAttempts = append(message.DeliveryAttempts,
+		responses.DeliveryEvent{Time: styleTime, Status: "bounced", Log: "550 5.1.1 unknown user", ReportMessageID: &report})
 	return message
 }
 
@@ -67,4 +81,69 @@ func TestMessageWithoutDeliveryAttemptsShowsNone(t *testing.T) {
 	assert.NotContains(t, renderMessage(t, "plain", message), "Delivery Attempts")
 	_, rows := readCSV(t, renderMessage(t, "csv", message))
 	assert.Equal(t, "", rows[0]["delivery_attempts"])
+}
+
+func TestMessageTableShowsTheReportMessageIDOfABounce(t *testing.T) {
+	useLocalTimeZone(t)
+	cells := tableCells(renderMessage(t, "table", bouncedMessage()))
+
+	assert.Contains(t, cells, []string{"TIME", "STATUS", "LOG", "REPORT MESSAGE ID"})
+	assert.Contains(t, cells, []string{"2026-09-10 10:30:00 UTC+2", "delivered", "250 OK", "-"})
+	assert.Contains(t, cells, []string{"2026-09-10 10:30:00 UTC+2", "bounced", "550 5.1.1 unknown user", styleLongID})
+}
+
+func TestMessagePlainShowsTheReportMessageIDOfABounce(t *testing.T) {
+	useLocalTimeZone(t)
+	out := renderMessage(t, "plain", bouncedMessage())
+
+	assert.Contains(t, out, "  Attempt 2:\n    Time: 2026-09-10 10:30:00 UTC+2\n    Status: delivered\n    Log: 250 OK\n"+
+		"  Attempt 3:\n    Time: 2026-09-10 10:30:00 UTC+2\n    Status: bounced\n    Log: 550 5.1.1 unknown user\n"+
+		"    Report Message ID: "+styleLongID+"\n")
+	assert.Equal(t, 1, strings.Count(out, "Report Message ID"))
+}
+
+func TestMessageCSVHasTheReportMessageIDInTheDeliveryAttempts(t *testing.T) {
+	_, rows := readCSV(t, renderMessage(t, "csv", bouncedMessage()))
+
+	assert.Contains(t, rows[0]["delivery_attempts"], `"report_message_id":"`+styleLongID+`"`)
+}
+
+func TestMessageWithoutAReportMessageIDShowsNoReportColumn(t *testing.T) {
+	assert.NotContains(t, renderMessage(t, "table", deliveredMessage()), "REPORT MESSAGE ID")
+	assert.NotContains(t, renderMessage(t, "plain", deliveredMessage()), "Report Message ID")
+}
+
+// sentMessage renders a one-request send of one message with id and
+// messageIDHeader, nil for one the API did not return.
+func sentMessage(t *testing.T, format string, id, messageIDHeader *string) string {
+	t.Helper()
+	return renderWith(t, format, func(h ResponseHandler) error {
+		return h.HandleCreateMessage(&responses.CreateMessageResponse{Data: []responses.CreateSingleMessageResponse{{
+			Recipient: common.Recipient{Email: "to@example.com"}, ID: id, MessageIDHeader: messageIDHeader, Status: "queued",
+		}}}, ResultConfig{SuccessMessage: "Message sent successfully"})
+	})
+}
+
+func TestSentMessageShowsTheMessageIDHeaderAfterTheID(t *testing.T) {
+	id, header := styleID.String(), "<"+styleID.String()+"@example.com>"
+
+	cells := tableCells(sentMessage(t, "table", &id, &header))
+	assert.Equal(t, [][]string{
+		{"#", "RECIPIENT", "ID", "MESSAGE-ID", "STATUS", "ERROR"},
+		{"1", "to@example.com", id, header, "queued", "-"},
+	}, cells)
+
+	assert.Contains(t, sentMessage(t, "plain", &id, &header),
+		"\nMessage 1:\n  Recipient: to@example.com\n  ID: "+id+"\n  Message-ID: "+header+"\n  Status: queued\n")
+
+	headers, rows := readCSV(t, sentMessage(t, "csv", &id, &header))
+	assert.Equal(t, []string{"recipient", "id", "message_id_header", "status", "error"}, headers)
+	assert.Equal(t, header, rows[0]["message_id_header"])
+}
+
+func TestSentMessageWithoutAMessageIDHeaderShowsItEmpty(t *testing.T) {
+	assert.Equal(t, []string{"1", "to@example.com", "-", "-", "queued", "-"}, tableCells(sentMessage(t, "table", nil, nil))[1])
+	assert.NotContains(t, sentMessage(t, "plain", nil, nil), "Message-ID")
+	_, rows := readCSV(t, sentMessage(t, "csv", nil, nil))
+	assert.Equal(t, "", rows[0]["message_id_header"])
 }

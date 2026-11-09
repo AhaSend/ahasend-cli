@@ -7,15 +7,98 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `templates get` shows a template's working copy, the draft while it has
+  one, instead of its published copy, so a change with `templates update`
+  builds on what it shows. `templates get --published` shows the published
+  copy, the one sends use.
+- `templates draft get` is removed, as the API no longer reads a draft on its
+  own: `templates get` shows it. `templates draft` holds `discard` alone.
+- The CSV output of `messages send` has the column `message_id_header` after
+  `id`, and that of `campaigns recipients` the columns `segment_id` and
+  `segment_name` after `list_name`.
+- The CSV output of a template, a template version, a campaign and a
+  campaign template, in the `templates`, `templates versions`, `campaigns`
+  and `campaigns templates` commands, has the columns `markup` and
+  `markup_error` after `mjml`. The single views of a template, a campaign and
+  a campaign template end with a `markup_warnings` column.
+- The `variables` value of a template and a template version names each
+  variable's kind, so `items (required)` reads
+  `items (list of name/price; required)` for a list.
+- The CSV output of a campaign, in the `campaigns` commands that print one,
+  `campaigns send` included, has the columns `segment_ids`,
+  `exclude_list_ids` and `exclude_segment_ids` after `list_ids`.
+- The limit of 50 lists of `campaigns create` and `campaigns update` counts
+  the excluded lists too, and more fail with
+  `--list-id and --exclude-list-id take at most 50 lists in all, got <n>`
+  instead of `--list-id takes at most 50 lists, got <n>`.
+- The CSV output of a webhook, in `webhooks list`, `get`, `create` and
+  `update`, has the column `origins` after `events`.
+- The event flags of `webhooks update` name the webhook's whole set of 21
+  events, so an event they do not name, such as a contact event turned on in
+  the dashboard, is turned off.
+
 ### Added
 
 - The Chocolatey package has the AhaSend icon.
 - `webhooks listen` prints on stderr the warnings the stream sends when it
   connects, such as that the API key does not have the read scope of an
   event family the webhook turns on, so those events are not sent.
+- `messages send` that makes one request shows each message's Message-ID
+  header, which `messages list --message-id` takes, after its ID.
+- `messages get` shows the report message ID of a delivery attempt that was
+  bounced out of band: a Report Message ID column in table output and a
+  `Report Message ID:` line in plain output.
+- `campaigns recipients` shows the segment a recipient was reached through;
+  the List of such a recipient is empty.
+- `apikeys` and `subaccounts api-keys` take the `segments:read`,
+  `segments:write` and `segments:delete` scopes.
+- `templates`, `campaigns` and `campaigns templates` read and write the
+  design of the Simple Editor as AhaML (AhaSend Markup). `create` and
+  `update` take `--markup-file`, which makes a created design `simple`, and
+  `get --markup` writes only the design's AhaML to stdout, so it can be
+  edited and written back.
+- The views of a template, a template version, a campaign and a campaign
+  template show a design's markup, or why the API could not give it as
+  AhaML, after the MJML, and a write that carried AhaML shows its warnings.
+- A write whose AhaML the API refuses lists each problem under the error,
+  with its line and column, outside JSON output.
+- A template's variables show their kind: a condition, or a list with the
+  fields of its elements.
+- The `segments` group manages segments, which find contacts by rules:
+  `list`, `get`, `create`, `update`, `delete`, `preview`, which counts the
+  contacts a definition matches without saving it, and `members`. A
+  segment's rules come from a JSON definition file, whose keys and JSON
+  types are checked before the request, with the place of each mistake.
+- `contacts segments` lists the segments a contact is a member of.
+- `campaigns create` and `campaigns update` take `--segment-id`,
+  `--exclude-list-id` and `--exclude-segment-id`, so a campaign sends to
+  segments and leaves out the contacts of lists and segments, up to 10
+  segments in all. `campaigns update` takes `--clear-lists`,
+  `--clear-segments`, `--clear-exclude-lists` and `--clear-exclude-segments`.
+  The view of a campaign shows its segments, excluded lists and excluded
+  segments after its lists.
+- A campaign send or test refused with the `text_unchecked` issue ends with
+  a line that says to run the command again, with a new `--idempotency-key`
+  for a send that had one.
+- The webhook commands take 21 events: `unsubscribed`, `complained` and
+  `suppression_deleted` join the others, with eight contact events, such as
+  `contact_created` and `contact_added_to_list`, which need an account with
+  the marketing features and the `contacts:read` scope, and `lists:read` for
+  some. `webhooks create`, `update` and `trigger` take
+  `--all-contact-events`, which selects the contact events.
+- `webhooks create` and `webhooks update` take `--origins`, which picks whose
+  changes the contact and suppression events report, and `webhooks update`
+  takes `--all-origins`. The views of a webhook show its origins after its
+  events.
+- `webhooks list --events` lists only the webhooks that have every event it
+  names on.
 
 ### Changed
 
+- Plain output prints no blank line under a template's MJML, HTML or text
+  that ends in a newline.
 - `messages get` and `messages cancel` help describe the message ID as the
   message's `id`, a UUID, which `messages send` prints. The error for an ID
   that is not valid now ends in `not a UUID`.
@@ -25,6 +108,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Message-ID header `Message-ID`, not `Message ID`.
 - The `messages list --message-id` help says it filters by the Message-ID
   header, with its angle brackets.
+- The error of `templates create` and `campaigns templates create` without
+  a design file or `--editor`, and the "at least one of" errors of the
+  `update` commands of `templates`, `campaigns` and `campaigns templates`,
+  name `--markup-file`.
+- The "at least one of" error of `campaigns update` names the audience
+  flags, and its error for an empty `--list-id` names `--clear-lists`.
+- The help of `campaigns create`, `update`, `duplicate` and `send` says what
+  to do while a segment of the campaign is building, and that of
+  `campaigns send` that the API stores its answer to a send with
+  `--idempotency-key`, a refusal included. The help of `lists delete` and
+  `campaigns delete` says the API refuses while a segment refers to the list
+  or campaign.
+- `--all-events` of `webhooks create`, `update` and `trigger`, and `all` in
+  the events prompt of `webhooks create`, select every event except the
+  contact events. The "at least one of" errors of `webhooks update` and
+  `webhooks trigger`, and the error for a blank answer to the events prompt,
+  name `--all-contact-events`; the error of `webhooks update` also names
+  `--origins` and `--all-origins`.
 
 ## [0.3.1] - 2026-10-16
 

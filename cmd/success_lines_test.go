@@ -18,7 +18,7 @@ import (
 // itemViewFiles are the files of the commands whose output shows the item.
 var itemViewFiles = []string{
 	"create.go", "get.go", "list.go", "update.go", "suspend.go", "unsuspend.go", "unpause_domain.go",
-	"duplicate.go", "unschedule.go", "publish.go", "restore.go", "discard.go", "set.go",
+	"duplicate.go", "unschedule.go", "publish.go", "restore.go", "discard.go", "set.go", "members.go", "segments.go",
 }
 
 // TestCreateGetListAndUpdateSuccessLinesNameNoItem checks the success line

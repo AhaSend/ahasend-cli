@@ -20,13 +20,14 @@ type printerRender struct {
 
 // renders renders a fixture through each handler method of every printer:
 // a full fixture of each, the sparse fixtures, and the views that only some
-// fixtures reach, such as DNS records, message content, several items and
-// the auth views.
+// fixtures reach, such as DNS records, message content, markup, several
+// items and the auth views.
 func renders() map[string]printerRender {
 	full := map[string]func(ResponseHandler) error{}
 	sparse := map[string]func(ResponseHandler) error{}
 	addFullRenders(full)
 	addMoreRenders(full)
+	addMarkupRenders(full)
 	addSparseRenders(sparse)
 
 	all := make(map[string]printerRender, len(full)+len(sparse))
@@ -50,9 +51,11 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 	member := listMemberFixture()
 	template := templateFixture()
 	version := templateVersionDetailFixture()
-	draft := templateDraftFixture()
 	campaign := campaignFixture()
 	campaignTemplate := campaignTemplateFixture()
+	segment, segmentDetail := segmentFixture(), segmentDetailFixture()
+	previewCount := 12
+	sentID, sentHeader := styleID.String(), "<"+styleID.String()+"@example.com>"
 
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain list": func(h ResponseHandler) error {
@@ -117,16 +120,25 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 		"list":           func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
 		"members list":   func(h ResponseHandler) error { return h.HandleListMemberList(embeddedMembersFixture(), ListConfig{}) },
 		"member":         func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"segments list":  func(h ResponseHandler) error { return h.HandleSegmentList(segmentsPageFixture(), ListConfig{}) },
+		"segment":        func(h ResponseHandler) error { return h.HandleSingleSegment(&segment, SingleConfig{}) },
+		"segment detail": func(h ResponseHandler) error { return h.HandleSegmentDetail(&segmentDetail, SingleConfig{}) },
+		"segment preview": func(h ResponseHandler) error {
+			return h.HandleSegmentPreview(segmentPreviewFixture(&previewCount), SingleConfig{})
+		},
+		"segment members": func(h ResponseHandler) error {
+			return h.HandleSegmentMemberList(segmentMembersPageFixture(), ListConfig{})
+		},
 		"templates list": func(h ResponseHandler) error { return h.HandleTemplateList(templatesPageFixture(), ListConfig{}) },
 		"template":       func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 		"template versions": func(h ResponseHandler) error {
 			return h.HandleTemplateVersionList(templateVersionsFixture(), ListConfig{})
 		},
 		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
-		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
 		"campaigns list":   func(h ResponseHandler) error { return h.HandleCampaignList(campaignsPageFixture(), ListConfig{}) },
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign stats":   func(h ResponseHandler) error { return h.HandleCampaignStats(campaignStatsFixture(), SingleConfig{}) },
+		"campaign send":    func(h ResponseHandler) error { return h.HandleCampaignSend(campaignSendFixture(), SingleConfig{}) },
 		"campaign recipients": func(h ResponseHandler) error {
 			return h.HandleCampaignRecipientList(campaignRecipientsPageFixture(), ListConfig{})
 		},
@@ -136,18 +148,26 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 		"campaign template": func(h ResponseHandler) error {
 			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
 		},
+		"sent message": func(h ResponseHandler) error {
+			return h.HandleCreateMessage(&responses.CreateMessageResponse{Data: []responses.CreateSingleMessageResponse{
+				{Recipient: common.Recipient{Email: "to@example.com"}, ID: &sentID, MessageIDHeader: &sentHeader, Status: "queued"},
+			}}, ResultConfig{})
+		},
 	})
 }
 
 // addMoreRenders adds the views the full fixtures do not reach: DNS records,
-// message content, sends, notices, several items and periods, and the auth
-// views.
+// message content and delivery attempts, sends, notices, several items and
+// periods, a campaign recipient reached through a segment, the counts the
+// API did not give of a segment and a preview, a preview without contacts,
+// and the auth views.
 func addMoreRenders(renders map[string]func(ResponseHandler) error) {
 	domain := styleDomain()
 	domain.DNSRecords = []responses.DNSRecord{{Type: "TXT", Host: "example.com", Content: "v=spf1"}}
 	message := styleMessage()
 	content := "Hello\nthere"
 	message.Content = &content
+	delivered, bounced := deliveredMessage(), bouncedMessage()
 	route := styleRoute()
 	route.Enabled = false
 	usage := mocks.NewSubAccountUsage(5)
@@ -164,9 +184,28 @@ func addMoreRenders(renders map[string]func(ResponseHandler) error) {
 			DeliveryTimes: []responses.DeliveryTime{{RecipientDomain: &domainName, DeliveryTime: &seconds}},
 		}
 	}
+	unknownMarketable := segmentDetailFixture()
+	unknownMarketable.MarketableCount = nil
+	noMatches := 0
 	add(renders, map[string]func(ResponseHandler) error{
 		"domain with DNS records": func(h ResponseHandler) error { return h.HandleSingleDomain(&domain, SingleConfig{}) },
-		"message with content":    func(h ResponseHandler) error { return h.HandleSingleMessage(&message, SingleConfig{}) },
+		"segment detail with an unknown marketable count": func(h ResponseHandler) error {
+			return h.HandleSegmentDetail(&unknownMarketable, SingleConfig{})
+		},
+		"uncounted segment preview": func(h ResponseHandler) error {
+			return h.HandleSegmentPreview(segmentPreviewFixture(nil), SingleConfig{})
+		},
+		"segment preview without contacts": func(h ResponseHandler) error {
+			return h.HandleSegmentPreview(&responses.SegmentPreview{Count: &noMatches}, SingleConfig{})
+		},
+		"message with content": func(h ResponseHandler) error { return h.HandleSingleMessage(&message, SingleConfig{}) },
+		"message with delivery attempts": func(h ResponseHandler) error {
+			return h.HandleSingleMessage(&delivered, SingleConfig{})
+		},
+		"message with a bounce report": func(h ResponseHandler) error { return h.HandleSingleMessage(&bounced, SingleConfig{}) },
+		"campaign recipients through a segment": func(h ResponseHandler) error {
+			return h.HandleCampaignRecipientList(segmentRecipientsPageFixture(), ListConfig{})
+		},
 		"two domains": func(h ResponseHandler) error {
 			return h.HandleDomainList(&responses.PaginatedDomainsResponse{Data: []responses.Domain{domain, domain}}, ListConfig{})
 		},
@@ -234,9 +273,10 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 	contact := responses.Contact{Email: "user@example.com"}
 	list := responses.ContactList{Name: "Newsletter"}
 	member := responses.ListContact{Email: "member@example.com"}
+	segment := responses.Segment{Name: "Engaged"}
+	segmentMember := responses.SegmentContact{Email: "member@example.com"}
 	template := responses.Template{Name: "Welcome"}
 	version := responses.TemplateVersionDetail{}
-	draft := responses.TemplateDraft{Subject: "Draft"}
 	campaign := responses.Campaign{CampaignListItem: responses.CampaignListItem{Name: "October"}}
 	campaignTemplate := responses.CampaignTemplate{Name: "Newsletter"}
 	stats := responses.CampaignStats{}
@@ -308,14 +348,36 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 		"members list": func(h ResponseHandler) error {
 			return h.HandleListMemberList(&responses.PaginatedListContactsResponse{Data: []responses.ListContact{member}}, ListConfig{})
 		},
+		"segment": func(h ResponseHandler) error { return h.HandleSingleSegment(&segment, SingleConfig{}) },
+		"segment detail": func(h ResponseHandler) error {
+			return h.HandleSegmentDetail(&responses.SegmentDetail{Segment: segment}, SingleConfig{})
+		},
+		"segments list": func(h ResponseHandler) error {
+			return h.HandleSegmentList(&responses.PaginatedSegmentsResponse{Data: []responses.Segment{segment}}, ListConfig{})
+		},
+		"segment preview": func(h ResponseHandler) error {
+			return h.HandleSegmentPreview(&responses.SegmentPreview{}, SingleConfig{})
+		},
+		"segment members": func(h ResponseHandler) error {
+			return h.HandleSegmentMemberList(&responses.PaginatedSegmentContactsResponse{
+				Data: []responses.SegmentContact{segmentMember},
+			}, ListConfig{})
+		},
 		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 		"template version": func(h ResponseHandler) error { return h.HandleSingleTemplateVersion(&version, SingleConfig{}) },
-		"template draft":   func(h ResponseHandler) error { return h.HandleTemplateDraft(&draft, SingleConfig{}) },
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign template": func(h ResponseHandler) error {
 			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
 		},
 		"campaign stats": func(h ResponseHandler) error { return h.HandleCampaignStats(&stats, SingleConfig{}) },
+		"campaign send": func(h ResponseHandler) error {
+			return h.HandleCampaignSend(&responses.CampaignSend{Campaign: campaign}, SingleConfig{})
+		},
+		"campaign recipients": func(h ResponseHandler) error {
+			return h.HandleCampaignRecipientList(&responses.PaginatedCampaignRecipientsResponse{
+				Data: []responses.CampaignRecipient{{Email: "user@example.com"}},
+			}, ListConfig{})
+		},
 	})
 }
 

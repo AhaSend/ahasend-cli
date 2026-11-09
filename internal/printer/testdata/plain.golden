@@ -62,6 +62,9 @@ Send At: 2026-11-01 11:00:00 UTC+2
 Created: 2026-10-01 10:00:00 UTC+2
 Updated: 2026-10-01 11:00:00 UTC+2
 Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666
+Segments: 33333333-3333-4333-8333-333333333333
+Excluded Lists: 77777777-7777-4777-8777-777777777777
+Excluded Segments: 88888888-8888-4888-8888-888888888888
 Editor: html
 HTML:
   <p>News</p>
@@ -84,6 +87,46 @@ Updated: 2026-10-02 11:01:00 UTC+2
 Showing 1 recipient (more available)
 --after next-recipient
 --before previous-recipient
+=== campaign recipients through a segment
+
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+Segment ID: 99999999-9999-4999-8999-999999999999
+Segment: Active buyers
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Showing 1 recipient (more available)
+--after next-recipient
+--before previous-recipient
+=== campaign send
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: validating
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666
+Segments: 33333333-3333-4333-8333-333333333333
+Excluded Lists: 77777777-7777-4777-8777-777777777777
+Excluded Segments: 88888888-8888-4888-8888-888888888888
+Editor: html
+HTML:
+  <p>News</p>
+Text:
+  News
+Text Is Custom: No
+Warnings: The account cannot send right now, The view-in-browser page cannot show the design
 === campaign stats
 
 Campaign ID: 44444444-4444-4444-8444-444444444444
@@ -118,6 +161,40 @@ HTML:
 Text:
   News
 Text Is Custom: No
+=== campaign template with a markup error
+
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: simple
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+Markup Error:
+  html_block: the design holds an HTML block
+HTML:
+  <div>Custom</div>
+Text:
+  Custom
+Text Is Custom: No
+=== campaign template with markup
+
+Name: Newsletter
+ID: 77777777-7777-4777-8777-777777777777
+Editor: simple
+Created: 2026-09-20 10:00:00 UTC+2
+Updated: 2026-09-20 11:00:00 UTC+2
+Markup:
+  <Email version="1">
+    <Heading level="2">Welcome</Heading>
+    <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>
+  </Email>
+HTML:
+  <h2>Welcome</h2>
+Text:
+  Welcome
+Text Is Custom: No
+Markup Warnings:
+  line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1]
+  text holds {{, which stays text (jinja_in_text)
 === campaign templates list
 
 Name: Newsletter
@@ -129,6 +206,60 @@ Updated: 2026-09-20 11:00:00 UTC+2
 Showing 1 campaign template (more available)
 --after next-campaign-template
 --before previous-campaign-template
+=== campaign with a markup error
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666
+Segments: 33333333-3333-4333-8333-333333333333
+Excluded Lists: 77777777-7777-4777-8777-777777777777
+Excluded Segments: 88888888-8888-4888-8888-888888888888
+Editor: simple
+Markup Error:
+  html_block: the design holds an HTML block
+HTML:
+  <div>Custom</div>
+Text:
+  Custom
+Text Is Custom: No
+=== campaign with markup
+
+Name: October
+ID: 44444444-4444-4444-8444-444444444444
+Status: scheduled
+Subject: October news
+Preheader: Read me
+From: news@example.com
+Reply To: support@example.com
+Send At: 2026-11-01 11:00:00 UTC+2
+Created: 2026-10-01 10:00:00 UTC+2
+Updated: 2026-10-01 11:00:00 UTC+2
+Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666
+Segments: 33333333-3333-4333-8333-333333333333
+Excluded Lists: 77777777-7777-4777-8777-777777777777
+Excluded Segments: 88888888-8888-4888-8888-888888888888
+Editor: simple
+Markup:
+  <Email version="1">
+    <Heading level="2">Welcome</Heading>
+    <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>
+  </Email>
+HTML:
+  <h2>Welcome</h2>
+Text:
+  Welcome
+Text Is Custom: No
+Markup Warnings:
+  line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1]
+  text holds {{, which stays text (jinja_in_text)
 === campaigns list
 
 Name: October
@@ -256,7 +387,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Secret: whsec_secret
 Scope: account
 Domains: example.com
@@ -403,6 +535,41 @@ Opens: 0
 Clicks: 0
 
 Showing 1 message
+=== message with a bounce report
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Sent: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: No
+Message-ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+Delivery Attempts:
+  Attempt 1:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: deferred
+    Log: 421 try again
+         later
+  Attempt 2:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: delivered
+    Log: 250 OK
+  Attempt 3:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: bounced
+    Log: 550 5.1.1 unknown user
+    Report Message ID: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
 === message with content
 
 Subject: Hello
@@ -426,6 +593,36 @@ Content Size: 11 bytes
 Content:
 Hello
 there
+=== message with delivery attempts
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Sent: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: Yes
+Message-ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+Delivery Attempts:
+  Attempt 1:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: deferred
+    Log: 421 try again
+         later
+  Attempt 2:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: delivered
+    Log: 250 OK
 === no response for API keys
 None found
 === no response for SMTP credentials
@@ -449,6 +646,10 @@ None found
 === no response for recipients
 None found
 === no response for routes
+None found
+=== no response for segment members
+None found
+=== no response for segments
 None found
 === no response for sub-accounts
 None found
@@ -505,6 +706,14 @@ None found
 --after next-page
 --before previous-page
 === page of 0 routes
+None found
+--after next-page
+--before previous-page
+=== page of 0 segment members
+None found
+--after next-page
+--before previous-page
+=== page of 0 segments
 None found
 --after next-page
 --before previous-page
@@ -692,6 +901,60 @@ Last Called: 2026-09-10 10:30:00 UTC+2
 Showing 1 route (more available)
 --after next-page
 --before previous-page
+=== page of 1 segment members
+Retrieved
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+Entered: 2026-09-10 11:00:00 UTC+2
+
+Showing 1 segment member (more available)
+--after next-page
+--before previous-page
+=== page of 1 segments
+Retrieved
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+Showing 1 segment (more available)
+--after next-page
+--before previous-page
 === page of 1 sub-accounts
 Retrieved
 Name: Acme
@@ -748,7 +1011,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1033,6 +1297,104 @@ Last Called: 2026-09-10 10:30:00 UTC+2
 Showing 2 routes (more available)
 --after next-page
 --before previous-page
+=== page of 2 segment members
+Retrieved
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+Entered: 2026-09-10 11:00:00 UTC+2
+
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+Entered: 2026-09-10 11:00:00 UTC+2
+
+Showing 2 segment members (more available)
+--after next-page
+--before previous-page
+=== page of 2 segments
+Retrieved
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+Showing 2 segments (more available)
+--after next-page
+--before previous-page
 === page of 2 sub-accounts
 Retrieved
 Name: Acme
@@ -1121,7 +1483,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1135,7 +1498,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1184,6 +1548,202 @@ Errors Since Last Success: 0
 Last Called: 2026-09-10 10:30:00 UTC+2
 
 Showing 1 route
+=== segment
+
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+=== segment detail
+
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Marketable: 40
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+=== segment detail with an unknown marketable count
+
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Marketable: unknown
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+=== segment members
+
+Email: person@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+Entered: 2026-09-10 11:00:00 UTC+2
+
+Showing 1 segment member (more available)
+--after next-member
+=== segment preview
+Count: 12
+
+Email: a@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+
+Email: b@example.com
+Contact ID: 22222222-2222-4222-8222-222222222222
+=== segment preview without contacts
+Count: 0
+=== segments list
+
+Name: Engaged pro customers
+ID: 33333333-3333-4333-8333-333333333333
+Description: Pro plan, opened lately
+State: failed
+Failure Reason: the members could not be found in time
+Members: 42
+Timezone: Europe/Berlin
+Last Evaluated: 2026-09-10 11:00:00 UTC+2
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Definition: {
+              "schema_version": 1,
+              "match": "all",
+              "conditions": [
+                {
+                  "field": "attributes.plan",
+                  "op": "equal",
+                  "value": "pro"
+                },
+                {
+                  "match": "any",
+                  "conditions": [
+                    {
+                      "field": "attributes.country",
+                      "op": "equal",
+                      "value": "DE"
+                    },
+                    {
+                      "field": "campaign_count",
+                      "op": "opened_at_least",
+                      "value": {
+                        "count": 3,
+                        "since": "90 days ago"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+Showing 1 segment (more available)
+--after next-segment
+--before previous-segment
+=== sent message
+
+
+Message 1:
+  Recipient: to@example.com
+  ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+  Message-ID: <aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@example.com>
+  Status: queued
 === sent messages
 
 
@@ -1258,6 +1818,15 @@ Account Details:
 === sparse campaign
 
 Name: October
+=== sparse campaign recipients
+
+Email: user@example.com
+Attempts: 0
+
+Showing 1 recipient
+=== sparse campaign send
+
+Name: October
 === sparse campaign stats
 
 Recipients: 0
@@ -1300,6 +1869,7 @@ SMTP Settings:
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 === sparse deliverability
 Time Period:  to 
@@ -1383,6 +1953,43 @@ Failed Calls: 0
 Errors Since Last Success: 0
 
 Showing 1 route
+=== sparse segment
+
+Name: Engaged
+Members: 0
+Definition: {
+              "schema_version": 0,
+              "match": "",
+              "conditions": null
+            }
+=== sparse segment detail
+
+Name: Engaged
+Members: 0
+Marketable: unknown
+Definition: {
+              "schema_version": 0,
+              "match": "",
+              "conditions": null
+            }
+=== sparse segment members
+
+Email: member@example.com
+
+Showing 1 segment member
+=== sparse segment preview
+Count: not counted in time
+=== sparse segments list
+
+Name: Engaged
+Members: 0
+Definition: {
+              "schema_version": 0,
+              "match": "",
+              "conditions": null
+            }
+
+Showing 1 segment
 === sparse sent message
 
 
@@ -1434,9 +2041,6 @@ Showing 1 suppression
 
 Name: Welcome
 Has Draft: No
-=== sparse template draft
-
-Subject: Draft
 === sparse template version
 
 Version: 0
@@ -1449,6 +2053,7 @@ IP Allow List: any
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -1458,6 +2063,7 @@ Errors Since Last Success: 0
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -1467,6 +2073,7 @@ Errors Since Last Success: 0
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -1579,19 +2186,6 @@ MJML:
 Text:
   Hello
 Text Is Custom: Yes
-=== template draft
-
-Subject: Draft subject
-Template ID: 33333333-3333-4333-8333-333333333333
-Preheader: Draft preheader
-From: hello@example.com
-Updated: 2026-09-11 10:00:00 UTC+2
-Variables: order_id (required)
-HTML:
-  <p>Order {{ order_id }}</p>
-Text:
-  Order
-Text Is Custom: No
 === template version
 
 Version: 2
@@ -1602,6 +2196,39 @@ Subject: Version subject
 Variables: first_name (optional)
 Text:
   Hi
+Text Is Custom: No
+=== template version with a markup error
+
+Version: 2
+ID: 44444444-4444-4444-8444-444444444444
+Published At: 2026-09-12 10:00:00 UTC+2
+Published By: user:55555555-5555-4555-8555-555555555555
+Subject: Version subject
+Variables: first_name (optional)
+Markup Error:
+  html_block: the design holds an HTML block
+HTML:
+  <div>Custom</div>
+Text:
+  Custom
+Text Is Custom: No
+=== template version with markup
+
+Version: 2
+ID: 44444444-4444-4444-8444-444444444444
+Published At: 2026-09-12 10:00:00 UTC+2
+Published By: user:55555555-5555-4555-8555-555555555555
+Subject: Version subject
+Variables: first_name (optional), vip (condition; optional), items (list of name/price; required)
+Markup:
+  <Email version="1">
+    <Heading level="2">Welcome</Heading>
+    <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>
+  </Email>
+HTML:
+  <h2>Welcome</h2>
+Text:
+  Welcome
 Text Is Custom: No
 === template versions
 
@@ -1615,6 +2242,52 @@ ID: 66666666-6666-4666-8666-666666666666
 Published At: 2026-09-12 09:00:00 UTC+2
 
 Showing 2 versions
+=== template with a markup error
+
+Name: Welcome
+ID: 33333333-3333-4333-8333-333333333333
+Editor: simple
+Subject: Hello {{ first_name }}
+Preheader: Read me
+From: Example <hello@example.com>
+Reply To: support@example.com
+Has Draft: Yes
+Variables: first_name (required), nickname (optional)
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Markup Error:
+  html_block: the design holds an HTML block
+HTML:
+  <div>Custom</div>
+Text:
+  Custom
+Text Is Custom: No
+=== template with markup
+
+Name: Welcome
+ID: 33333333-3333-4333-8333-333333333333
+Editor: simple
+Subject: Hello {{ first_name }}
+Preheader: Read me
+From: Example <hello@example.com>
+Reply To: support@example.com
+Has Draft: Yes
+Variables: first_name (optional), vip (condition; optional), items (list of name/price; required)
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 11:30:00 UTC+2
+Markup:
+  <Email version="1">
+    <Heading level="2">Welcome</Heading>
+    <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>
+  </Email>
+HTML:
+  <h2>Welcome</h2>
+Text:
+  Welcome
+Text Is Custom: No
+Markup Warnings:
+  line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1]
+  text holds {{, which stays text (jinja_in_text)
 === templates list
 
 Name: Welcome
@@ -1714,6 +2387,14 @@ Reason: bounce
 Created: 2026-09-10 10:30:00 UTC+2
 Expires: 2026-09-10 10:30:00 UTC+2
 Protected: No
+=== uncounted segment preview
+Count: not counted in time
+
+Email: a@example.com
+Contact ID: 11111111-1111-4111-8111-111111111111
+
+Email: b@example.com
+Contact ID: 22222222-2222-4222-8222-222222222222
 === updated api key
 
 Label: Production
@@ -1748,7 +2429,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1763,7 +2445,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1778,7 +2461,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
