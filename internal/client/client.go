@@ -372,8 +372,7 @@ func markWritten(err error, written *atomic.Bool) error {
 	return &RequestWrittenError{Err: err}
 }
 
-// CancelMessage cancels a scheduled message, given its UUID or its
-// Message-ID such as <uuid@example.com>
+// CancelMessage cancels a scheduled message, given its ID
 func (c *Client) CancelMessage(messageID string) (*common.SuccessResponse, error) {
 	return recordDone(c.MessagesAPI.CancelMessage(c.auth, c.accountUUID, messageID, noRetries))
 }
@@ -413,8 +412,7 @@ func (c *Client) GetMessages(params requests.GetMessagesParams) (*responses.Pagi
 	return recordBody(c.MessagesAPI.GetMessages(c.auth, c.accountUUID, params))
 }
 
-// GetMessage retrieves a single message by its UUID or its Message-ID, such
-// as <uuid@example.com>
+// GetMessage retrieves a single message by its ID
 func (c *Client) GetMessage(messageID string) (*responses.Message, error) {
 	return recordBody(c.MessagesAPI.GetMessageByAPIID(c.auth, c.accountUUID, messageID))
 }
