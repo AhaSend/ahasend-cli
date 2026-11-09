@@ -26,6 +26,7 @@ func useLocalTimeZone(t *testing.T) {
 var timelessViews = map[string]bool{
 	"auth result": true, "auth result without a profile": true, "empty": true,
 	"sent message": true, "sent messages": true, "smtp sent": true, "smtp test": true, "smtp test fails": true,
+	"segment preview": true, "uncounted segment preview": true, "segment preview without contacts": true,
 }
 
 // timelessTables are the list views whose table has no time column.

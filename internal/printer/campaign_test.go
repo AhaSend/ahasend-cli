@@ -36,6 +36,8 @@ func campaignListItemFixture() responses.CampaignListItem {
 	}
 }
 
+// campaignFixture returns a sent-to campaign whose audience has two lists,
+// a segment, an excluded list and an excluded segment.
 func campaignFixture() responses.Campaign {
 	editor := "html"
 	return responses.Campaign{
@@ -44,8 +46,11 @@ func campaignFixture() responses.Campaign {
 			uuid.MustParse("55555555-5555-4555-8555-555555555555"),
 			uuid.MustParse("66666666-6666-4666-8666-666666666666"),
 		},
-		Editor:  &editor,
-		Content: &responses.TemplateContent{HTML: "<p>News</p>", Text: "News"},
+		SegmentIDs:        []uuid.UUID{uuid.MustParse("33333333-3333-4333-8333-333333333333")},
+		ExcludeListIDs:    []uuid.UUID{uuid.MustParse("77777777-7777-4777-8777-777777777777")},
+		ExcludeSegmentIDs: []uuid.UUID{uuid.MustParse("88888888-8888-4888-8888-888888888888")},
+		Editor:            &editor,
+		Content:           &responses.TemplateContent{HTML: "<p>News</p>", Text: "News"},
 	}
 }
 
@@ -169,6 +174,9 @@ func TestCampaignPlainDraftShowsReadyAndIssues(t *testing.T) {
 		"Subject: October news\nPreheader: Read me\nFrom: news@example.com\nReply To: support@example.com\n"+
 		"Created: 2026-10-01 10:00:00 UTC+2\nUpdated: 2026-10-01 11:00:00 UTC+2\n"+
 		"Lists: 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666\n"+
+		"Segments: 33333333-3333-4333-8333-333333333333\n"+
+		"Excluded Lists: 77777777-7777-4777-8777-777777777777\n"+
+		"Excluded Segments: 88888888-8888-4888-8888-888888888888\n"+
 		"Ready: No\nIssues: sender_missing: Add a sender, design_missing: Add a design\n", output.String())
 }
 
@@ -178,7 +186,7 @@ func TestCampaignTableDraftShowsReadyAndIssues(t *testing.T) {
 	require.NoError(t, testHandler(t, "table", &output, os.Stderr).HandleSingleCampaign(&campaign, SingleConfig{SuccessMessage: "Campaign"}))
 	text := output.String()
 	assert.Contains(t, text, "Ready")
-	assert.Contains(t, text, "│ Issues          │ sender_missing: Add a sender, design_missing: Add a design ")
+	assert.Contains(t, tableCells(text), []string{"Issues", "sender_missing: Add a sender, design_missing: Add a design"})
 }
 
 func TestCampaignSingleShowsReadyAsMissingWhenNotDraft(t *testing.T) {
@@ -225,7 +233,8 @@ func TestCampaignSendPrintsWarnings(t *testing.T) {
 	t.Run("table", func(t *testing.T) {
 		var output bytes.Buffer
 		require.NoError(t, testHandler(t, "table", &output, os.Stderr).HandleCampaignSend(campaignSendFixture(), SingleConfig{SuccessMessage: "Sent"}))
-		assert.Contains(t, output.String(), "│ Warnings        │ The account cannot send right now, The view-in-browser page cannot show the design │")
+		assert.Contains(t, tableCells(output.String()),
+			[]string{"Warnings", "The account cannot send right now, The view-in-browser page cannot show the design"})
 	})
 	t.Run("csv", func(t *testing.T) {
 		var output bytes.Buffer
@@ -278,6 +287,41 @@ func TestCampaignCSVWritesOneRowPerCampaign(t *testing.T) {
 	assert.Equal(t, "false", row["ready"])
 	assert.Equal(t, "sender_missing: Add a sender, design_missing: Add a design", row["issues"])
 	assert.Equal(t, "", row["html"])
+}
+
+// TestCampaignAudienceShowsSegmentsAndExclusionsAfterTheLists checks the
+// Segments, Excluded Lists and Excluded Segments rows and CSV columns of a
+// single campaign and of a send, which prints its campaign the same way.
+func TestCampaignAudienceShowsSegmentsAndExclusionsAfterTheLists(t *testing.T) {
+	campaign := campaignFixture()
+	views := map[string]func(ResponseHandler) error{
+		"campaign": func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
+		"send":     func(h ResponseHandler) error { return h.HandleCampaignSend(campaignSendFixture(), SingleConfig{}) },
+	}
+	for name, render := range views {
+		t.Run(name, func(t *testing.T) {
+			table := tableCells(renderWith(t, "table", render))
+			lists := slices.IndexFunc(table, func(row []string) bool { return row[0] == "Lists" })
+			require.GreaterOrEqual(t, lists, 0)
+			assert.Equal(t, [][]string{
+				{"Segments", "33333333-3333-4333-8333-333333333333"},
+				{"Excluded Lists", "77777777-7777-4777-8777-777777777777"},
+				{"Excluded Segments", "88888888-8888-4888-8888-888888888888"},
+			}, table[lists+1:lists+4])
+
+			assert.Contains(t, renderWith(t, "plain", render), "\nLists: 55555555-5555-4555-8555-555555555555, "+
+				"66666666-6666-4666-8666-666666666666\nSegments: 33333333-3333-4333-8333-333333333333\n"+
+				"Excluded Lists: 77777777-7777-4777-8777-777777777777\n"+
+				"Excluded Segments: 88888888-8888-4888-8888-888888888888\n")
+
+			headers, rows := readCSV(t, renderWith(t, "csv", render))
+			lists = slices.Index(headers, "list_ids")
+			assert.Equal(t, []string{"segment_ids", "exclude_list_ids", "exclude_segment_ids"}, headers[lists+1:lists+4])
+			assert.Equal(t, "33333333-3333-4333-8333-333333333333", rows[0]["segment_ids"])
+			assert.Equal(t, "77777777-7777-4777-8777-777777777777", rows[0]["exclude_list_ids"])
+			assert.Equal(t, "88888888-8888-4888-8888-888888888888", rows[0]["exclude_segment_ids"])
+		})
+	}
 }
 
 func TestCampaignCSVListLeavesDetailCellsEmpty(t *testing.T) {

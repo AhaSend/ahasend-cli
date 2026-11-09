@@ -116,6 +116,16 @@ type AhaSendClient interface {
 	DeleteListContact(listID uuid.UUID, idOrEmail string) (*common.SuccessResponse, error)
 	GetContactLists(idOrEmail string, params requests.GetContactListsParams) (*responses.PaginatedListContactsResponse, error)
 
+	// Segment operations
+	GetSegments(params requests.GetSegmentsParams) (*responses.PaginatedSegmentsResponse, error)
+	GetSegment(segmentID uuid.UUID) (*responses.SegmentDetail, error)
+	CreateSegment(req requests.CreateSegmentRequest, opts ...api.RequestOption) (*responses.Segment, error)
+	UpdateSegment(segmentID uuid.UUID, req requests.UpdateSegmentRequest) (*responses.Segment, error)
+	DeleteSegment(segmentID uuid.UUID) (*common.SuccessResponse, error)
+	PreviewSegment(req requests.PreviewSegmentRequest) (*responses.SegmentPreview, error)
+	GetSegmentContacts(segmentID uuid.UUID, params requests.GetSegmentContactsParams) (*responses.PaginatedSegmentContactsResponse, error)
+	GetContactSegments(idOrEmail string, params requests.GetContactSegmentsParams) (*responses.PaginatedSegmentsResponse, error)
+
 	// Template operations
 	GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error)
 	GetTemplate(templateID uuid.UUID) (*responses.Template, error)

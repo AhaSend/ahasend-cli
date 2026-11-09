@@ -22,7 +22,33 @@ const (
 	csvSubAccountsUse = `{"object":"sub_account_usage","currency":"USD"}`
 	// csvContactsFile stands in a view's arguments for a contacts file.
 	csvContactsFile = "<contacts file>"
+	// csvDefinitionFile stands in a view's arguments for a segment
+	// definition file.
+	csvDefinitionFile = "<definition file>"
+	// csvSegmentHeader is the CSV header of a segment.
+	csvSegmentHeader = "name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition"
 )
+
+// csvViewArgs returns the arguments of view, with each file placeholder
+// replaced by a file of that kind.
+func csvViewArgs(t *testing.T, view csvView) []string {
+	t.Helper()
+	files := map[string]func() string{
+		csvContactsFile: func() string {
+			return testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
+		},
+		csvDefinitionFile: func() string {
+			return testutil.WriteTempFile(t, "definition.json", `{"schema_version":1,"match":"all","conditions":[]}`)
+		},
+	}
+	args := slices.Clone(view.args)
+	for i, arg := range args {
+		if file, ok := files[arg]; ok {
+			args[i] = file()
+		}
+	}
+	return args
+}
 
 // csvView is one list or single view: a command that prints it, the API call
 // behind it, and the CSV header the view writes.
@@ -48,9 +74,9 @@ var csvViews = []csvView{
 	{[]string{"campaigns", "list"}, returns[responses.PaginatedCampaignsResponse]("ListCampaigns", csvListBody),
 		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at"},
 	{[]string{"campaigns", "get", rawTestID}, returns[responses.Campaign]("GetCampaign", csvItemBody),
-		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
 	{[]string{"campaigns", "send", rawTestID, "--force"}, returns[responses.CampaignSend]("SendCampaign", csvItemBody),
-		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings"},
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings"},
 	{[]string{"campaigns", "test", rawTestID, "--to", "user@example.com"}, returns[responses.CampaignTest]("TestCampaign", csvCampaignTest),
 		"email,outcome,reason"},
 	{[]string{"campaigns", "stats", rawTestID}, returns[responses.CampaignStats]("GetCampaignStats", csvItemBody),
@@ -72,6 +98,8 @@ var csvViews = []csvView{
 		"list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribed_at,created_at,updated_at"},
 	{[]string{"contacts", "batch", "--file", csvContactsFile}, returns[responses.BatchUpsertContactsResponse]("BatchUpsertContacts", csvListBody),
 		"position,email,contact_id,outcome,reason"},
+	{[]string{"contacts", "segments", "user@example.com"}, returns[responses.PaginatedSegmentsResponse]("GetContactSegments", csvListBody),
+		csvSegmentHeader},
 
 	// Domains
 	{[]string{"domains", "list"}, returns[responses.PaginatedDomainsResponse]("ListDomains", csvListBody),
@@ -115,6 +143,17 @@ var csvViews = []csvView{
 		"name,id,url,enabled,recipient,secret,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at"},
 	{[]string{"routes", "update", rawTestID, "--name", "Inbound"}, returns[responses.Route]("UpdateRoute", csvItemBody),
 		"name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
+
+	// Segments
+	{[]string{"segments", "list"}, returns[responses.PaginatedSegmentsResponse]("GetSegments", csvListBody), csvSegmentHeader},
+	{[]string{"segments", "get", rawTestID}, returns[responses.SegmentDetail]("GetSegment", csvItemBody),
+		"name,id,description,state,failure_reason,member_count,marketable_count,timezone,last_evaluated_at,created_at,updated_at,definition"},
+	{[]string{"segments", "update", rawTestID, "--name", "Engaged"}, returns[responses.Segment]("UpdateSegment", csvItemBody),
+		csvSegmentHeader},
+	{[]string{"segments", "preview", "--definition-file", csvDefinitionFile},
+		returns[responses.SegmentPreview]("PreviewSegment", csvItemBody), "count,email,contact_id"},
+	{[]string{"segments", "members", rawTestID}, returns[responses.PaginatedSegmentContactsResponse]("GetSegmentContacts", csvListBody),
+		"email,contact_id,entered_at"},
 
 	// SMTP credentials
 	{[]string{"smtp", "list"}, returns[responses.PaginatedSMTPCredentialsResponse]("ListSMTPCredentials", csvListBody),
@@ -170,13 +209,9 @@ var csvViews = []csvView{
 // list and single view. Each holds the fields the view's table shows, no
 // fewer, in the same order.
 func TestCSVColumnsAreTheFieldsOfTheTableView(t *testing.T) {
-	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
 	for _, view := range csvViews {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
-			args := slices.Clone(view.args)
-			if i := slices.Index(args, csvContactsFile); i >= 0 {
-				args[i] = contactsFile
-			}
+			args := csvViewArgs(t, view)
 			mockClient := &mocks.MockClient{}
 			mockClient.On("GetAccountID").Return(rawTestID).Maybe()
 			expectAnyArgs(mockClient, view.call.method, view.call.result(t), nil)
@@ -202,12 +237,13 @@ var viewsWithoutID = map[string]string{
 	"contacts memberships": "",
 	"lists members":        "",
 	"messages send":        "",
+	"segments preview":     "not counted in time",
+	"segments members":     "",
 }
 
 // TestTableAndPlainOutputOfEveryView runs every view of csvViews through the
 // root in table and plain output and checks that it prints the item's ID.
 func TestTableAndPlainOutputOfEveryView(t *testing.T) {
-	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
 	for _, view := range csvViews {
 		shows, withoutID := viewsWithoutID[strings.Join(view.args[:2], " ")]
 		if !withoutID {
@@ -218,10 +254,7 @@ func TestTableAndPlainOutputOfEveryView(t *testing.T) {
 		}
 		for _, format := range []string{"table", "plain"} {
 			t.Run(format+" "+strings.Join(view.args, " "), func(t *testing.T) {
-				args := slices.Clone(view.args)
-				if i := slices.Index(args, csvContactsFile); i >= 0 {
-					args[i] = contactsFile
-				}
+				args := csvViewArgs(t, view)
 				mockClient := &mocks.MockClient{}
 				mockClient.On("GetAccountID").Return(rawTestID).Maybe()
 				expectAnyArgs(mockClient, view.call.method, view.call.result(t), nil)
@@ -261,7 +294,7 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 		}
 		views = append(views, emptyView{view.args, view.call.method, reflect.New(full).Interface(), view.header})
 	}
-	require.Len(t, views, 22)
+	require.Len(t, views, 25)
 	for _, view := range views {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}

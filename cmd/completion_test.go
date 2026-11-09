@@ -166,6 +166,9 @@ func TestOnlyFileFlagsCompleteFileNames(t *testing.T) {
 		{"campaigns", "create", "--markup-file"},
 		{"campaigns", "templates", "update", rawTestID, "--markup-file"},
 		{"contacts", "batch", "--file"},
+		{"segments", "create", "--definition-file"},
+		{"segments", "update", rawTestID, "--definition-file"},
+		{"segments", "preview", "--definition-file"},
 		{"domains", "create", "example.com", "--dkim-private-key-file"},
 	} {
 		_, directive := complete(t, append(args, "")...)

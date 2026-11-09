@@ -709,6 +709,50 @@ func (c *Client) GetContactLists(idOrEmail string, params requests.GetContactLis
 	return recordBody(c.ListsAPI.GetContactLists(c.auth, c.accountUUID, idOrEmail, params))
 }
 
+// Segment operations
+
+// GetSegments retrieves a page of segments
+func (c *Client) GetSegments(params requests.GetSegmentsParams) (*responses.PaginatedSegmentsResponse, error) {
+	return recordBody(c.SegmentsAPI.GetSegments(c.auth, c.accountUUID, params))
+}
+
+// GetSegment retrieves a segment by ID, with the members a campaign to it
+// alone would reach
+func (c *Client) GetSegment(segmentID uuid.UUID) (*responses.SegmentDetail, error) {
+	return recordBody(c.SegmentsAPI.GetSegment(c.auth, c.accountUUID, segmentID))
+}
+
+// CreateSegment creates a segment, which starts finding its members
+func (c *Client) CreateSegment(req requests.CreateSegmentRequest, opts ...api.RequestOption) (*responses.Segment, error) {
+	return recordBody(c.SegmentsAPI.CreateSegment(c.auth, c.accountUUID, req, opts...))
+}
+
+// UpdateSegment partially updates a segment
+func (c *Client) UpdateSegment(segmentID uuid.UUID, req requests.UpdateSegmentRequest) (*responses.Segment, error) {
+	return recordBody(c.SegmentsAPI.UpdateSegment(c.auth, c.accountUUID, segmentID, req))
+}
+
+// DeleteSegment deletes a segment
+func (c *Client) DeleteSegment(segmentID uuid.UUID) (*common.SuccessResponse, error) {
+	return recordDone(c.SegmentsAPI.DeleteSegment(c.auth, c.accountUUID, segmentID, noRetries))
+}
+
+// PreviewSegment counts the contacts a definition matches now and returns
+// up to 10 of them, without saving anything
+func (c *Client) PreviewSegment(req requests.PreviewSegmentRequest) (*responses.SegmentPreview, error) {
+	return recordBody(c.SegmentsAPI.PreviewSegment(c.auth, c.accountUUID, req))
+}
+
+// GetSegmentContacts retrieves a page of a segment's members
+func (c *Client) GetSegmentContacts(segmentID uuid.UUID, params requests.GetSegmentContactsParams) (*responses.PaginatedSegmentContactsResponse, error) {
+	return recordBody(c.SegmentsAPI.GetSegmentContacts(c.auth, c.accountUUID, segmentID, params))
+}
+
+// GetContactSegments retrieves a page of the segments a contact is a member of
+func (c *Client) GetContactSegments(idOrEmail string, params requests.GetContactSegmentsParams) (*responses.PaginatedSegmentsResponse, error) {
+	return recordBody(c.SegmentsAPI.GetContactSegments(c.auth, c.accountUUID, idOrEmail, params))
+}
+
 // Template operations
 
 // GetTemplates retrieves a page of transactional templates

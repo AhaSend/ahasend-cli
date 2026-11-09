@@ -18,9 +18,10 @@ import (
 // marketing command groups.
 func TestRootExposesMarketingCommandGroups(t *testing.T) {
 	groups := map[string][]string{
-		"contacts":            {"list", "get", "create", "update", "delete", "batch", "memberships"},
+		"contacts":            {"list", "get", "create", "update", "delete", "batch", "memberships", "segments"},
 		"lists":               {"list", "get", "create", "update", "delete", "members"},
 		"lists members":       {"list", "add", "set", "remove"},
+		"segments":            {"list", "get", "create", "update", "delete", "preview", "members"},
 		"templates":           {"list", "get", "create", "update", "delete", "publish", "draft", "versions"},
 		"templates draft":     {"discard"},
 		"templates versions":  {"list", "get", "restore"},
@@ -101,6 +102,8 @@ func TestSubaccountsUnsuspendLongLinesFit(t *testing.T) {
 func TestRequiredFlagsSayTheyAreRequired(t *testing.T) {
 	flags := map[string][]string{
 		"lists create":               {"name"},
+		"segments create":            {"name", "definition-file"},
+		"segments preview":           {"definition-file"},
 		"templates create":           {"name"},
 		"campaigns create":           {"name"},
 		"campaigns templates create": {"name"},
@@ -235,7 +238,7 @@ func assertExamplesHaveCaptions(t *testing.T, command *cobra.Command) {
 
 func TestMarketingCommandsDoNotSayUUIDInLongHelp(t *testing.T) {
 	root := NewRootCmdForTesting()
-	for _, name := range []string{"contacts", "lists", "templates", "campaigns"} {
+	for _, name := range []string{"contacts", "lists", "segments", "templates", "campaigns"} {
 		group, _, err := root.Find([]string{name})
 		require.NoError(t, err)
 		walkCommands(group, func(command *cobra.Command) {

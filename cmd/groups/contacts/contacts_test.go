@@ -683,3 +683,69 @@ func TestMembershipsValidationHappensBeforeAuthentication(t *testing.T) {
 		})
 	}
 }
+
+// segments --------------------------------------------------------------------
+
+// contactSegmentsBody is an API page of one segment a contact is a member
+// of.
+const contactSegmentsBody = `{"object":"list","data":[{"object":"segment","id":"33333333-3333-4333-8333-333333333333",` +
+	`"name":"Engaged pro customers","state":"ready","member_count":42,"timezone":"UTC",` +
+	`"definition":{"schema_version":1,"match":"all","conditions":[]}}],"pagination":{"has_more":false}}`
+
+// TestSegmentsSendsTheContactAndPaginationAndPrintsTheAnswer checks the call
+// contacts segments makes, and that it prints the answer in every format:
+// JSON is the API's body.
+func TestSegmentsSendsTheContactAndPaginationAndPrintsTheAnswer(t *testing.T) {
+	limit, after := int32(10), "next-page"
+	for _, format := range []string{"table", "plain", "csv", "json"} {
+		t.Run(format, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("GetContactSegments", "user+tag@example.com", requests.GetContactSegmentsParams{Limit: &limit, After: &after}).
+				Return(mocks.APIResponse[responses.PaginatedSegmentsResponse](t, contactSegmentsBody), nil)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, _, err := testutil.RunCommand(t, NewSegmentsCommand(), format, "", "user+tag@example.com",
+				"--limit", "10", "--after", after)
+
+			require.NoError(t, err)
+			if format == "json" {
+				assert.Equal(t, testutil.IndentedJSON(t, contactSegmentsBody), stdout)
+			} else {
+				assert.Contains(t, stdout, "Engaged pro customers")
+			}
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSegmentsOfAContactInNoSegmentSaysSo(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetContactSegments", "person@example.com", requests.GetContactSegmentsParams{}).
+		Return(&responses.PaginatedSegmentsResponse{Object: "list"}, nil)
+	testutil.InjectClient(t, mockClient)
+
+	output, err := testutil.RunPlain(t, NewSegmentsCommand(), "person@example.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, "No segments found\n", output)
+}
+
+func TestSegmentsValidationHappensBeforeAuthentication(t *testing.T) {
+	tests := []struct {
+		args    []string
+		message string
+	}{
+		{[]string{" "}, "contact ID or email cannot be empty"},
+		{[]string{"person@example.com", "--after", "a", "--before", "b"}, "--after and --before cannot be used together"},
+		{[]string{"person@example.com", "--limit", "101"}, "--limit must be between 0 and 100"},
+	}
+	for _, test := range tests {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			authCalled := testutil.RefuseAuth(t)
+			_, err := testutil.RunPlain(t, NewSegmentsCommand(), test.args...)
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.False(t, *authCalled)
+		})
+	}
+}

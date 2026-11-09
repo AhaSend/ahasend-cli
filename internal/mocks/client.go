@@ -366,6 +366,40 @@ func (m *MockClient) GetContactLists(idOrEmail string, params requests.GetContac
 	return result[responses.PaginatedListContactsResponse](m.Called(idOrEmail, params))
 }
 
+// Segment operations methods
+
+func (m *MockClient) GetSegments(params requests.GetSegmentsParams) (*responses.PaginatedSegmentsResponse, error) {
+	return result[responses.PaginatedSegmentsResponse](m.Called(params))
+}
+
+func (m *MockClient) GetSegment(segmentID uuid.UUID) (*responses.SegmentDetail, error) {
+	return result[responses.SegmentDetail](m.Called(segmentID))
+}
+
+func (m *MockClient) CreateSegment(req requests.CreateSegmentRequest, opts ...api.RequestOption) (*responses.Segment, error) {
+	return result[responses.Segment](m.Called(withOptions([]interface{}{req}, opts)...))
+}
+
+func (m *MockClient) UpdateSegment(segmentID uuid.UUID, req requests.UpdateSegmentRequest) (*responses.Segment, error) {
+	return result[responses.Segment](m.Called(segmentID, req))
+}
+
+func (m *MockClient) DeleteSegment(segmentID uuid.UUID) (*common.SuccessResponse, error) {
+	return result[common.SuccessResponse](m.Called(segmentID))
+}
+
+func (m *MockClient) PreviewSegment(req requests.PreviewSegmentRequest) (*responses.SegmentPreview, error) {
+	return result[responses.SegmentPreview](m.Called(req))
+}
+
+func (m *MockClient) GetSegmentContacts(segmentID uuid.UUID, params requests.GetSegmentContactsParams) (*responses.PaginatedSegmentContactsResponse, error) {
+	return result[responses.PaginatedSegmentContactsResponse](m.Called(segmentID, params))
+}
+
+func (m *MockClient) GetContactSegments(idOrEmail string, params requests.GetContactSegmentsParams) (*responses.PaginatedSegmentsResponse, error) {
+	return result[responses.PaginatedSegmentsResponse](m.Called(idOrEmail, params))
+}
+
 // Template operations methods
 
 func (m *MockClient) GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error) {

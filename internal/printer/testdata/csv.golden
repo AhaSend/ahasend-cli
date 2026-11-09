@@ -17,8 +17,8 @@ default,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,,,,Acme,,,2026-09-10T08:30:00Z
 from_timestamp,to_timestamp,classification,count,percentage
 2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,invalid,1,100.00
 === campaign
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
-October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,,,<p>News</p>,News,false,
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",33333333-3333-4333-8333-333333333333,77777777-7777-4777-8777-777777777777,88888888-8888-4888-8888-888888888888,html,,,,,,<p>News</p>,News,false,
 === campaign recipients
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
@@ -26,8 +26,8 @@ bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invali
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 bad@example.com,88888888-8888-4888-8888-888888888888,,99999999-9999-4999-8999-999999999999,Active buyers,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
 === campaign send
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
-October,44444444-4444-4444-8444-444444444444,validating,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,,,<p>News</p>,News,false,"The account cannot send right now, The view-in-browser page cannot show the design"
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
+October,44444444-4444-4444-8444-444444444444,validating,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",33333333-3333-4333-8333-333333333333,77777777-7777-4777-8777-777777777777,88888888-8888-4888-8888-888888888888,html,,,,,,<p>News</p>,News,false,"The account cannot send right now, The view-in-browser page cannot show the design"
 === campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 44444444-4444-4444-8444-444444444444,100,80,50,10,2,1,42.5,,1.25,,false,2026-10-02T10:00:00Z,80,34,8,1,0,"{""Bounced"":1,""Delivered"":79}","{""Unknown"":1}"
@@ -47,11 +47,11 @@ Newsletter,77777777-7777-4777-8777-777777777777,simple,2026-09-20T08:00:00Z,2026
 name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
 Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,,,
 === campaign with a markup error
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
-October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",simple,,,,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false,
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",33333333-3333-4333-8333-333333333333,77777777-7777-4777-8777-777777777777,88888888-8888-4888-8888-888888888888,simple,,,,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false,
 === campaign with markup
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
-October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",simple,,,,"<Email version=""1"">
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",33333333-3333-4333-8333-333333333333,77777777-7777-4777-8777-777777777777,88888888-8888-4888-8888-888888888888,simple,,,,"<Email version=""1"">
   <Heading level=""2"">Welcome</Heading>
   <Paragraph>Hi <Var name=""first_name"" fallback=""there""/>, {{ plan }}</Paragraph>
 </Email>",,<h2>Welcome</h2>,Welcome,false,"[{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text"",""line"":3,""column"":48,""path"":""Email > Paragraph[1]""},{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text""}]"
@@ -139,6 +139,8 @@ Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,
 === no response for messages
 === no response for recipients
 === no response for routes
+=== no response for segment members
+=== no response for segments
 === no response for sub-accounts
 === no response for suppressions
 === no response for templates
@@ -168,6 +170,10 @@ subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 === page of 0 routes
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+=== page of 0 segment members
+email,contact_id,entered_at
+=== page of 0 segments
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
 === page of 0 sub-accounts
 name,id,status,website,monthly_credit,domain_count,member_count,created_at
 === page of 0 suppressions
@@ -214,6 +220,12 @@ bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invali
 === page of 1 routes
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== page of 1 segment members
+email,contact_id,entered_at
+person@example.com,11111111-1111-4111-8111-111111111111,2026-09-10T09:00:00Z
+=== page of 1 segments
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
 === page of 1 sub-accounts
 name,id,status,website,monthly_credit,domain_count,member_count,created_at
 Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
@@ -277,6 +289,14 @@ bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invali
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== page of 2 segment members
+email,contact_id,entered_at
+person@example.com,11111111-1111-4111-8111-111111111111,2026-09-10T09:00:00Z
+person@example.com,11111111-1111-4111-8111-111111111111,2026-09-10T09:00:00Z
+=== page of 2 segments
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
 === page of 2 sub-accounts
 name,id,status,website,monthly_credit,domain_count,member_count,created_at
 Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z
@@ -303,6 +323,28 @@ Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a
 === route list
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== segment
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
+=== segment detail
+name,id,description,state,failure_reason,member_count,marketable_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,40,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
+=== segment detail with an unknown marketable count
+name,id,description,state,failure_reason,member_count,marketable_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
+=== segment members
+email,contact_id,entered_at
+person@example.com,11111111-1111-4111-8111-111111111111,2026-09-10T09:00:00Z
+=== segment preview
+count,email,contact_id
+12,a@example.com,11111111-1111-4111-8111-111111111111
+12,b@example.com,22222222-2222-4222-8222-222222222222
+=== segment preview without contacts
+count,email,contact_id
+0,,
+=== segments list
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged pro customers,33333333-3333-4333-8333-333333333333,"Pro plan, opened lately",failed,the members could not be found in time,42,Europe/Berlin,2026-09-10T09:00:00Z,2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"{""schema_version"":1,""match"":""all"",""conditions"":[{""field"":""attributes.plan"",""op"":""equal"",""value"":""pro""},{""match"":""any"",""conditions"":[{""field"":""attributes.country"",""op"":""equal"",""value"":""DE""},{""field"":""campaign_count"",""op"":""opened_at_least"",""value"":{""count"":3,""since"":""90 days ago""}}]}]}"
 === sent message
 recipient,id,message_id_header,status,error
 to@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,<aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@example.com>,queued,
@@ -335,14 +377,14 @@ Production,,,,,,,
 profile,account_id,valid,error,note,parent_account_id,account_name,website,about,created_at,updated_at,track_opens,track_clicks,reject_bad_recipients,reject_mistyped_recipients,message_metadata_retention,message_data_retention
 default,,,,,,Acme,,,,,,,,,,
 === sparse campaign
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
-October,,,,,,,,,,,,,,,,,,,,,,,
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,,,,,,,,,,,,,,,,,,,,,,,,,,
 === sparse campaign recipients
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 user@example.com,,,,,,,,,0,,
 === sparse campaign send
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
-October,,,,,,,,,,,,,,,,,,,,,,,
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,segment_ids,exclude_list_ids,exclude_segment_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
+October,,,,,,,,,,,,,,,,,,,,,,,,,,
 === sparse campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 ,0,0,0,0,0,0,,,,,false,,,,,,,,
@@ -400,6 +442,21 @@ Inbound,,,false,,false,false,false,false,,,0,0,0,
 === sparse route list
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,,,false,,false,false,false,false,,,0,0,0,
+=== sparse segment
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged,,,,,0,,,,,"{""schema_version"":0,""match"":"""",""conditions"":null}"
+=== sparse segment detail
+name,id,description,state,failure_reason,member_count,marketable_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged,,,,,0,,,,,,"{""schema_version"":0,""match"":"""",""conditions"":null}"
+=== sparse segment members
+email,contact_id,entered_at
+member@example.com,,
+=== sparse segment preview
+count,email,contact_id
+,,
+=== sparse segments list
+name,id,description,state,failure_reason,member_count,timezone,last_evaluated_at,created_at,updated_at,definition
+Engaged,,,,,0,,,,,"{""schema_version"":0,""match"":"""",""conditions"":null}"
 === sparse sent message
 recipient,id,message_id_header,status,error
 to@example.com,,,queued,
@@ -515,6 +572,10 @@ example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
+=== uncounted segment preview
+count,email,contact_id
+,a@example.com,11111111-1111-4111-8111-111111111111
+,b@example.com,22222222-2222-4222-8222-222222222222
 === updated api key
 label,id,public_key,account_id,scopes,ip_allow_list,updated_at
 Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z

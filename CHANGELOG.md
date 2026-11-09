@@ -26,6 +26,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The `variables` value of a template and a template version names each
   variable's kind, so `items (required)` reads
   `items (list of name/price; required)` for a list.
+- The CSV output of a campaign, in the `campaigns` commands that print one,
+  `campaigns send` included, has the columns `segment_ids`,
+  `exclude_list_ids` and `exclude_segment_ids` after `list_ids`.
+- The limit of 50 lists of `campaigns create` and `campaigns update` counts
+  the excluded lists too, and more fail with
+  `--list-id and --exclude-list-id take at most 50 lists in all, got <n>`
+  instead of `--list-id takes at most 50 lists, got <n>`.
 
 ### Added
 
@@ -54,6 +61,22 @@ and the project uses [Semantic Versioning](https://semver.org/).
   with its line and column, outside JSON output.
 - A template's variables show their kind: a condition, or a list with the
   fields of its elements.
+- The `segments` group manages segments, which find contacts by rules:
+  `list`, `get`, `create`, `update`, `delete`, `preview`, which counts the
+  contacts a definition matches without saving it, and `members`. A
+  segment's rules come from a JSON definition file, whose keys and JSON
+  types are checked before the request, with the place of each mistake.
+- `contacts segments` lists the segments a contact is a member of.
+- `campaigns create` and `campaigns update` take `--segment-id`,
+  `--exclude-list-id` and `--exclude-segment-id`, so a campaign sends to
+  segments and leaves out the contacts of lists and segments, up to 10
+  segments in all. `campaigns update` takes `--clear-lists`,
+  `--clear-segments`, `--clear-exclude-lists` and `--clear-exclude-segments`.
+  The view of a campaign shows its segments, excluded lists and excluded
+  segments after its lists.
+- A campaign send or test refused with the `text_unchecked` issue ends with
+  a line that says to run the command again, with a new `--idempotency-key`
+  for a send that had one.
 
 ### Changed
 
@@ -72,6 +95,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   a design file or `--editor`, and the "at least one of" errors of the
   `update` commands of `templates`, `campaigns` and `campaigns templates`,
   name `--markup-file`.
+- The "at least one of" error of `campaigns update` names the audience
+  flags, and its error for an empty `--list-id` names `--clear-lists`.
+- The help of `campaigns create`, `update`, `duplicate` and `send` says what
+  to do while a segment of the campaign is building, and that of
+  `campaigns send` that the API stores its answer to a send with
+  `--idempotency-key`, a refusal included. The help of `lists delete` and
+  `campaigns delete` says the API refuses while a segment refers to the list
+  or campaign.
 
 ## [0.3.1] - 2026-10-16
 

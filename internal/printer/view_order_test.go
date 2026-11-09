@@ -85,6 +85,7 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	credential, subAccount := styleSMTP(), styleSubAccount()
 	version := templateVersionDetailFixture()
 	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
+	segment, segmentDetail := segmentFixture(), segmentDetailFixture()
 	template, campaign, campaignTemplate := templateFixture(), campaignFixture(), campaignTemplateFixture()
 	simpleTemplate, simpleCampaign := simpleTemplateFixture(), simpleCampaignFixture()
 	simpleCampaignTemplate := simpleCampaignTemplateFixture()
@@ -106,6 +107,8 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		"contact":          func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
 		"list":             func(h ResponseHandler) error { return h.HandleSingleList(&list, SingleConfig{}) },
 		"list member":      func(h ResponseHandler) error { return h.HandleSingleListMember(&member, SingleConfig{}) },
+		"segment":          func(h ResponseHandler) error { return h.HandleSingleSegment(&segment, SingleConfig{}) },
+		"segment detail":   func(h ResponseHandler) error { return h.HandleSegmentDetail(&segmentDetail, SingleConfig{}) },
 		"template":         func(h ResponseHandler) error { return h.HandleSingleTemplate(&template, SingleConfig{}) },
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign template": func(h ResponseHandler) error {
@@ -145,9 +148,13 @@ func TestSummaryViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		Currency: "USD", AllocationMethod: "reception", AllocationNote: "By reception",
 		BillingPeriod: responses.SubAccountUsageBillingPeriod{Start: styleTime, End: styleTime},
 	}
+	count := 12
+	preview := segmentPreviewFixture(&count)
+	preview.Contacts = preview.Contacts[:1]
 	views := map[string]func(ResponseHandler) error{
 		"auth status":       func(h ResponseHandler) error { return h.HandleAuthStatus(status) },
 		"sub-account usage": func(h ResponseHandler) error { return h.HandleSubAccountUsage(usage, SingleConfig{}) },
+		"segment preview":   func(h ResponseHandler) error { return h.HandleSegmentPreview(preview, SingleConfig{}) },
 	}
 	for name, render := range views {
 		t.Run(name, func(t *testing.T) {

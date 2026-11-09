@@ -100,6 +100,13 @@ type ResponseHandler interface {
 	HandleSingleListMember(member *responses.ListContact, config SingleConfig) error
 	HandleBatchListMembers(response *responses.BatchAddListContactsResponse, config SingleConfig) error
 
+	// Segment responses
+	HandleSegmentList(response *responses.PaginatedSegmentsResponse, config ListConfig) error
+	HandleSingleSegment(segment *responses.Segment, config SingleConfig) error
+	HandleSegmentDetail(segment *responses.SegmentDetail, config SingleConfig) error
+	HandleSegmentPreview(preview *responses.SegmentPreview, config SingleConfig) error
+	HandleSegmentMemberList(response *responses.PaginatedSegmentContactsResponse, config ListConfig) error
+
 	// Template responses
 	HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error
 	HandleSingleTemplate(template *responses.Template, config SingleConfig) error

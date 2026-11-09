@@ -274,6 +274,12 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 	memberships := embeddedMembersFixture()
 	memberships.Data = repeat(responses.ListContact{ListID: styleID, List: &responses.EmbeddedContactList{Name: "Newsletter"}}, count)
 	memberships.Pagination = responses.ContactPagination(paged)
+	segments := segmentsPageFixture()
+	segments.Data = repeat(segments.Data[0], count)
+	segments.Pagination = responses.ContactPagination(paged)
+	segmentMembers := segmentMembersPageFixture()
+	segmentMembers.Data = repeat(segmentMembers.Data[0], count)
+	segmentMembers.Pagination = responses.ContactPagination(paged)
 	templates := templatesPageFixture()
 	templates.Data = repeat(templates.Data[0], count)
 	templates.Pagination = paged
@@ -320,6 +326,8 @@ func everyList(count int) map[string]func(ResponseHandler) error {
 		"memberships": func(h ResponseHandler) error {
 			return h.HandleContactMembershipList(memberships, ListConfig{SuccessMessage: "Retrieved", EmptyMessage: "None found", ItemName: "memberships"})
 		},
+		"segments":           func(h ResponseHandler) error { return h.HandleSegmentList(segments, config) },
+		"segment members":    func(h ResponseHandler) error { return h.HandleSegmentMemberList(segmentMembers, config) },
 		"templates":          func(h ResponseHandler) error { return h.HandleTemplateList(templates, config) },
 		"campaigns":          func(h ResponseHandler) error { return h.HandleCampaignList(campaigns, config) },
 		"recipients":         func(h ResponseHandler) error { return h.HandleCampaignRecipientList(recipients, config) },
@@ -377,6 +385,8 @@ var listTableHeads = map[string][]string{
 	"lists":              {"NAME", "ID"},
 	"members":            {"EMAIL", "CONTACT ID"},
 	"memberships":        {"LIST", "LIST ID"},
+	"segments":           {"NAME", "ID"},
+	"segment members":    {"EMAIL", "CONTACT ID"},
 	"templates":          {"NAME", "ID"},
 	"campaigns":          {"NAME", "ID"},
 	"recipients":         {"EMAIL", "CONTACT ID"},
@@ -407,6 +417,8 @@ var listViews = map[string]listView{
 	"lists":                {listFields, listTableColumns, listHeaders},
 	"members":              {listMemberFields, listMemberTableColumns, listMemberHeaders},
 	"memberships":          {contactMembershipFields, contactMembershipTableColumns, listMemberHeaders},
+	"segments":             {segmentFields, segmentTableColumns, segmentHeaders},
+	"segment members":      {segmentMemberFields, segmentMemberFields, segmentMemberHeaders},
 	"templates":            {templateListFields, templateTableColumns, templateHeaders},
 	"campaigns":            {campaignListFields, campaignTableColumns, campaignHeaders},
 	"recipients":           {campaignRecipientFields, campaignRecipientTableColumns, campaignRecipientHeaders},
@@ -475,6 +487,8 @@ var listPlainHeads = map[string][]string{
 	"lists":              {"Name", "ID"},
 	"members":            {"Email", "Contact ID"},
 	"memberships":        {"List", "List ID"},
+	"segments":           {"Name", "ID"},
+	"segment members":    {"Email", "Contact ID"},
 	"templates":          {"Name", "ID"},
 	"campaigns":          {"Name", "ID"},
 	"recipients":         {"Email", "Contact ID"},
@@ -529,6 +543,8 @@ var listCSVHeads = map[string][]string{
 	"lists":              {"name", "id"},
 	"members":            {"email", "contact_id"},
 	"memberships":        {"list_name", "list_id"},
+	"segments":           {"name", "id"},
+	"segment members":    {"email", "contact_id"},
 	"templates":          {"name", "id"},
 	"campaigns":          {"name", "id"},
 	"recipients":         {"email", "contact_id"},

@@ -17,7 +17,8 @@ func NewDeleteCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <campaign-id>",
 		Short: "Delete a draft campaign",
-		Long: `Delete a draft campaign with its design and its list choices. Delete asks
+		Long: `Delete a draft campaign with its design and its audience. The API refuses
+while a segment refers to the campaign, and names those segments. Delete asks
 for confirmation unless --force is set.`,
 		Example: `  # Delete a draft campaign
   ahasend campaigns delete 123e4567-e89b-12d3-a456-426614174000

@@ -14,8 +14,9 @@ func NewGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <campaign-id>",
 		Short: "Get a campaign",
-		Long: `Get one campaign with its lists and content. For a draft it also shows whether
-the campaign is ready to send and, when it is not, each issue in the way.
+		Long: `Get one campaign with its audience and content. For a draft it also shows
+whether the campaign is ready to send and, when it is not, each issue in the
+way.
 
 --markup writes only the AhaML of a Simple Editor design to stdout. Save it,
 edit it and write it back with "campaigns update --markup-file". It fails

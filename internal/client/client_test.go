@@ -734,6 +734,104 @@ func TestClient_TemplateReadsCallTheirEndpoints(t *testing.T) {
 	}
 }
 
+// TestClient_SegmentMethodsCallTheirEndpoints checks the method, path, query,
+// body and idempotency key of each segment request, and that its answer is
+// read.
+func TestClient_SegmentMethodsCallTheirEndpoints(t *testing.T) {
+	accountID, segmentID := uuid.New(), uuid.New()
+	segmentsPath := "/v2/accounts/" + accountID.String() + "/segments"
+	segmentPath := segmentsPath + "/" + segmentID.String()
+	limit, after, before := int32(25), "next-page", "previous-page"
+	timezone, empty := "Europe/Berlin", ""
+	plan := "pro"
+	definition := common.SegmentDefinition{
+		SchemaVersion: common.SegmentSchemaVersion,
+		Match:         common.SegmentMatchAll,
+		Conditions: []common.SegmentRule{{Condition: &common.SegmentCondition{
+			Field: "attributes.plan", Op: common.SegmentOpEqual, Value: &common.SegmentValue{String: &plan},
+		}}},
+	}
+	definitionJSON := `{"schema_version":1,"match":"all","conditions":[{"field":"attributes.plan","op":"equal","value":"pro"}]}`
+	segmentBody := `{"object":"segment","id":"` + segmentID.String() + `","name":"Pro"}`
+	segmentsBody := `{"object":"list","data":[` + segmentBody + `],"pagination":{"has_more":false}}`
+
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		query       string
+		body        string
+		idempotency string
+		response    string
+		call        func(*Client) (any, error)
+	}{
+		{"GetSegments", http.MethodGet, segmentsPath, "after=next-page&limit=25", "", "", segmentsBody,
+			func(c *Client) (any, error) {
+				return c.GetSegments(requests.GetSegmentsParams{Limit: &limit, After: &after})
+			}},
+		{"GetSegment", http.MethodGet, segmentPath, "", "", "", segmentBody,
+			func(c *Client) (any, error) { return c.GetSegment(segmentID) }},
+		{"CreateSegment", http.MethodPost, segmentsPath, "",
+			`{"name":"Pro","definition":` + definitionJSON + `,"timezone":"Europe/Berlin"}`, "create-pro", segmentBody,
+			func(c *Client) (any, error) {
+				return c.CreateSegment(requests.CreateSegmentRequest{Name: "Pro", Definition: definition, Timezone: &timezone},
+					api.WithIdempotencyKey("create-pro"))
+			}},
+		{"UpdateSegment", http.MethodPut, segmentPath, "", `{"description":"","definition":` + definitionJSON + `}`, "",
+			segmentBody,
+			func(c *Client) (any, error) {
+				return c.UpdateSegment(segmentID, requests.UpdateSegmentRequest{Description: &empty, Definition: &definition})
+			}},
+		{"DeleteSegment", http.MethodDelete, segmentPath, "", "", "", `{"message":"Segment deleted"}`,
+			func(c *Client) (any, error) { return c.DeleteSegment(segmentID) }},
+		{"PreviewSegment", http.MethodPost, segmentsPath + "/preview", "",
+			`{"definition":` + definitionJSON + `,"timezone":""}`, "", `{"object":"segment_preview","count":3,"contacts":[]}`,
+			func(c *Client) (any, error) {
+				return c.PreviewSegment(requests.PreviewSegmentRequest{Definition: definition, Timezone: &empty})
+			}},
+		{"GetSegmentContacts", http.MethodGet, segmentPath + "/contacts", "before=previous-page&limit=100", "", "",
+			`{"object":"list","data":[{"object":"segment_contact","email":"a@example.com"}],"pagination":{"has_more":false}}`,
+			func(c *Client) (any, error) {
+				return c.GetSegmentContacts(segmentID, requests.GetSegmentContactsParams{Before: &before})
+			}},
+		{"GetContactSegments", http.MethodGet,
+			"/v2/accounts/" + accountID.String() + "/contacts/user+tag@example.com/segments", "limit=100", "", "", segmentsBody,
+			func(c *Client) (any, error) {
+				return c.GetContactSegments("user+tag@example.com", requests.GetContactSegmentsParams{})
+			}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var method, path, query, idempotency string
+			var body []byte
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+				idempotency = r.Header.Get("Idempotency-Key")
+				body, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.response))
+			})
+			defer cleanup()
+
+			result, err := tt.call(client)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.method, method)
+			assert.Equal(t, tt.path, path)
+			assert.Equal(t, tt.query, query)
+			if tt.body == "" {
+				assert.Empty(t, body)
+			} else {
+				assert.JSONEq(t, tt.body, string(body))
+			}
+			if tt.idempotency != "" {
+				assert.Equal(t, tt.idempotency, idempotency)
+			}
+		})
+	}
+}
+
 // TestSendRequestsAreSentOnce checks that the send methods leave retries to
 // their caller: a failed send is one request, not one plus the SDK's own
 // retries.
@@ -833,6 +931,7 @@ func TestDeleteRequestsAreSentOnce(t *testing.T) {
 		"delete contact":           func(c *Client) error { _, err := c.DeleteContact("a@example.com"); return err },
 		"delete list":              func(c *Client) error { _, err := c.DeleteList(id); return err },
 		"remove list member":       func(c *Client) error { _, err := c.DeleteListContact(id, "a@example.com"); return err },
+		"delete segment":           func(c *Client) error { _, err := c.DeleteSegment(id); return err },
 		"delete template":          func(c *Client) error { _, err := c.DeleteTemplate(id); return err },
 		"discard template draft":   func(c *Client) error { _, err := c.DiscardTemplateDraft(id); return err },
 		"delete campaign":          func(c *Client) error { _, err := c.DeleteCampaign(id); return err },

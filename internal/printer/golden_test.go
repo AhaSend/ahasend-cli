@@ -32,6 +32,8 @@ func nilLists() map[string]func(ResponseHandler) error {
 		"lists":              func(h ResponseHandler) error { return h.HandleListsList(nil, config) },
 		"members":            func(h ResponseHandler) error { return h.HandleListMemberList(nil, config) },
 		"memberships":        func(h ResponseHandler) error { return h.HandleContactMembershipList(nil, config) },
+		"segments":           func(h ResponseHandler) error { return h.HandleSegmentList(nil, config) },
+		"segment members":    func(h ResponseHandler) error { return h.HandleSegmentMemberList(nil, config) },
 		"templates":          func(h ResponseHandler) error { return h.HandleTemplateList(nil, config) },
 		"campaigns":          func(h ResponseHandler) error { return h.HandleCampaignList(nil, config) },
 		"recipients":         func(h ResponseHandler) error { return h.HandleCampaignRecipientList(nil, config) },

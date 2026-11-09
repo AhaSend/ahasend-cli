@@ -22,6 +22,14 @@ func NewCreateCommand() *cobra.Command {
 "campaigns update", and the campaign lists its issues until it is ready to
 send.
 
+--list-id and --segment-id name the lists and segments to send to.
+--exclude-list-id and --exclude-segment-id name lists and segments whose
+contacts get no message, also when a list or segment sent to reaches them.
+A campaign uses at most 50 lists and 10 segments, included and excluded
+together. While a segment of the audience is building, the API waits for it
+and can then refuse with 409; run the command again, with the same
+--idempotency-key or a new one. "segments get" shows a segment's state.
+
 The design comes from files, --markup-file for the AhaML of a simple design,
 --mjml-file for an advanced design or --html-file for an html design, with
 --text-file for the plain text version, which is otherwise made from the
@@ -33,6 +41,10 @@ content flags or --editor.`,
   ahasend campaigns create --name "October news" --subject "What's new" \
     --from news@example.com --from-name "Example" --list-id 123e4567-e89b-12d3-a456-426614174000 \
     --html-file october.html
+
+  # Create a campaign to a segment, leaving out the members of a list
+  ahasend campaigns create --name "Win back" --segment-id 123e4567-e89b-12d3-a456-426614174002 \
+    --exclude-list-id 123e4567-e89b-12d3-a456-426614174003
 
   # Create a campaign from an AhaML design
   ahasend campaigns create --name "October news" --markup-file october.ahaml
@@ -54,6 +66,9 @@ content flags or --editor.`,
 	cmdutil.AddSenderFlags(cmd)
 	cmd.Flags().String("reply-to", "", "Reply-to email address")
 	cmdutil.AddRepeatableFlag(cmd, "list-id", "ID of a list to send to (can be used multiple times)")
+	cmdutil.AddRepeatableFlag(cmd, "segment-id", "ID of a segment to send to (can be used multiple times)")
+	cmdutil.AddRepeatableFlag(cmd, "exclude-list-id", "ID of a list whose contacts get no message (can be used multiple times)")
+	cmdutil.AddRepeatableFlag(cmd, "exclude-segment-id", "ID of a segment whose members get no message (can be used multiple times)")
 	cmd.Flags().String("campaign-template-id", "", "ID of a campaign template whose design the campaign copies")
 	cmdutil.AddIdempotencyKeyFlag(cmd)
 	return cmd
@@ -112,21 +127,24 @@ func runCampaignsCreate(cmd *cobra.Command, _ []string) error {
 	if err := validation.ValidateOptionalEmail("--reply-to", replyTo); err != nil {
 		return err
 	}
-	listIDs, err := readListIDs(cmd)
+	sets, err := readAudience(cmd)
 	if err != nil {
 		return err
 	}
 
 	request := requests.CreateCampaignRequest{
-		Name:       name,
-		Subject:    cmdutil.ChangedString(cmd, "subject"),
-		Preheader:  cmdutil.ChangedString(cmd, "preheader"),
-		From:       from,
-		ReplyTo:    replyTo,
-		ListIDs:    listIDs,
-		Editor:     editor,
-		Content:    content,
-		TemplateID: templateID,
+		Name:              name,
+		Subject:           cmdutil.ChangedString(cmd, "subject"),
+		Preheader:         cmdutil.ChangedString(cmd, "preheader"),
+		From:              from,
+		ReplyTo:           replyTo,
+		ListIDs:           sets.listIDs,
+		SegmentIDs:        sets.segmentIDs,
+		ExcludeListIDs:    sets.excludeListIDs,
+		ExcludeSegmentIDs: sets.excludeSegmentIDs,
+		Editor:            editor,
+		Content:           content,
+		TemplateID:        templateID,
 	}
 
 	idempotency, err := cmdutil.IdempotencyOptions(cmd)
@@ -140,8 +158,9 @@ func runCampaignsCreate(cmd *cobra.Command, _ []string) error {
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
-		"name":  name,
-		"lists": len(listIDs),
+		"name":     name,
+		"lists":    len(sets.listIDs),
+		"segments": len(sets.segmentIDs),
 	}).Debug("Executing campaigns create command")
 
 	campaign, err := apiClient.CreateCampaign(request, idempotency...)

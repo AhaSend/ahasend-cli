@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/google/uuid"
 )
 
 // The fields of the views of a campaign, which the table, plain and CSV
@@ -23,7 +24,9 @@ var (
 	// campaignDetailFields are the fields of a campaign's detail view before
 	// its content. The view ends with the content: templateContentColumns in
 	// CSV output.
-	campaignDetailFields = slices.Concat(campaignListFields, []string{"list_ids", "editor", "ready", "issues"})
+	campaignDetailFields = slices.Concat(campaignListFields, []string{
+		"list_ids", "segment_ids", "exclude_list_ids", "exclude_segment_ids", "editor", "ready", "issues",
+	})
 	// campaignCSVColumns are the CSV columns of a campaign with its content,
 	// which a send's warnings follow.
 	campaignCSVColumns = slices.Concat(campaignDetailFields, templateContentColumns)
@@ -35,23 +38,26 @@ var (
 
 // campaignHeaders names the table column or row of each campaign field.
 var campaignHeaders = map[string]string{
-	"name":            "Name",
-	"id":              "ID",
-	"status":          "Status",
-	"status_reason":   "Status Reason",
-	"subject":         "Subject",
-	"preheader":       "Preheader",
-	"from":            "From",
-	"reply_to":        "Reply To",
-	"send_at":         "Send At",
-	"send_resumes_at": "Send Resumes At",
-	"finished_at":     "Finished At",
-	"created_at":      "Created",
-	"updated_at":      "Updated",
-	"list_ids":        "Lists",
-	"editor":          "Editor",
-	"ready":           "Ready",
-	"issues":          "Issues",
+	"name":                "Name",
+	"id":                  "ID",
+	"status":              "Status",
+	"status_reason":       "Status Reason",
+	"subject":             "Subject",
+	"preheader":           "Preheader",
+	"from":                "From",
+	"reply_to":            "Reply To",
+	"send_at":             "Send At",
+	"send_resumes_at":     "Send Resumes At",
+	"finished_at":         "Finished At",
+	"created_at":          "Created",
+	"updated_at":          "Updated",
+	"list_ids":            "Lists",
+	"segment_ids":         "Segments",
+	"exclude_list_ids":    "Excluded Lists",
+	"exclude_segment_ids": "Excluded Segments",
+	"editor":              "Editor",
+	"ready":               "Ready",
+	"issues":              "Issues",
 }
 
 var campaignTestCSVHeaders = []string{"email", "outcome", "reason"}
@@ -230,11 +236,11 @@ func (h *csvHandler) HandleCampaignSend(send *responses.CampaignSend, config Sin
 // extra.
 func (h *csvHandler) writeCampaignCSV(columns []string, campaign *responses.Campaign, extra map[string]string) error {
 	row := campaignListItemCSVFields(&campaign.CampaignListItem)
+	maps.Copy(row, campaignAudienceValues(campaign))
 	maps.Copy(row, map[string]string{
-		"list_ids": formatStringSlice(formatCampaignListIDs(campaign)),
-		"editor":   formatOptionalString(campaign.Editor),
-		"ready":    formatOptionalBool(campaign.Ready),
-		"issues":   formatStringSlice(formatCampaignIssues(campaign.Issues)),
+		"editor": formatOptionalString(campaign.Editor),
+		"ready":  formatOptionalBool(campaign.Ready),
+		"issues": formatStringSlice(formatCampaignIssues(campaign.Issues)),
 	})
 	maps.Copy(row, templateContentCSVFields(campaign.Content))
 	maps.Copy(row, extra)
@@ -291,10 +297,10 @@ func campaignListItemDisplayFields(campaign *responses.CampaignListItem) map[str
 // content.
 func campaignDetailRows(campaign *responses.Campaign) [][]string {
 	values := campaignListItemDisplayFields(&campaign.CampaignListItem)
+	maps.Copy(values, campaignAudienceValues(campaign))
 	maps.Copy(values, map[string]string{
-		"list_ids": formatStringSlice(formatCampaignListIDs(campaign)),
-		"editor":   formatOptionalString(campaign.Editor),
-		"issues":   formatStringSlice(formatCampaignIssues(campaign.Issues)),
+		"editor": formatOptionalString(campaign.Editor),
+		"issues": formatStringSlice(formatCampaignIssues(campaign.Issues)),
 	})
 	if campaign.Ready != nil {
 		values["ready"] = formatBooleanStatus(*campaign.Ready)
@@ -316,12 +322,25 @@ func campaignTestRows(test *responses.CampaignTest) [][]string {
 	return rows
 }
 
-func formatCampaignListIDs(campaign *responses.Campaign) []string {
-	ids := make([]string, len(campaign.ListIDs))
-	for i, id := range campaign.ListIDs {
-		ids[i] = formatUUID(id)
+// campaignAudienceValues maps each audience field of a campaign, the lists
+// and segments it sends to and those it leaves out, to its value, the same
+// in every format: the IDs joined with ", ".
+func campaignAudienceValues(campaign *responses.Campaign) map[string]string {
+	return map[string]string{
+		"list_ids":            formatUUIDs(campaign.ListIDs),
+		"segment_ids":         formatUUIDs(campaign.SegmentIDs),
+		"exclude_list_ids":    formatUUIDs(campaign.ExcludeListIDs),
+		"exclude_segment_ids": formatUUIDs(campaign.ExcludeSegmentIDs),
 	}
-	return ids
+}
+
+// formatUUIDs joins the IDs with ", ", or returns "" for none.
+func formatUUIDs(ids []uuid.UUID) string {
+	formatted := make([]string, len(ids))
+	for i, id := range ids {
+		formatted[i] = formatUUID(id)
+	}
+	return formatStringSlice(formatted)
 }
 
 // formatCampaignIssues formats each issue as "code: message".

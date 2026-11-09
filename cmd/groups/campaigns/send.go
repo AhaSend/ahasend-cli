@@ -20,15 +20,22 @@ func NewSendCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send <campaign-id>",
 		Short: "Send or schedule a draft campaign",
-		Long: `Send a draft campaign to its lists now, or at the time given with
---schedule: an RFC3339 time or a relative one such as "2h" from now. The API
-takes a time more than a minute ahead; an earlier one fails before the
-request. The campaign then goes through list
-validation and review before it sends; follow its status with "campaigns get".
+		Long: `Send a draft campaign to its lists and segments now, or at the time given
+with --schedule: an RFC3339 time or a relative one such as "2h" from now. The
+API takes a time more than a minute ahead; an earlier one fails before the
+request. The campaign then goes through audience validation and review before
+it sends; follow its status with "campaigns get".
 
-A campaign with issues is refused, and each issue is listed. To change the send
-time of a scheduled campaign, unschedule it and send it again. Send asks for
-confirmation unless --force is set.`,
+A campaign with issues is refused, and each issue is listed. While a segment
+of the campaign, included or excluded, is building, the API refuses the send
+with 400 and a message to schedule the campaign when the segment is ready;
+"segments get" shows the segment's state. The API stores its answer to a send
+with --idempotency-key, a refusal included, and gives it again to a run with
+the same key for 24 hours: run a refused send again with a new key, or
+without the flag.
+
+To change the send time of a scheduled campaign, unschedule it and send it
+again. Send asks for confirmation unless --force is set.`,
 		Example: `  # Send a campaign now
   ahasend campaigns send 123e4567-e89b-12d3-a456-426614174000
 
@@ -59,14 +66,14 @@ func runCampaignsSend(cmd *cobra.Command, args []string) error {
 	}
 
 	request := requests.SendCampaignRequest{}
-	question := fmt.Sprintf("Are you sure you want to send campaign %s to its lists now?", campaignID)
+	question := fmt.Sprintf("Are you sure you want to send campaign %s to its audience now?", campaignID)
 	if schedule := cmdutil.ChangedString(cmd, "schedule"); schedule != nil {
 		sendAt, err := timeparse.ParseTimeAhead("schedule", *schedule, "2h or 7d", time.Minute, 0)
 		if err != nil {
 			return err
 		}
 		request.SendAt = &sendAt
-		question = fmt.Sprintf("Are you sure you want to send campaign %s to its lists at %s?",
+		question = fmt.Sprintf("Are you sure you want to send campaign %s to its audience at %s?",
 			campaignID, printer.DisplayTime(sendAt))
 	}
 
@@ -91,7 +98,7 @@ func runCampaignsSend(cmd *cobra.Command, args []string) error {
 
 	send, err := apiClient.SendCampaign(campaignUUID, request, idempotency...)
 	if err != nil {
-		return campaignNotReadyError(cmd, err, "send")
+		return campaignNotReadyError(cmd, err, "send", cmd.Flags().Changed("idempotency-key"))
 	}
 	return printer.GetResponseHandlerFromCommand(cmd).HandleCampaignSend(send, printer.SingleConfig{
 		SuccessMessage: "Campaign send accepted",

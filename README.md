@@ -16,9 +16,9 @@ A powerful command-line interface for [AhaSend](https://ahasend.com), the reliab
 - **🔔 Webhook Management**: Configure, test, and monitor real-time event notifications
 - **🔐 Authentication**: Secure profile-based authentication with API key management
 - **👥 Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
-- **👤 Contact and List Management**: Create, update, batch upsert, and safely delete contacts, and manage the lists they belong to
+- **👤 Contact, List and Segment Management**: Create, update, batch upsert, and safely delete contacts, manage the lists they belong to, and find contacts by rules with segments
 - **📝 Transactional Templates**: Store, draft, publish, and restore versions of the templates `messages send --template-id` sends
-- **📣 Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists, and manage campaign templates
+- **📣 Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists and segments, and manage campaign templates
 - **📊 Analytics**: Comprehensive email statistics and reporting
 - **📦 Batch Processing**: High-performance concurrent operations with progress tracking
 - **🎨 Multiple Output Formats**: JSON, table, CSV, and plain text
@@ -217,6 +217,7 @@ ahasend routes trigger <route-id>
 | `contacts` | Manage account-global contacts and their list memberships |
 | `domains` | Manage sending domains, their sending type and DKIM selector |
 | `lists` | Manage contact lists and their members |
+| `segments` | Manage segments of contacts and preview their rules |
 | `messages` | Send and manage email messages, inline or from a stored template |
 | `templates` | Manage transactional templates, their drafts and published versions |
 | `webhooks` | Configure webhook endpoints |
@@ -229,7 +230,7 @@ ahasend routes trigger <route-id>
 | `ping` | Test API connectivity |
 | `completion` | Print the shell completion script for `bash`, `zsh`, `fish` or `powershell` |
 
-### Contact and List Management
+### Contact, List and Segment Management
 
 Contact commands operate on account-global contacts and do not create list
 memberships. Attribute keys are defined in the AhaSend dashboard under the
@@ -282,6 +283,21 @@ scopes for the contact commands, and `lists:read`, `lists:write` and
 `lists:read`, and `lists members list --include-contacts` also needs
 `contacts:read`.
 
+Segments find contacts by rules, which a JSON definition file holds. The API
+keeps a segment's members up to date; preview a definition before saving it:
+
+```bash
+ahasend segments preview --definition-file engaged.json
+ahasend segments create --name "Engaged pro customers" --definition-file engaged.json
+ahasend segments get <segment-id>
+ahasend segments members <segment-id>
+ahasend contacts segments a@example.com
+```
+
+The segment commands need the `segments:read`, `segments:write` and
+`segments:delete` scopes; `segments preview`, `segments members` and
+`contacts segments` also need `contacts:read`.
+
 ### Transactional Templates
 
 Template changes go to a draft; sends use the published copy, so publish before
@@ -315,7 +331,8 @@ template needs only the usual send scope.
 
 ### Campaigns
 
-Campaigns send a design to contact lists. Test a draft, then send it now or
+Campaigns send a design to contact lists and segments, and can leave out the
+contacts of other lists and segments. Test a draft, then send it now or
 schedule it; a draft with issues is refused, and each issue is listed:
 
 ```bash

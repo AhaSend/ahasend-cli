@@ -308,9 +308,9 @@ handlers `HandleSegmentList`, `HandleSingleSegment`, `HandleSegmentDetail`,
 
 **Flags.** `campaigns create` and `campaigns update` take four repeatable ID
 flags: `--list-id`, `--segment-id`, `--exclude-list-id` and
-`--exclude-segment-id`. One reader in `cmd/groups/campaigns/helpers.go`
-parses all four, with the UUID parsing and the count of distinct IDs that
-`readListIDs` has. Limits, checked before authentication: at most 50
+`--exclude-segment-id`. One reader in `cmd/groups/campaigns/helpers.go`,
+`readAudience`, parses all four: it parses each ID as a UUID and counts the
+distinct IDs. Limits, checked before authentication: at most 50
 distinct lists across `--list-id` and `--exclude-list-id`, and at most 10
 distinct segments across `--segment-id` and `--exclude-segment-id`. The
 errors, with the real count:
@@ -716,7 +716,7 @@ every output format. A `campaigns create` with `--segment-id` and
   it prints the line that asks for a new key; a refused test prints the
   plain line.
 
-**Status**: Not Started
+**Status**: Complete
 
 ## Stage 4: Webhook events, origins and filters
 

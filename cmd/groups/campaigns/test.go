@@ -91,7 +91,7 @@ func runCampaignsTest(cmd *cobra.Command, args []string) error {
 
 	test, err := apiClient.TestCampaign(campaignID, request, idempotency...)
 	if err != nil {
-		return campaignNotReadyError(cmd, err, "test")
+		return campaignNotReadyError(cmd, err, "test", false)
 	}
 	if err := printer.GetResponseHandlerFromCommand(cmd).HandleCampaignTest(test, printer.SingleConfig{
 		SuccessMessage: campaignTestSummary(test),

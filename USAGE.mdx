@@ -11,9 +11,9 @@ The AhaSend CLI is a comprehensive command-line interface for the AhaSend email 
 - **Webhook Management**: Configure real-time event notifications
 - **Authentication**: Secure profile-based authentication with API key management
 - **Sub-Account Management**: Provision, suspend, and review usage for sub-accounts and their nested API keys
-- **Contact and List Management**: Manage account-global contacts, synchronous batch upserts, and the lists contacts belong to
+- **Contact, List and Segment Management**: Manage account-global contacts, synchronous batch upserts, the lists contacts belong to, and segments that find contacts by rules
 - **Transactional Templates**: Store, draft, publish, and restore versions of the templates that `messages send --template-id` sends
-- **Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists, and manage campaign templates
+- **Marketing Campaigns**: Draft, test, send or schedule, and report on campaigns to contact lists and segments, and manage campaign templates
 - **Analytics**: Comprehensive email statistics and reporting
 - **Multiple Output Formats**: JSON, table, CSV, and plain text
 - **Batch Processing**: High-performance concurrent operations with progress tracking
@@ -424,7 +424,8 @@ for confirmation first:
 - `messages cancel`
 - `subaccounts delete`, `subaccounts suspend` and
   `subaccounts api-keys delete`
-- `contacts delete`, `lists delete` and `lists members remove`
+- `contacts delete`, `lists delete`, `lists members remove` and
+  `segments delete`
 - `templates delete`, `templates draft discard` and
   `templates versions restore`
 - `campaigns delete`, `campaigns send` and `campaigns templates delete`
@@ -574,7 +575,7 @@ that starts with a space fails (see
 | `apikeys update`, `subaccounts api-keys update` | `--scope`, `--ip-allow-list` |
 | `lists create`, `lists update` | `--tag` |
 | `lists members add` | `--email`, `--contact-id` |
-| `campaigns create`, `campaigns update` | `--list-id` |
+| `campaigns create`, `campaigns update` | `--list-id`, `--segment-id`, `--exclude-list-id`, `--exclude-segment-id` |
 | `campaigns test` | `--to` |
 
 Each value is read as a line of CSV: a value that holds a comma goes in
@@ -615,8 +616,9 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
 - every flag in the [Repeatable Flags](#repeatable-flags) table, for each of
   its items too, such as the one after the comma in `--tag news,`
 - every required text flag: `--name` on the `create` commands of `webhooks`,
-  `routes`, `smtp`, `lists`, `templates`, `campaigns`, `campaigns templates`
-  and `subaccounts`; `--label` on `apikeys create` and
+  `routes`, `smtp`, `lists`, `segments`, `templates`, `campaigns`,
+  `campaigns templates` and `subaccounts`; `--definition-file` on
+  `segments create` and `segments preview`; `--label` on `apikeys create` and
   `subaccounts api-keys create`; `--url` and `--recipient` on
   `webhooks create` and `routes create`; `--website` on `subaccounts create`;
   `--reason` on `subaccounts suspend`; `--from`, `--subject` and the
@@ -629,8 +631,9 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
   and `--recipient` on `routes update`, where the error adds
   `: a route's recipient cannot be cleared`
 - `lists members set --subscription-status`
-- `--name` on `lists update`, `templates update`, `campaigns update`,
-  `campaigns duplicate` and `campaigns templates update`
+- `--name` on `lists update`, `segments update`, `templates update`,
+  `campaigns update`, `campaigns duplicate` and `campaigns templates update`,
+  and `--definition-file` on `segments update`
 - `--editor` on `templates create`, `campaigns create` and
   `campaigns templates create`
 - `--status` on `contacts create`, and `--email` and `--status` on
@@ -654,9 +657,12 @@ Where another flag clears the field, the error names it, such as
 `--from cannot be empty; use --clear-from to clear it`: `--clear-tags` for
 `lists update --tag`, `--clear-ip-allow-list` for `--ip-allow-list` on
 `apikeys update` and `subaccounts api-keys update`, `--clear-events` for
-`--events` on `webhooks update`, `--clear-from` for `--from` on `templates update` and `campaigns update`, and
+`--events` on `webhooks update`, `--clear-from` for `--from` on `templates update` and `campaigns update`,
 `--clear-reply-to` for `--reply-to` on `templates update` and
-`campaigns update`.
+`campaigns update`, and on `campaigns update` `--clear-lists`,
+`--clear-segments`, `--clear-exclude-lists` and `--clear-exclude-segments`
+for `--list-id`, `--segment-id`, `--exclude-list-id` and
+`--exclude-segment-id`.
 
 #### Length Limits
 
@@ -667,7 +673,8 @@ fails with `--<flag> must be at most <limit> characters` and exit code 4:
 - 255 characters: `--label` on `apikeys create`, `apikeys update`,
   `subaccounts api-keys create` and `subaccounts api-keys update`; `--name`
   on the `create` and `update` commands of `webhooks`, `routes`, `lists`,
-  `templates`, `campaigns`, `campaigns templates` and `subaccounts`, on
+  `segments`, `templates`, `campaigns`, `campaigns templates` and
+  `subaccounts`, on
   `smtp create` and on `campaigns duplicate`; `--recipient` on
   `routes create`, `update` and `listen`; and `--reason` on
   `suppressions create`
@@ -676,16 +683,17 @@ fails with `--<flag> must be at most <limit> characters` and exit code 4:
   `subaccounts suspend`
 - 998 characters: `--subject` on `templates create`, `templates update`,
   `campaigns create` and `campaigns update`
-- 1000 characters: `--description` on `lists create` and `update`
+- 1000 characters: `--description` on `lists create`, `lists update`,
+  `segments create` and `segments update`
 
 Where the API cleans a value before it counts it, the CLI counts it the same
 way, and sends the value as you gave it, except on the `subaccounts`
 commands, which send `--name` and `subaccounts suspend --reason` without the
 spaces around them, as the API stores them. The spaces around these values do
-not count: the `--name` of the `lists`, `templates`, `campaigns`,
-`campaigns templates` and `subaccounts` commands and of
+not count: the `--name` of the `lists`, `segments`, `templates`,
+`campaigns`, `campaigns templates` and `subaccounts` commands and of
 `campaigns duplicate`, the `--reason` of `subaccounts suspend`, the
-`--description` of the `lists` commands, and the `--subject` and
+`--description` of the `lists` and `segments` commands, and the `--subject` and
 `--preheader` of the `templates` and `campaigns` commands, in which each
 CRLF line break, control character other than a tab, and line or paragraph
 separator (U+2028, U+2029) also counts as one space. The other flags count
@@ -806,8 +814,13 @@ and an error that names the input:
   `batch file data takes at most 1000 contacts, got <n>` (or `members`) for
   one with more items
 
-A file the CLI reads, such as a `--recipients`, `--global-substitutions` or
-batch `--file`, or a content file such as `--html-file`, must be UTF-8 text,
+The `--definition-file` of the segments commands holds one segment
+definition, which is checked as [Definition Files](#definition-files)
+describes.
+
+A file the CLI reads, such as a `--recipients`, `--global-substitutions`,
+batch `--file` or `--definition-file`, or a content file such as
+`--html-file`, must be UTF-8 text,
 which the API takes. It may start with the UTF-8 byte order mark that
 programs such as Excel write ("CSV UTF-8"); the mark is ignored. A file in
 another encoding fails before any request is sent, with exit code 4:
@@ -1616,7 +1629,8 @@ exit code 4.
 
 **Scopes:** `contacts:read` for `contacts list` and `get`, `contacts:write`
 for `create`, `update` and `batch`, and `contacts:delete` for `delete`.
-`contacts memberships` needs `lists:read`.
+`contacts memberships` needs `lists:read`, and `contacts segments` needs
+`segments:read` and `contacts:read`.
 
 #### `ahasend contacts list`
 
@@ -1796,6 +1810,27 @@ subscribe and unsubscribe times; plain and CSV output add the contact's email
 and ID and the membership's created and updated times. A contact on no list
 prints `No lists found`, and a page ends with `Showing N lists`.
 
+#### `ahasend contacts segments`
+
+List the segments a contact is a member of, in the order of
+[`segments list`](#ahasend-segments-list). A segment that is `building` may
+still list the contact by its previous rules.
+
+```bash
+# List a contact's segments
+ahasend contacts segments person@example.com
+
+# List them as CSV
+ahasend contacts segments person@example.com --output csv
+```
+
+**Flags:**
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+The output shows each segment as `segments list` does. A contact in no
+segment prints `No segments found`, and a page ends with
+`Showing N segments`.
+
 ### List Commands
 
 Lists are static lists of contacts that campaigns target. A list's contact
@@ -1892,8 +1927,9 @@ ahasend lists update <list-id> --clear-tags
 #### `ahasend lists delete`
 
 Delete a contact list. The API refuses while a campaign that still needs the
-list refers to it. The command asks for [confirmation](#confirmation-prompts)
-unless `--force` is given.
+list refers to it, and while a segment refers to it, naming those segments.
+The command asks for [confirmation](#confirmation-prompts) unless `--force`
+is given.
 
 ```bash
 # Delete a list
@@ -2031,6 +2067,231 @@ ahasend lists members remove <list-id> person@example.com --force
 
 The output is the API's message. When the API returns none, it is a line
 such as `Contact 'person@example.com' removed from list '<list-id>' successfully`.
+
+### Segment Commands
+
+A segment is a saved set of rules over the account's contacts. The API finds
+the contacts that match, the segment's members, and keeps them up to date.
+A campaign sends to segments, and leaves the members of segments out, as it
+does with lists (see [Campaign Commands](#campaign-commands)). A
+segment is `building` while its members are found, `ready` when they follow
+its rules, and `failed` when they could not be found; a campaign to a
+segment cannot be sent until the segment is `ready`.
+
+**Scopes:** `segments:read` for `segments list`, `get`, `preview` and
+`members`, `segments:write` for `create` and `update`, and `segments:delete`
+for `delete`. `segments preview` and `segments members`, like
+`contacts segments`, also need `contacts:read`.
+
+#### Definition Files
+
+`segments create`, `segments update` and `segments preview` read a segment's
+rules from `--definition-file`, a JSON file that holds one segment
+definition in the API's shape. This one matches pro customers who are in
+Germany or opened at least 3 campaigns in the last 90 days:
+
+```json engaged.json
+{
+  "schema_version": 1,
+  "match": "all",
+  "conditions": [
+    {"field": "attributes.plan", "op": "equal", "value": "pro"},
+    {"match": "any", "conditions": [
+      {"field": "attributes.country", "op": "equal", "value": "DE"},
+      {"field": "campaign_count", "op": "opened_at_least",
+       "value": {"count": 3, "since": "90 days ago"}}
+    ]}
+  ]
+}
+```
+
+A definition matches `all` or `any` of its conditions. An entry of its
+`conditions` that has a `match` key is a group, which matches all or any of
+its own conditions; a group cannot hold a group. Any other entry is a
+condition, which compares a `field` with an operator, `op`, and a `value`.
+
+The CLI checks the shape of the file before any request is sent. A mistake
+fails with exit code 4 and an error that names its place in the file, such
+as
+`--definition-file: conditions[1].conditions[0].vlaue is not a key of a segment condition`:
+
+- The file holds one JSON object. A file that is empty or is not JSON fails
+  with `--definition-file is not JSON: <reason>`, and other JSON with
+  `--definition-file must be a JSON object, the segment definition`.
+- An object holds only the keys of its kind, each once: `schema_version`,
+  `match` and `conditions` in the definition, `match` and `conditions` in a
+  group, `field`, `op` and `value` in a condition, and `count` and `since` in
+  the count a `campaign_count` condition takes as its value. A key named
+  twice fails with `... is given twice`.
+- `schema_version` and `count` are integers written without a fraction or
+  exponent; `match`, `field`, `op` and `since` are strings; `conditions` is
+  an array of objects.
+- A `value` is a string, a number, `true`, `false`, `null` or a count. The
+  SDK sends a number as a 64-bit float, so a number must be within a
+  float's range, and a whole number, however it is written, such as `1e15`
+  or `3.0`, must lie between -2^53 and 2^53, where a float holds every whole
+  number exactly. A number with a fraction, such as `0.1`, passes.
+- A group inside a group fails with
+  `--definition-file: conditions[1].conditions[0] is a group inside a group, which the API does not allow`,
+  before its other keys are checked.
+
+The keys of an object are checked in alphabetical order. The CLI checks
+nothing more: the API checks the fields, operators and values, and names
+the place of each problem.
+
+#### `ahasend segments list`
+
+List the account's segments, newest first.
+
+```bash
+# List segments
+ahasend segments list
+
+# Fetch the next page
+ahasend segments list --limit 20 --after <cursor>
+```
+
+**Flags:**
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+Table output shows each segment's name, ID, state, member count, and when it
+was updated; plain and CSV output add the description, the failure reason,
+the time zone, when the members were last checked, the creation time and the
+definition.
+
+#### `ahasend segments get`
+
+Get a segment, with its state and its definition. A failed segment shows the
+reason it failed.
+
+```bash
+ahasend segments get <segment-id>
+```
+
+`Members` counts every contact that matches the rules, whatever its consent,
+and `Marketable` counts those a campaign to the segment alone would reach.
+`Marketable` is `unknown` in table and plain output, and an empty cell in
+CSV output, while the segment is not `ready` and when the API cannot count
+the members within 10 seconds. Table and plain output show the definition
+as indented JSON, and CSV output as compact JSON in its `definition` column.
+
+#### `ahasend segments create`
+
+Create a segment from a [definition file](#definition-files). A new segment
+is `building` until its members are found, which can take some minutes on a
+large account, and a campaign to it cannot be sent until it is `ready`;
+`segments get` shows its state. An account has at most 100 segments.
+
+```bash
+# Create a segment
+ahasend segments create --name "Engaged pro customers" --definition-file engaged.json
+
+# Create a segment whose relative times are read in Berlin time
+ahasend segments create --name "Engaged pro customers" --definition-file engaged.json \
+  --description "Pro plan, opened lately" --timezone Europe/Berlin --idempotency-key create-engaged
+```
+
+**Flags:**
+- `--name`: Segment name (required), within its [length limit](#length-limits)
+- `--definition-file`: [Definition file](#definition-files) (required)
+- `--description`: Segment description, within its
+  [length limit](#length-limits)
+- `--timezone`: IANA time zone, such as `Europe/Berlin`, that the
+  definition's relative times and days are read in; UTC when it is left out
+- `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
+
+#### `ahasend segments update`
+
+Change a segment. Only the flags you give are sent, and at least one is
+needed. A change of the definition or the time zone builds the segment's
+members again, and the segment is `building` until that ends. Any update of
+a `failed` segment builds it again. A change of only the name or the
+description of any other segment leaves its members and its state as they
+are.
+
+```bash
+# Rename a segment
+ahasend segments update <segment-id> --name "Engaged customers"
+
+# Replace the rules of a segment
+ahasend segments update <segment-id> --definition-file engaged.json
+
+# Read the relative times of a segment in UTC
+ahasend segments update <segment-id> --timezone ""
+```
+
+**Flags:**
+- `--name`: New segment name
+- `--description`: New description, within its [length limit](#length-limits);
+  an empty value clears it
+- `--definition-file`: New [definition file](#definition-files), which
+  replaces the rules as a whole
+- `--timezone`: New IANA time zone; an empty value sets UTC
+
+#### `ahasend segments delete`
+
+Delete a segment; its members are removed shortly after. The API refuses
+while a campaign that still needs the segment, to send to its members or to
+leave them out, refers to it. The command asks for
+[confirmation](#confirmation-prompts) unless `--force` is given.
+
+```bash
+# Delete a segment
+ahasend segments delete <segment-id>
+
+# Delete a segment without the prompt
+ahasend segments delete <segment-id> --force
+```
+
+**Flags:**
+- `--force`, `-f`: Skip the confirmation prompt
+
+#### `ahasend segments preview`
+
+Try a [definition file](#definition-files) without saving anything: count
+the contacts it matches now, and show up to 10 of them.
+
+```bash
+# Preview a definition
+ahasend segments preview --definition-file engaged.json
+
+# Preview a definition with relative times read in Berlin time
+ahasend segments preview --definition-file engaged.json --timezone Europe/Berlin
+```
+
+**Flags:**
+- `--definition-file`: [Definition file](#definition-files) (required)
+- `--timezone`: IANA time zone that the definition's relative times and days
+  are read in; UTC when it is left out
+
+Table and plain output start with `Count: <n>`, or
+`Count: not counted in time` when the API stopped counting after 10
+seconds, then the sample contacts, with no success line: a table of their
+email addresses and contact IDs in table output, and each contact's
+`Email:` and `Contact ID:` lines in plain output. CSV output has the header
+`count,email,contact_id` and one row per sample contact, each with the
+count, whose cell is empty when the API gave none; without sample contacts
+it has one row, with the count alone.
+
+#### `ahasend segments members`
+
+List a segment's members by contact ID, from the lowest. A member is a
+contact that matches the rules, whatever its consent. While the segment is
+`building`, its members may still follow its previous rules.
+
+```bash
+# List the members of a segment
+ahasend segments members <segment-id>
+
+# List 50 members as CSV
+ahasend segments members <segment-id> --limit 50 --output csv
+```
+
+**Flags:**
+- `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
+
+The output shows each member's email address, contact ID, and when it
+entered the segment, and a page ends with `Showing N segment members`.
 
 ### Template Commands
 
@@ -2357,11 +2618,11 @@ made in the dashboard. Publish or copy those changes first if you need them.
 
 ### Campaign Commands
 
-Campaigns send a design to contact lists. A campaign is a draft until it is
-sent, and only a draft can be changed or deleted. A draft shows whether it is
-ready to send and, when it is not, each issue in the way. Campaign templates,
-the designs a campaign can copy, are managed through the nested
-`campaigns templates` group.
+Campaigns send a design to contact lists and segments. A campaign is a draft
+until it is sent, and only a draft can be changed or deleted. A draft shows
+whether it is ready to send and, when it is not, each issue in the way.
+Campaign templates, the designs a campaign can copy, are managed through the
+nested `campaigns templates` group.
 
 **Scopes:** `campaigns:read` for `campaigns list`, `get`, `stats` and
 `recipients`, `campaigns:write` for `create`, `update` and `duplicate`,
@@ -2377,10 +2638,31 @@ flags as `templates create` and `templates update`: `--markup-file`,
 template's does; see [AhaML Designs](#ahaml-designs). A campaign's reply-to
 is a plain address and needs no sender: an empty
 `--reply-to` is an error, and `campaigns update --clear-reply-to` removes the
-reply-to. `--list-id` names a list to send to; it is a
-[repeatable flag](#repeatable-flags) that splits on commas. The
-`campaigns recipients` filters and the number of lists a request holds are
-sent as given, and the API reports any it does not accept.
+reply-to. The `campaigns recipients` filters are sent as given, and the API
+reports any it does not accept.
+
+A campaign's audience is the lists and [segments](#segment-commands) it
+sends to, and the lists and segments whose contacts get no message from it,
+also when a list or segment it sends to reaches them: `--list-id`,
+`--segment-id`, `--exclude-list-id` and `--exclude-segment-id` on
+`campaigns create` and `campaigns update`, each a
+[repeatable flag](#repeatable-flags) that splits on commas. A campaign uses
+at most 50 lists and 10 segments, included and excluded together, counting
+an ID given twice once; more fail before any request with
+`--list-id and --exclude-list-id take at most 50 lists in all, got <n>` or
+`--segment-id and --exclude-segment-id take at most 10 segments in all, got <n>`
+and exit code 4. The CLI counts the IDs a command gives; the API checks the
+sets it stores.
+
+While a segment of the audience is `building`, `campaigns create`,
+`campaigns duplicate` and a `campaigns update` that changes the audience
+wait for it, and can fail with HTTP 409,
+`The campaign's audience is being updated. Try again in a minute.`, and exit
+code 1. The API keeps no answer to such a request for its idempotency key,
+so run the same command again, with the same `--idempotency-key` or a new
+one. `campaigns send` is refused with HTTP 400 instead (see
+[`campaigns send`](#ahasend-campaigns-send)). `segments get` shows a
+segment's state.
 
 #### `ahasend campaigns list`
 
@@ -2405,8 +2687,11 @@ when it was updated.
 
 #### `ahasend campaigns get`
 
-Get a campaign with its lists and content. For a draft it shows `Ready` and
-lists each issue as `code: message`.
+Get a campaign with its audience and content. For a draft it shows `Ready`
+and lists each issue as `code: message`. Table and plain output show the
+audience by ID in the rows `Lists`, `Segments`, `Excluded Lists` and
+`Excluded Segments`, and CSV output in the columns `list_ids`,
+`segment_ids`, `exclude_list_ids` and `exclude_segment_ids`.
 
 ```bash
 # Get a campaign
@@ -2431,6 +2716,10 @@ ahasend campaigns create --name "October news" --subject "What's new" \
   --from news@example.com --from-name "Example" \
   --list-id <list-id> --list-id <other-list-id> --html-file october.html
 
+# Create a campaign to a segment, leaving out the members of a list
+ahasend campaigns create --name "Win back" --segment-id <segment-id> \
+  --exclude-list-id <list-id>
+
 # Create a campaign from an AhaML design
 ahasend campaigns create --name "October news" --markup-file october.ahaml
 
@@ -2449,10 +2738,10 @@ ahasend campaigns create --name Draft
   is a [checked](#email-addresses) address
 - `--reply-to`: Reply-to email address, [checked](#email-addresses); an empty
   value is an error
-- `--list-id`: ID of a list to send to; a [repeatable flag](#repeatable-flags)
-  that splits on commas. A campaign sends to at most 50 lists, a list given
-  twice counting once, and more fail with
-  `--list-id takes at most 50 lists, got <n>` and exit code 4.
+- `--list-id`, `--segment-id`: ID of a list or a segment to send to
+- `--exclude-list-id`, `--exclude-segment-id`: ID of a list or a segment
+  whose contacts get no message; see the [audience](#campaign-commands)
+  rules and limits
 - `--editor`: `advanced`, `simple` or `html`; on its own it gives the campaign
   an empty design of that editor, and with `--markup-file` it is `simple`
 - `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
@@ -2473,6 +2762,12 @@ ahasend campaigns update <campaign-id> --subject "What's new in October"
 
 # Replace the lists the campaign sends to
 ahasend campaigns update <campaign-id> --list-id <list-id>
+
+# Send to a segment instead of the campaign's lists
+ahasend campaigns update <campaign-id> --segment-id <segment-id> --clear-lists
+
+# Stop leaving out the members of segments
+ahasend campaigns update <campaign-id> --clear-exclude-segments
 
 # Replace the design and make the text version again
 ahasend campaigns update <campaign-id> --html-file october.html --regenerate-text
@@ -2496,9 +2791,13 @@ ahasend campaigns update <campaign-id> --clear-reply-to
   name together
 - `--clear-from`: Remove the sender and keep the reply-to; cannot be combined
   with `--from`
-- `--list-id`: New list to send to, replacing the campaign's lists; a
-  [repeatable flag](#repeatable-flags) that splits on commas, with the limit
-  of 50 lists of `campaigns create`
+- `--list-id`, `--segment-id`, `--exclude-list-id`, `--exclude-segment-id`:
+  New IDs of a set of the [audience](#campaign-commands), which replace the
+  set; a set no flag names is kept
+- `--clear-lists`, `--clear-segments`, `--clear-exclude-lists`,
+  `--clear-exclude-segments`: Empty a set of the audience; each cannot be
+  combined with the ID flag of its set. The API refuses a campaign left with
+  no list and no segment to send to.
 - `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
   files, as on `templates update`
 - `--regenerate-text`: Make the text version again from the HTML; cannot be
@@ -2507,8 +2806,9 @@ ahasend campaigns update <campaign-id> --clear-reply-to
 
 #### `ahasend campaigns delete`
 
-Delete a draft campaign with its design and its list choices. The command asks
-for [confirmation](#confirmation-prompts) unless `--force` is given.
+Delete a draft campaign with its design and its audience. The API refuses
+while a segment refers to the campaign, naming those segments. The command
+asks for [confirmation](#confirmation-prompts) unless `--force` is given.
 
 ```bash
 # Delete a draft campaign
@@ -2524,7 +2824,10 @@ ahasend campaigns delete <campaign-id> --force
 #### `ahasend campaigns duplicate`
 
 Make a new draft from a campaign in any status. The copy gets the campaign's
-design, subject, preview text, sender, and the lists that still exist.
+design, subject, preview text, sender, reply-to, and the lists and segments,
+included and excluded, that still exist. A segment of the audience that is
+`building` can make the copy fail with HTTP 409, as the
+[audience](#campaign-commands) rules describe.
 
 ```bash
 # Duplicate a campaign
@@ -2541,9 +2844,9 @@ ahasend campaigns duplicate <campaign-id> --name "November news"
 
 #### `ahasend campaigns send`
 
-Send a draft campaign to its lists now, or schedule the send. The campaign then
-goes through list validation and review; follow its status with
-`campaigns get`. The command asks for [confirmation](#confirmation-prompts),
+Send a draft campaign to its lists and segments now, or schedule the send.
+The campaign then goes through audience validation and review; follow its
+status with `campaigns get`. The command asks for [confirmation](#confirmation-prompts),
 naming the campaign and the scheduled time in your local zone, such as
 `2026-11-01 10:00:00 CET`, unless `--force` is given.
 
@@ -2583,6 +2886,28 @@ lists_missing: Choose at least one list
 
 `--output json` prints the API's error body unchanged. The API refuses with
 HTTP 400, so the command exits with code 4 in every format.
+
+The `text_unchecked` issue means the API could not check the subject, the
+preview text and the design right now, and clears on its own. A refusal
+that holds it ends with a line that says to run the command again:
+
+```text
+Error: failed to send campaign: campaign is not ready to send
+lists_missing: Choose at least one list
+text_unchecked: <the API's message>
+text_unchecked clears on its own: run the command again with a new --idempotency-key
+```
+
+The API stores its answer to a send with `--idempotency-key`, a refusal
+included, and gives it again to a run with the same key for 24 hours, so
+the line asks for a new key when the send had one; without the flag it ends
+at `run the command again`.
+
+While a segment of the campaign, included or excluded, is `building`, the
+API refuses the send with HTTP 400 and a message to schedule the campaign
+when the segment is ready, and the command exits with code 4. Run it again,
+with a new key when it had one, once `segments get` shows the segment
+`ready`.
 
 #### `ahasend campaigns unschedule`
 
@@ -2641,7 +2966,9 @@ When the mail server's answer could not be read, table and plain output print
 only a notice that starts with `Result unknown:`, CSV output has the header
 and one row with outcome `unknown`, and the command exits with code 0. The
 test may have gone out, so check the inboxes before sending another. A
-campaign with issues is refused as with `campaigns send`.
+campaign with issues is refused as with `campaigns send`; the
+`text_unchecked` line of a refused test says to run the command again,
+without asking for a new key.
 
 The API caps the test emails of an account at 50 a UTC day, one per address
 of each test, and refuses a test that would pass the cap with HTTP 429,
@@ -4615,7 +4942,8 @@ API keys require specific scopes to define permissions. Choose scopes based on t
 - `campaigns:send` - Send, unschedule and test campaigns
 
 The [contact](#contact-commands), [list](#list-commands),
-[template](#template-commands) and [campaign](#campaign-commands) sections say
+[segment](#segment-commands), [template](#template-commands) and
+[campaign](#campaign-commands) sections say
 which command needs which of these scopes, and
 [Sub-Account API Keys](#sub-account-api-keys) lists the sub-account scopes.
 

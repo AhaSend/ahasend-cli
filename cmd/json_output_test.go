@@ -112,6 +112,7 @@ func captureOSStdout(t *testing.T, fn func()) string {
 // response and checks that stdout is that response's body, unchanged.
 func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 	contactsFile := testutil.WriteTempFile(t, "contacts.json", `{"data":[{"email":"user@example.com"}]}`)
+	definitionFile := testutil.WriteTempFile(t, "definition.json", `{"schema_version":1,"match":"all","conditions":[]}`)
 
 	tests := []struct {
 		name  string
@@ -182,6 +183,8 @@ func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 			[]apiCall{returns[responses.BatchUpsertContactsResponse]("BatchUpsertContacts", rawObjectBody)}, rawObjectBody},
 		{"contacts memberships", []string{"contacts", "memberships", "user@example.com"},
 			[]apiCall{returns[responses.PaginatedListContactsResponse]("GetContactLists", rawListBody)}, rawListBody},
+		{"contacts segments", []string{"contacts", "segments", "user@example.com"},
+			[]apiCall{returns[responses.PaginatedSegmentsResponse]("GetContactSegments", rawListBody)}, rawListBody},
 
 		// domains
 		{"domains create", []string{"domains", "create", "example.com"},
@@ -254,6 +257,22 @@ func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 			[]apiCall{returns[common.SuccessResponse]("DeleteRoute", rawMessageBody)}, rawMessageBody},
 		{"routes trigger", []string{"routes", "trigger", rawTestID},
 			[]apiCall{returns[common.SuccessResponse]("TriggerRoute", rawMessageBody)}, rawMessageBody},
+
+		// segments
+		{"segments create", []string{"segments", "create", "--name", "Engaged", "--definition-file", definitionFile},
+			[]apiCall{returns[responses.Segment]("CreateSegment", rawObjectBody)}, rawObjectBody},
+		{"segments get", []string{"segments", "get", rawTestID},
+			[]apiCall{returns[responses.SegmentDetail]("GetSegment", rawObjectBody)}, rawObjectBody},
+		{"segments list", []string{"segments", "list"},
+			[]apiCall{returns[responses.PaginatedSegmentsResponse]("GetSegments", rawListBody)}, rawListBody},
+		{"segments update", []string{"segments", "update", rawTestID, "--name", "Engaged"},
+			[]apiCall{returns[responses.Segment]("UpdateSegment", rawObjectBody)}, rawObjectBody},
+		{"segments delete", []string{"segments", "delete", rawTestID, "--force"},
+			[]apiCall{returns[common.SuccessResponse]("DeleteSegment", rawMessageBody)}, rawMessageBody},
+		{"segments preview", []string{"segments", "preview", "--definition-file", definitionFile},
+			[]apiCall{returns[responses.SegmentPreview]("PreviewSegment", rawObjectBody)}, rawObjectBody},
+		{"segments members", []string{"segments", "members", rawTestID},
+			[]apiCall{returns[responses.PaginatedSegmentContactsResponse]("GetSegmentContacts", rawListBody)}, rawListBody},
 
 		// smtp
 		{"smtp create", []string{"smtp", "create", "--name", "App", "--scope", "global"},
