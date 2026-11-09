@@ -285,13 +285,16 @@ scopes for the contact commands, and `lists:read`, `lists:write` and
 ### Transactional Templates
 
 Template changes go to a draft; sends use the published copy, so publish before
-sending. `messages send --template-id` sends a stored template, and copies
+sending. `templates get` shows the working copy, the draft while there is one,
+and `templates get --published` the copy that sends use.
+`messages send --template-id` sends a stored template, and copies
 `--global-substitutions` into every recipient's substitutions:
 
 ```bash
 ahasend templates create --name Welcome --mjml-file welcome.mjml \
   --from hello@example.com --publish
 ahasend templates update <template-id> --subject "Welcome aboard" --publish
+ahasend templates get <template-id> --published
 ahasend templates versions list <template-id>
 ahasend messages send --template-id <template-id> --recipients users.csv
 ```

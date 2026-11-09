@@ -84,6 +84,23 @@ Updated: 2026-10-02 11:01:00 UTC+2
 Showing 1 recipient (more available)
 --after next-recipient
 --before previous-recipient
+=== campaign recipients through a segment
+
+Email: bad@example.com
+Contact ID: 88888888-8888-4888-8888-888888888888
+Segment ID: 99999999-9999-4999-8999-999999999999
+Segment: Active buyers
+Status: Bounced
+Bounce Classification: invalid_recipient
+Bounce Reason: mailbox does not exist
+Bounce Message: 550 5.1.1 unknown user
+Attempts: 2
+Created: 2026-10-02 11:00:00 UTC+2
+Updated: 2026-10-02 11:01:00 UTC+2
+
+Showing 1 recipient (more available)
+--after next-recipient
+--before previous-recipient
 === campaign stats
 
 Campaign ID: 44444444-4444-4444-8444-444444444444
@@ -403,6 +420,41 @@ Opens: 0
 Clicks: 0
 
 Showing 1 message
+=== message with a bounce report
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Sent: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: No
+Message-ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+Delivery Attempts:
+  Attempt 1:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: deferred
+    Log: 421 try again
+         later
+  Attempt 2:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: delivered
+    Log: 250 OK
+  Attempt 3:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: bounced
+    Log: 550 5.1.1 unknown user
+    Report Message ID: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
 === message with content
 
 Subject: Hello
@@ -426,6 +478,36 @@ Content Size: 11 bytes
 Content:
 Hello
 there
+=== message with delivery attempts
+
+Subject: Hello
+ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Account ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+From: from@example.com
+To: to@example.com
+Status: delivered
+Direction: outgoing
+Created: 2026-09-10 10:30:00 UTC+2
+Updated: 2026-09-10 10:30:00 UTC+2
+Sent: 2026-09-10 10:30:00 UTC+2
+Delivered: 2026-09-10 10:30:00 UTC+2
+Opens: 0
+Clicks: 0
+Attempts: 0
+Bounce Notification: Yes
+Message-ID: <id@example.com>
+Domain ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+Retain Until: 2026-09-10 10:30:00 UTC+2
+Delivery Attempts:
+  Attempt 1:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: deferred
+    Log: 421 try again
+         later
+  Attempt 2:
+    Time: 2026-09-10 10:30:00 UTC+2
+    Status: delivered
+    Log: 250 OK
 === no response for API keys
 None found
 === no response for SMTP credentials
@@ -1184,6 +1266,14 @@ Errors Since Last Success: 0
 Last Called: 2026-09-10 10:30:00 UTC+2
 
 Showing 1 route
+=== sent message
+
+
+Message 1:
+  Recipient: to@example.com
+  ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+  Message-ID: <aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@example.com>
+  Status: queued
 === sent messages
 
 
@@ -1258,6 +1348,12 @@ Account Details:
 === sparse campaign
 
 Name: October
+=== sparse campaign recipients
+
+Email: user@example.com
+Attempts: 0
+
+Showing 1 recipient
 === sparse campaign stats
 
 Recipients: 0
@@ -1434,9 +1530,6 @@ Showing 1 suppression
 
 Name: Welcome
 Has Draft: No
-=== sparse template draft
-
-Subject: Draft
 === sparse template version
 
 Version: 0
@@ -1579,19 +1672,6 @@ MJML:
 Text:
   Hello
 Text Is Custom: Yes
-=== template draft
-
-Subject: Draft subject
-Template ID: 33333333-3333-4333-8333-333333333333
-Preheader: Draft preheader
-From: hello@example.com
-Updated: 2026-09-11 10:00:00 UTC+2
-Variables: order_id (required)
-HTML:
-  <p>Order {{ order_id }}</p>
-Text:
-  Order
-Text Is Custom: No
 === template version
 
 Version: 2

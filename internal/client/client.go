@@ -716,9 +716,16 @@ func (c *Client) GetTemplates(params requests.GetTemplatesParams) (*responses.Pa
 	return recordBody(c.TemplatesAPI.GetTemplates(c.auth, c.accountUUID, params))
 }
 
-// GetTemplate retrieves a transactional template
+// GetTemplate retrieves a transactional template's working copy: its draft
+// while it has one, else its published copy
 func (c *Client) GetTemplate(templateID uuid.UUID) (*responses.Template, error) {
 	return recordBody(c.TemplatesAPI.GetTemplate(c.auth, c.accountUUID, templateID))
+}
+
+// GetPublishedTemplate retrieves a transactional template's published copy,
+// the one sends use
+func (c *Client) GetPublishedTemplate(templateID uuid.UUID) (*responses.Template, error) {
+	return recordBody(c.TemplatesAPI.GetPublishedTemplate(c.auth, c.accountUUID, templateID))
 }
 
 // CreateTemplate creates a transactional template
@@ -734,11 +741,6 @@ func (c *Client) UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplat
 // DeleteTemplate deletes a transactional template
 func (c *Client) DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
 	return recordDone(c.TemplatesAPI.DeleteTemplate(c.auth, c.accountUUID, templateID, noRetries))
-}
-
-// GetTemplateDraft retrieves a template's unpublished draft
-func (c *Client) GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error) {
-	return recordBody(c.TemplatesAPI.GetTemplateDraft(c.auth, c.accountUUID, templateID))
 }
 
 // DiscardTemplateDraft discards a template's draft

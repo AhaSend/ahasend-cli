@@ -103,7 +103,6 @@ type ResponseHandler interface {
 	// Template responses
 	HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error
 	HandleSingleTemplate(template *responses.Template, config SingleConfig) error
-	HandleTemplateDraft(draft *responses.TemplateDraft, config SingleConfig) error
 	HandleTemplateVersionList(response *responses.TemplateVersionsResponse, config ListConfig) error
 	HandleSingleTemplateVersion(version *responses.TemplateVersionDetail, config SingleConfig) error
 

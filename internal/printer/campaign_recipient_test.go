@@ -18,6 +18,7 @@ import (
 func campaignRecipientsPageFixture() *responses.PaginatedCampaignRecipientsResponse {
 	createdAt := time.Date(2026, time.October, 2, 9, 0, 0, 0, time.UTC)
 	classification, reason, message := "invalid_recipient", "mailbox does not exist", "550 5.1.1 unknown user"
+	listName := "Newsletter"
 	next, previous := "next-recipient", "previous-recipient"
 	return &responses.PaginatedCampaignRecipientsResponse{
 		Object: "list",
@@ -25,7 +26,7 @@ func campaignRecipientsPageFixture() *responses.PaginatedCampaignRecipientsRespo
 			Object:               "campaign_recipient",
 			ContactID:            uuid.MustParse("88888888-8888-4888-8888-888888888888"),
 			Email:                "bad@example.com",
-			ListName:             "Newsletter",
+			ListName:             &listName,
 			Status:               "Bounced",
 			BounceClassification: &classification,
 			BounceReason:         &reason,
@@ -36,6 +37,18 @@ func campaignRecipientsPageFixture() *responses.PaginatedCampaignRecipientsRespo
 		}},
 		Pagination: common.PaginationInfo{HasMore: true, NextCursor: &next, PreviousCursor: &previous},
 	}
+}
+
+// segmentRecipientsPageFixture returns a page of one recipient a campaign
+// reached through a segment: it has a segment and no list name.
+func segmentRecipientsPageFixture() *responses.PaginatedCampaignRecipientsResponse {
+	page := campaignRecipientsPageFixture()
+	segmentID := uuid.MustParse("99999999-9999-4999-8999-999999999999")
+	segmentName := "Active buyers"
+	page.Data[0].ListName = nil
+	page.Data[0].SegmentID = &segmentID
+	page.Data[0].SegmentName = &segmentName
+	return page
 }
 
 func TestCampaignRecipientJSONDecodesIntoSDKType(t *testing.T) {
@@ -68,6 +81,43 @@ func TestCampaignRecipientPlainShowsDetailsAndCursorLines(t *testing.T) {
 		assert.Contains(t, text, expected)
 	}
 	assert.True(t, strings.HasSuffix(text, "--after next-recipient\n--before previous-recipient\n"), text)
+}
+
+func TestCampaignRecipientThroughASegmentShowsTheSegmentAndNoList(t *testing.T) {
+	render := func(h ResponseHandler) error {
+		return h.HandleCampaignRecipientList(segmentRecipientsPageFixture(), ListConfig{})
+	}
+
+	table := tableCells(renderWith(t, "table", render))
+	require.Len(t, table, 2)
+	assert.Equal(t, []string{"EMAIL", "CONTACT ID", "LIST", "SEGMENT", "STATUS", "BOUNCE CLASSIFICATION", "ATTEMPTS"}, table[0])
+	assert.Equal(t, "-", table[1][2], "the List value is empty")
+	assert.Equal(t, "Active buyers", table[1][3])
+
+	plain := renderWith(t, "plain", render)
+	assert.Contains(t, plain, "\nSegment ID: 99999999-9999-4999-8999-999999999999\nSegment: Active buyers\n")
+	assert.NotContains(t, plain, "List:")
+
+	_, rows := readCSV(t, renderWith(t, "csv", render))
+	require.Len(t, rows, 1)
+	assert.Equal(t, "", rows[0]["list_name"])
+	assert.Equal(t, "99999999-9999-4999-8999-999999999999", rows[0]["segment_id"])
+	assert.Equal(t, "Active buyers", rows[0]["segment_name"])
+}
+
+func TestCampaignRecipientThroughAListShowsNoSegment(t *testing.T) {
+	render := func(h ResponseHandler) error {
+		return h.HandleCampaignRecipientList(campaignRecipientsPageFixture(), ListConfig{})
+	}
+
+	table := tableCells(renderWith(t, "table", render))
+	require.Len(t, table, 2)
+	assert.Equal(t, "Newsletter", table[1][2])
+	assert.Equal(t, "-", table[1][3], "the Segment value is empty")
+	assert.NotContains(t, renderWith(t, "plain", render), "Segment")
+	_, rows := readCSV(t, renderWith(t, "csv", render))
+	assert.Equal(t, "", rows[0]["segment_id"])
+	assert.Equal(t, "", rows[0]["segment_name"])
 }
 
 func TestCampaignRecipientEmptyPageShowsMessageAndCursor(t *testing.T) {

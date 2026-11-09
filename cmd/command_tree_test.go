@@ -186,7 +186,6 @@ func TestTheCommandTree(t *testing.T) {
 		"ahasend templates delete",
 		"ahasend templates draft",
 		"ahasend templates draft discard",
-		"ahasend templates draft get",
 		"ahasend templates get",
 		"ahasend templates list",
 		"ahasend templates publish",

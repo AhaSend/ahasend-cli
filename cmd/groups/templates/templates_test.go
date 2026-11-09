@@ -76,6 +76,17 @@ func TestGetSendsTemplateID(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestGetPublishedReadsThePublishedCopy(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetPublishedTemplate", uuid.MustParse(testTemplateID)).Return(testTemplate(), nil)
+	testutil.InjectClient(t, mockClient)
+
+	output, err := testutil.RunPlain(t, NewGetCommand(), testTemplateID, "--published")
+	require.NoError(t, err)
+	assert.Contains(t, output, "Name: Welcome\n")
+	mockClient.AssertExpectations(t)
+}
+
 func TestGetRejectsBadTemplateIDBeforeAuthentication(t *testing.T) {
 	authCalled := testutil.RefuseAuth(t)
 

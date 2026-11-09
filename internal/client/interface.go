@@ -119,10 +119,10 @@ type AhaSendClient interface {
 	// Template operations
 	GetTemplates(params requests.GetTemplatesParams) (*responses.PaginatedTemplatesResponse, error)
 	GetTemplate(templateID uuid.UUID) (*responses.Template, error)
+	GetPublishedTemplate(templateID uuid.UUID) (*responses.Template, error)
 	CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
 	UpdateTemplate(templateID uuid.UUID, req requests.UpdateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error)
 	DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error)
-	GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error)
 	DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error)
 	PublishTemplate(templateID uuid.UUID, opts ...api.RequestOption) (*responses.Template, error)
 	GetTemplateVersions(templateID uuid.UUID) (*responses.TemplateVersionsResponse, error)

@@ -169,6 +169,10 @@ func TestAPIKey_ScopeValidation(t *testing.T) {
 		"lists:read",
 		"lists:write",
 		"lists:delete",
+		// Segment scopes
+		"segments:read",
+		"segments:write",
+		"segments:delete",
 	}
 
 	invalidScopes := []string{
@@ -191,6 +195,17 @@ func TestAPIKey_ScopeValidation(t *testing.T) {
 			assert.Error(t, validation.ValidateScope(scope, "ahasend apikeys create"), "scope %s should be invalid", scope)
 		})
 	}
+}
+
+func TestCreateCommand_SendsASegmentScope(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("CreateAPIKey", requests.CreateAPIKeyRequest{Label: "Segments", Scopes: []string{"segments:read"}}).
+		Return(&responses.APIKey{}, nil)
+
+	_, err := testutil.RunWithClient(t, mockClient, NewCreateCommand(), "plain", "--label", "Segments", "--scope", "segments:read")
+
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
 }
 
 func TestCreateCommand_PassesIdempotencyKey(t *testing.T) {

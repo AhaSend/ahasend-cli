@@ -21,7 +21,10 @@ func NewRecipientsCommand() *cobra.Command {
 Processing, Queued, Deferred, Delivered, Bounced, Failed, "Administratively
 Bounced", Suppressed, Rejected, Complained or Unsubscribed; or
 --bounce-classification, a classification that "campaigns stats" counts by
-bounce classification, other than Unknown.`,
+bounce classification, other than Unknown.
+
+Each recipient shows the list or the segment the campaign reached it
+through.`,
 		Example: `  # List the recipients a campaign delivered to
   ahasend campaigns recipients 123e4567-e89b-12d3-a456-426614174000 --status Delivered
 

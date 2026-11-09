@@ -114,6 +114,12 @@ BATCH OPERATIONS:
     attempt.
   --show-metrics: Display performance statistics on stderr after completion
 
+OUTPUT:
+  Each message of a one-request send shows its ID, which "messages get"
+  and "messages cancel" take, and its Message-ID header, which
+  "messages list --message-id" takes. A send of more than 100 recipients
+  is several requests, and shows a summary of each request instead.
+
 FAILED RECIPIENTS:
   Recipients that were not sent are saved to ~/.ahasend/failed-*.json, in
   the format --recipients reads, to send them again. A request that may have

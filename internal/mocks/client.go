@@ -376,6 +376,10 @@ func (m *MockClient) GetTemplate(templateID uuid.UUID) (*responses.Template, err
 	return result[responses.Template](m.Called(templateID))
 }
 
+func (m *MockClient) GetPublishedTemplate(templateID uuid.UUID) (*responses.Template, error) {
+	return result[responses.Template](m.Called(templateID))
+}
+
 func (m *MockClient) CreateTemplate(req requests.CreateTemplateRequest, opts ...api.RequestOption) (*responses.Template, error) {
 	return result[responses.Template](m.Called(withOptions([]interface{}{req}, opts)...))
 }
@@ -386,10 +390,6 @@ func (m *MockClient) UpdateTemplate(templateID uuid.UUID, req requests.UpdateTem
 
 func (m *MockClient) DeleteTemplate(templateID uuid.UUID) (*common.SuccessResponse, error) {
 	return result[common.SuccessResponse](m.Called(templateID))
-}
-
-func (m *MockClient) GetTemplateDraft(templateID uuid.UUID) (*responses.TemplateDraft, error) {
-	return result[responses.TemplateDraft](m.Called(templateID))
 }
 
 func (m *MockClient) DiscardTemplateDraft(templateID uuid.UUID) (*responses.Template, error) {

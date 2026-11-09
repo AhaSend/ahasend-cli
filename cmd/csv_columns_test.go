@@ -56,7 +56,7 @@ var csvViews = []csvView{
 	{[]string{"campaigns", "stats", rawTestID}, returns[responses.CampaignStats]("GetCampaignStats", csvItemBody),
 		"campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification"},
 	{[]string{"campaigns", "recipients", rawTestID, "--status", "Delivered"}, returns[responses.PaginatedCampaignRecipientsResponse]("ListCampaignRecipients", csvListBody),
-		"email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at"},
+		"email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at"},
 	{[]string{"campaigns", "templates", "list"}, returns[responses.PaginatedCampaignTemplatesResponse]("ListCampaignTemplates", csvListBody),
 		"name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom"},
 	{[]string{"campaigns", "templates", "get", rawTestID}, returns[responses.CampaignTemplate]("GetCampaignTemplate", csvItemBody),
@@ -103,7 +103,7 @@ var csvViews = []csvView{
 		"subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content"},
 	{[]string{"messages", "send", "--from", "sender@example.com", "--to", "user@example.com", "--subject", "Hi", "--text", "Hi"},
 		returns[responses.CreateMessageResponse]("SendMessageWithIdempotencyKey", `{"object":"list","data":[{"object":"message"}]}`),
-		"recipient,id,status,error"},
+		"recipient,id,message_id_header,status,error"},
 
 	// Routes
 	{[]string{"routes", "list"}, returns[responses.PaginatedRoutesResponse]("ListRoutes", csvListBody),
@@ -146,8 +146,8 @@ var csvViews = []csvView{
 		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
 	{[]string{"templates", "get", rawTestID}, returns[responses.Template]("GetTemplate", csvItemBody),
 		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
-	{[]string{"templates", "draft", "get", rawTestID}, returns[responses.TemplateDraft]("GetTemplateDraft", csvItemBody),
-		"subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom"},
+	{[]string{"templates", "get", rawTestID, "--published"}, returns[responses.Template]("GetPublishedTemplate", csvItemBody),
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
 	{[]string{"templates", "versions", "list", rawTestID}, returns[responses.TemplateVersionsResponse]("GetTemplateVersions", csvListBody),
 		"version,id,published_at,published_by"},
 	{[]string{"templates", "versions", "get", rawTestID, rawTestOtherID},
@@ -202,7 +202,6 @@ var viewsWithoutID = map[string]string{
 	"contacts memberships": "",
 	"lists members":        "",
 	"messages send":        "",
-	"templates draft":      "",
 }
 
 // TestTableAndPlainOutputOfEveryView runs every view of csvViews through the

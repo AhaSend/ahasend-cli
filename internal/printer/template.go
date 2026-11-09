@@ -43,7 +43,7 @@ var templateHeaders = map[string]string{
 }
 
 // templateContentColumns are the CSV columns of the content of a template, a
-// campaign template, a campaign, a draft or a version.
+// campaign template, a campaign or a version.
 var templateContentColumns = []string{"mjml", "html", "text", "text_is_custom"}
 
 func (h *jsonHandler) HandleTemplateList(response *responses.PaginatedTemplatesResponse, config ListConfig) error {
@@ -184,20 +184,19 @@ func templateContentRows(content *responses.TemplateContent) [][]string {
 	return append(rows, []string{"Text Is Custom", formatBooleanStatus(content.TextIsCustom)})
 }
 
-// templateVariablesRow returns the variables row of a template, a draft or a
-// version.
+// templateVariablesRow returns the variables row of a template version.
 func templateVariablesRow(variables []responses.TemplateVariable) []string {
 	return []string{"Variables", formatStringSlice(formatTemplateVariables(variables))}
 }
 
 // templateBodyRows returns the variables row followed by the content rows of
-// a template, a draft or a version.
+// a template version.
 func templateBodyRows(variables []responses.TemplateVariable, content *responses.TemplateContent) [][]string {
 	return append([][]string{templateVariablesRow(variables)}, templateContentRows(content)...)
 }
 
-// writeTemplateBody writes the variables and then the content of a template,
-// a draft or a version as plain lines.
+// writeTemplateBody writes the variables and then the content of a template
+// version as plain lines.
 func writeTemplateBody(w io.Writer, variables []responses.TemplateVariable, content *responses.TemplateContent) error {
 	if err := writeLabelLines(w, "", [][]string{templateVariablesRow(variables)}); err != nil {
 		return err

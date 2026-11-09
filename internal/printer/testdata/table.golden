@@ -111,11 +111,23 @@ Bounce Classifications - 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2:
 === campaign recipients
 
 
-┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬───────────────────────┬──────────┐
-│      EMAIL      │              CONTACT ID              │    LIST    │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
-├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼───────────────────────┼──────────┤
-│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ Bounced │ invalid_recipient     │ 2        │
-└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴───────────────────────┴──────────┘
+┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬─────────┬───────────────────────┬──────────┐
+│      EMAIL      │              CONTACT ID              │    LIST    │ SEGMENT │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
+├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼─────────┼───────────────────────┼──────────┤
+│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ -       │ Bounced │ invalid_recipient     │ 2        │
+└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴─────────┴───────────────────────┴──────────┘
+
+Showing 1 recipient (more available)
+--after next-recipient
+--before previous-recipient
+=== campaign recipients through a segment
+
+
+┌─────────────────┬──────────────────────────────────────┬──────┬───────────────┬─────────┬───────────────────────┬──────────┐
+│      EMAIL      │              CONTACT ID              │ LIST │    SEGMENT    │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
+├─────────────────┼──────────────────────────────────────┼──────┼───────────────┼─────────┼───────────────────────┼──────────┤
+│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ -    │ Active buyers │ Bounced │ invalid_recipient     │ 2        │
+└─────────────────┴──────────────────────────────────────┴──────┴───────────────┴─────────┴───────────────────────┴──────────┘
 
 Showing 1 recipient (more available)
 --after next-recipient
@@ -511,6 +523,44 @@ Showing 2  (more available)
 └─────────┴──────────────────────────────────────┴──────────────────┴────────────────┴───────────┴───────────────────────────┘
 
 Showing 1 message
+=== message with a bounce report
+
+
+┌─────────────────────┬──────────────────────────────────────┐
+│        FIELD        │                VALUE                 │
+├─────────────────────┼──────────────────────────────────────┤
+│ Subject             │ Hello                                │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID          │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ From                │ from@example.com                     │
+│ To                  │ to@example.com                       │
+│ Status              │ delivered                            │
+│ Direction           │ outgoing                             │
+│ Created             │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2            │
+│ Sent                │ 2026-09-10 10:30:00 UTC+2            │
+│ Delivered           │ 2026-09-10 10:30:00 UTC+2            │
+│ Opens               │ 0                                    │
+│ Clicks              │ 0                                    │
+│ Attempts            │ 0                                    │
+│ Bounce Class        │ -                                    │
+│ Bounce Notification │ No                                   │
+│ Message-ID          │ <id@example.com>                     │
+│ Domain ID           │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Template ID         │ -                                    │
+│ Tags                │ -                                    │
+│ Retain Until        │ 2026-09-10 10:30:00 UTC+2            │
+└─────────────────────┴──────────────────────────────────────┘
+
+Delivery Attempts:
+┌───────────────────────────┬───────────┬────────────────────────┬──────────────────────────────────────┐
+│           TIME            │  STATUS   │          LOG           │          REPORT MESSAGE ID           │
+├───────────────────────────┼───────────┼────────────────────────┼──────────────────────────────────────┤
+│ 2026-09-10 10:30:00 UTC+2 │ deferred  │ 421 try again          │ -                                    │
+│                           │           │ later                  │                                      │
+│ 2026-09-10 10:30:00 UTC+2 │ delivered │ 250 OK                 │ -                                    │
+│ 2026-09-10 10:30:00 UTC+2 │ bounced   │ 550 5.1.1 unknown user │ bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb │
+└───────────────────────────┴───────────┴────────────────────────┴──────────────────────────────────────┘
 === message with content
 
 
@@ -541,6 +591,43 @@ Showing 1 message
 │ Content Size        │ 11 bytes                             │
 │ Content             │ Hello there                          │
 └─────────────────────┴──────────────────────────────────────┘
+=== message with delivery attempts
+
+
+┌─────────────────────┬──────────────────────────────────────┐
+│        FIELD        │                VALUE                 │
+├─────────────────────┼──────────────────────────────────────┤
+│ Subject             │ Hello                                │
+│ ID                  │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Account ID          │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ From                │ from@example.com                     │
+│ To                  │ to@example.com                       │
+│ Status              │ delivered                            │
+│ Direction           │ outgoing                             │
+│ Created             │ 2026-09-10 10:30:00 UTC+2            │
+│ Updated             │ 2026-09-10 10:30:00 UTC+2            │
+│ Sent                │ 2026-09-10 10:30:00 UTC+2            │
+│ Delivered           │ 2026-09-10 10:30:00 UTC+2            │
+│ Opens               │ 0                                    │
+│ Clicks              │ 0                                    │
+│ Attempts            │ 0                                    │
+│ Bounce Class        │ -                                    │
+│ Bounce Notification │ Yes                                  │
+│ Message-ID          │ <id@example.com>                     │
+│ Domain ID           │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │
+│ Template ID         │ -                                    │
+│ Tags                │ -                                    │
+│ Retain Until        │ 2026-09-10 10:30:00 UTC+2            │
+└─────────────────────┴──────────────────────────────────────┘
+
+Delivery Attempts:
+┌───────────────────────────┬───────────┬───────────────┐
+│           TIME            │  STATUS   │      LOG      │
+├───────────────────────────┼───────────┼───────────────┤
+│ 2026-09-10 10:30:00 UTC+2 │ deferred  │ 421 try again │
+│                           │           │ later         │
+│ 2026-09-10 10:30:00 UTC+2 │ delivered │ 250 OK        │
+└───────────────────────────┴───────────┴───────────────┘
 === no response for API keys
 None found
 === no response for SMTP credentials
@@ -764,11 +851,11 @@ Showing 1 message (more available)
 === page of 1 recipients
 Retrieved
 
-┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬───────────────────────┬──────────┐
-│      EMAIL      │              CONTACT ID              │    LIST    │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
-├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼───────────────────────┼──────────┤
-│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ Bounced │ invalid_recipient     │ 2        │
-└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴───────────────────────┴──────────┘
+┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬─────────┬───────────────────────┬──────────┐
+│      EMAIL      │              CONTACT ID              │    LIST    │ SEGMENT │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
+├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼─────────┼───────────────────────┼──────────┤
+│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ -       │ Bounced │ invalid_recipient     │ 2        │
+└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴─────────┴───────────────────────┴──────────┘
 
 Showing 1 recipient (more available)
 --after next-page
@@ -976,12 +1063,12 @@ Showing 2 messages (more available)
 === page of 2 recipients
 Retrieved
 
-┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬───────────────────────┬──────────┐
-│      EMAIL      │              CONTACT ID              │    LIST    │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
-├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼───────────────────────┼──────────┤
-│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ Bounced │ invalid_recipient     │ 2        │
-│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ Bounced │ invalid_recipient     │ 2        │
-└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴───────────────────────┴──────────┘
+┌─────────────────┬──────────────────────────────────────┬────────────┬─────────┬─────────┬───────────────────────┬──────────┐
+│      EMAIL      │              CONTACT ID              │    LIST    │ SEGMENT │ STATUS  │ BOUNCE CLASSIFICATION │ ATTEMPTS │
+├─────────────────┼──────────────────────────────────────┼────────────┼─────────┼─────────┼───────────────────────┼──────────┤
+│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ -       │ Bounced │ invalid_recipient     │ 2        │
+│ bad@example.com │ 88888888-8888-4888-8888-888888888888 │ Newsletter │ -       │ Bounced │ invalid_recipient     │ 2        │
+└─────────────────┴──────────────────────────────────────┴────────────┴─────────┴─────────┴───────────────────────┴──────────┘
 
 Showing 2 recipients (more available)
 --after next-page
@@ -1094,15 +1181,23 @@ Showing 2 webhooks (more available)
 └─────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴──────────────────┘
 
 Showing 1 route
+=== sent message
+
+
+┌───┬────────────────┬──────────────────────────────────────┬────────────────────────────────────────────────────┬────────┬───────┐
+│ # │   RECIPIENT    │                  ID                  │                     MESSAGE-ID                     │ STATUS │ ERROR │
+├───┼────────────────┼──────────────────────────────────────┼────────────────────────────────────────────────────┼────────┼───────┤
+│ 1 │ to@example.com │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ <aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@example.com> │ queued │ -     │
+└───┴────────────────┴──────────────────────────────────────┴────────────────────────────────────────────────────┴────────┴───────┘
 === sent messages
 
 
-┌───┬───────────────┬────┬────────┬───────┐
-│ # │   RECIPIENT   │ ID │ STATUS │ ERROR │
-├───┼───────────────┼────┼────────┼───────┤
-│ 1 │ a@example.com │ -  │ queued │ -     │
-│ 2 │ b@example.com │ -  │ queued │ -     │
-└───┴───────────────┴────┴────────┴───────┘
+┌───┬───────────────┬────┬────────────┬────────┬───────┐
+│ # │   RECIPIENT   │ ID │ MESSAGE-ID │ STATUS │ ERROR │
+├───┼───────────────┼────┼────────────┼────────┼───────┤
+│ 1 │ a@example.com │ -  │ -          │ queued │ -     │
+│ 2 │ b@example.com │ -  │ -          │ queued │ -     │
+└───┴───────────────┴────┴────────────┴────────┴───────┘
 === smtp
 
 
@@ -1244,6 +1339,16 @@ Account Details:
 │ Ready           │ -       │
 │ Issues          │ -       │
 └─────────────────┴─────────┘
+=== sparse campaign recipients
+
+
+┌──────────────────┬────────────┬──────┬─────────┬────────┬───────────────────────┬──────────┐
+│      EMAIL       │ CONTACT ID │ LIST │ SEGMENT │ STATUS │ BOUNCE CLASSIFICATION │ ATTEMPTS │
+├──────────────────┼────────────┼──────┼─────────┼────────┼───────────────────────┼──────────┤
+│ user@example.com │ -          │ -    │ -       │ -      │ -                     │ 0        │
+└──────────────────┴────────────┴──────┴─────────┴────────┴───────────────────────┴──────────┘
+
+Showing 1 recipient
 === sparse campaign stats
 
 
@@ -1537,11 +1642,11 @@ Showing 1 route
 === sparse sent message
 
 
-┌───┬────────────────┬────┬────────┬───────┐
-│ # │   RECIPIENT    │ ID │ STATUS │ ERROR │
-├───┼────────────────┼────┼────────┼───────┤
-│ 1 │ to@example.com │ -  │ queued │ -     │
-└───┴────────────────┴────┴────────┴───────┘
+┌───┬────────────────┬────┬────────────┬────────┬───────┐
+│ # │   RECIPIENT    │ ID │ MESSAGE-ID │ STATUS │ ERROR │
+├───┼────────────────┼────┼────────────┼────────┼───────┤
+│ 1 │ to@example.com │ -  │ -          │ queued │ -     │
+└───┴────────────────┴────┴────────────┴────────┴───────┘
 === sparse smtp
 
 
@@ -1645,20 +1750,6 @@ Showing 1 suppression
 │ Created   │ -       │
 │ Updated   │ -       │
 └───────────┴─────────┘
-=== sparse template draft
-
-
-┌─────────────┬───────┐
-│    FIELD    │ VALUE │
-├─────────────┼───────┤
-│ Subject     │ Draft │
-│ Template ID │ -     │
-│ Preheader   │ -     │
-│ From        │ -     │
-│ Reply To    │ -     │
-│ Updated     │ -     │
-│ Variables   │ -     │
-└─────────────┴───────┘
 === sparse template version
 
 
@@ -1835,23 +1926,6 @@ Showing 1 suppression
 │ Text           │ Hello                                      │
 │ Text Is Custom │ Yes                                        │
 └────────────────┴────────────────────────────────────────────┘
-=== template draft
-
-
-┌────────────────┬──────────────────────────────────────┐
-│     FIELD      │                VALUE                 │
-├────────────────┼──────────────────────────────────────┤
-│ Subject        │ Draft subject                        │
-│ Template ID    │ 33333333-3333-4333-8333-333333333333 │
-│ Preheader      │ Draft preheader                      │
-│ From           │ hello@example.com                    │
-│ Reply To       │ -                                    │
-│ Updated        │ 2026-09-11 10:00:00 UTC+2            │
-│ Variables      │ order_id (required)                  │
-│ HTML           │ <p>Order {{ order_id }}</p>          │
-│ Text           │ Order                                │
-│ Text Is Custom │ No                                   │
-└────────────────┴──────────────────────────────────────┘
 === template version
 
 

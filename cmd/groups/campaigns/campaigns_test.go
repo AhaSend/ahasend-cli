@@ -940,11 +940,12 @@ func TestStatsRejectsBadCampaignIDBeforeAuthentication(t *testing.T) {
 // recipients ------------------------------------------------------------------
 
 func testRecipientsPage() *responses.PaginatedCampaignRecipientsResponse {
+	listName := "Newsletter"
 	return &responses.PaginatedCampaignRecipientsResponse{
 		Object: "list",
 		Data: []responses.CampaignRecipient{{
 			Object: "campaign_recipient", ContactID: uuid.MustParse(testListID),
-			Email: "jane@example.com", ListName: "Newsletter", Status: "Delivered", Attempts: 1,
+			Email: "jane@example.com", ListName: &listName, Status: "Delivered", Attempts: 1,
 		}},
 	}
 }

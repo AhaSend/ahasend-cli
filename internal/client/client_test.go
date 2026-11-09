@@ -694,6 +694,46 @@ func TestClient_ListWebhooksSendsTheEnabledFilter(t *testing.T) {
 	assert.Equal(t, "true", query)
 }
 
+// TestClient_TemplateReadsCallTheirEndpoints checks that GetTemplate reads a
+// template's working copy and GetPublishedTemplate its published copy, each
+// with a GET that has no query and no body.
+func TestClient_TemplateReadsCallTheirEndpoints(t *testing.T) {
+	accountID, templateID := uuid.New(), uuid.New()
+	templatePath := "/v2/accounts/" + accountID.String() + "/templates/" + templateID.String()
+	tests := []struct {
+		name string
+		path string
+		call func(*Client) (*responses.Template, error)
+	}{
+		{"working copy", templatePath,
+			func(c *Client) (*responses.Template, error) { return c.GetTemplate(templateID) }},
+		{"published copy", templatePath + "/published",
+			func(c *Client) (*responses.Template, error) { return c.GetPublishedTemplate(templateID) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var method, path, query string
+			var body []byte
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+				body, _ = io.ReadAll(r.Body)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"template","name":"Welcome"}`))
+			})
+			defer cleanup()
+
+			template, err := tt.call(client)
+
+			require.NoError(t, err)
+			assert.Equal(t, http.MethodGet, method)
+			assert.Equal(t, tt.path, path)
+			assert.Empty(t, query)
+			assert.Empty(t, body)
+			assert.Equal(t, "Welcome", template.Name)
+		})
+	}
+}
+
 // TestSendRequestsAreSentOnce checks that the send methods leave retries to
 // their caller: a failed send is one request, not one plus the SDK's own
 // retries.

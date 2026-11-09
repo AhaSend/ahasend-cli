@@ -7,12 +7,33 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `templates get` shows a template's working copy, the draft while it has
+  one, instead of its published copy, so a change with `templates update`
+  builds on what it shows. `templates get --published` shows the published
+  copy, the one sends use.
+- `templates draft get` is removed, as the API no longer reads a draft on its
+  own: `templates get` shows it. `templates draft` holds `discard` alone.
+- The CSV output of `messages send` has the column `message_id_header` after
+  `id`, and that of `campaigns recipients` the columns `segment_id` and
+  `segment_name` after `list_name`.
+
 ### Added
 
 - The Chocolatey package has the AhaSend icon.
 - `webhooks listen` prints on stderr the warnings the stream sends when it
   connects, such as that the API key does not have the read scope of an
   event family the webhook turns on, so those events are not sent.
+- `messages send` that makes one request shows each message's Message-ID
+  header, which `messages list --message-id` takes, after its ID.
+- `messages get` shows the report message ID of a delivery attempt that was
+  bounced out of band: a Report Message ID column in table output and a
+  `Report Message ID:` line in plain output.
+- `campaigns recipients` shows the segment a recipient was reached through;
+  the List of such a recipient is empty.
+- `apikeys` and `subaccounts api-keys` take the `segments:read`,
+  `segments:write` and `segments:delete` scopes.
 
 ### Changed
 

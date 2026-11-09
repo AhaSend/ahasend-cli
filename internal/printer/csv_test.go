@@ -172,9 +172,6 @@ func TestCSVTimesKeepTheOffsetTheAPISent(t *testing.T) {
 func TestCSVPutsEveryValueOnOneLine(t *testing.T) {
 	const broken = "first\nsecond"
 	renders := map[string]func(ResponseHandler) error{
-		"template draft": func(h ResponseHandler) error {
-			return h.HandleTemplateDraft(&responses.TemplateDraft{Subject: broken}, SingleConfig{})
-		},
 		"template version": func(h ResponseHandler) error {
 			return h.HandleSingleTemplateVersion(&responses.TemplateVersionDetail{Subject: broken}, SingleConfig{})
 		},

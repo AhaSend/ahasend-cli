@@ -7,15 +7,16 @@ import (
 )
 
 // campaignRecipientFields are the fields of each recipient of a campaign,
-// which plain and CSV output show in this order.
+// which plain and CSV output show in this order. A recipient came through a
+// list or a segment, so either its list name or its segment fields are empty.
 var campaignRecipientFields = []string{
-	"email", "contact_id", "list_name", "status", "bounce_classification",
-	"bounce_reason", "bounce_message", "attempts", "created_at", "updated_at",
+	"email", "contact_id", "list_name", "segment_id", "segment_name", "status",
+	"bounce_classification", "bounce_reason", "bounce_message", "attempts", "created_at", "updated_at",
 }
 
 // campaignRecipientTableColumns are the fields a table of recipients shows.
 var campaignRecipientTableColumns = []string{
-	"email", "contact_id", "list_name", "status", "bounce_classification", "attempts",
+	"email", "contact_id", "list_name", "segment_name", "status", "bounce_classification", "attempts",
 }
 
 // campaignRecipientHeaders names the table column or row of each recipient
@@ -24,6 +25,8 @@ var campaignRecipientHeaders = map[string]string{
 	"email":                 "Email",
 	"contact_id":            "Contact ID",
 	"list_name":             "List",
+	"segment_id":            "Segment ID",
+	"segment_name":          "Segment",
 	"status":                "Status",
 	"bounce_classification": "Bounce Classification",
 	"bounce_reason":         "Bounce Reason",
@@ -68,7 +71,9 @@ func campaignRecipientDisplayFields(recipient *responses.CampaignRecipient) map[
 	return map[string]string{
 		"email":                 recipient.Email,
 		"contact_id":            formatUUID(recipient.ContactID),
-		"list_name":             recipient.ListName,
+		"list_name":             formatOptionalString(recipient.ListName),
+		"segment_id":            formatOptionalUUID(recipient.SegmentID),
+		"segment_name":          formatOptionalString(recipient.SegmentName),
 		"status":                recipient.Status,
 		"bounce_classification": formatOptionalString(recipient.BounceClassification),
 		"bounce_reason":         formatOptionalString(recipient.BounceReason),

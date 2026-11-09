@@ -20,8 +20,11 @@ from_timestamp,to_timestamp,classification,count,percentage
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom
 October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,<p>News</p>,News,false
 === campaign recipients
-email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
-bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+=== campaign recipients through a segment
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+bad@example.com,88888888-8888-4888-8888-888888888888,,99999999-9999-4999-8999-999999999999,Active buyers,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
 === campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 44444444-4444-4444-8444-444444444444,100,80,50,10,2,1,42.5,,1.25,,false,2026-10-02T10:00:00Z,80,34,8,1,0,"{""Bounced"":1,""Delivered"":79}","{""Unknown"":1}"
@@ -93,10 +96,16 @@ Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,
 === message list
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
+=== message with a bounce report
+subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,,false,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,"[{""time"":""2026-09-10T08:30:00Z"",""log"":""421 try again\nlater"",""status"":""deferred""},{""time"":""2026-09-10T08:30:00Z"",""log"":""250 OK"",""status"":""delivered""},{""time"":""2026-09-10T08:30:00Z"",""log"":""550 5.1.1 unknown user"",""status"":""bounced"",""report_message_id"":""bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb""}]",0,
 === message with content
 subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,,2026-09-10T08:30:00Z,0,0,0,,false,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,,11,"Hello
 there"
+=== message with delivery attempts
+subject,id,account_id,sender,recipient,status,direction,created_at,updated_at,sent_at,delivered_at,opens,clicks,attempts,bounce_class,is_bounce_notification,message_id,domain_id,template_id,tags,retain_until,delivery_attempts,content_size,content
+Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,outgoing,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,,true,<id@example.com>,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,2026-09-10T08:30:00Z,"[{""time"":""2026-09-10T08:30:00Z"",""log"":""421 try again\nlater"",""status"":""deferred""},{""time"":""2026-09-10T08:30:00Z"",""log"":""250 OK"",""status"":""delivered""}]",0,
 === no response for API keys
 === no response for SMTP credentials
 === no response for campaign templates
@@ -135,7 +144,7 @@ list_name,list_id,email,contact_id,subscription_status,subscribed_at,unsubscribe
 === page of 0 messages
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 === page of 0 recipients
-email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 === page of 0 routes
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 === page of 0 sub-accounts
@@ -179,8 +188,8 @@ Newsletter,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,,,,,,,
 subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template_id
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
 === page of 1 recipients
-email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
-bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
 === page of 1 routes
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
@@ -240,9 +249,9 @@ subject,id,sender,recipient,status,created_at,delivered_at,opens,clicks,template
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
 Hello,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,from@example.com,to@example.com,delivered,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,
 === page of 2 recipients
-email,contact_id,list_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
-bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
-bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
 === page of 2 routes
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
@@ -273,10 +282,13 @@ Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a
 === route list
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
+=== sent message
+recipient,id,message_id_header,status,error
+to@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,<aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@example.com>,queued,
 === sent messages
-recipient,id,status,error
-a@example.com,,queued,
-b@example.com,,queued,
+recipient,id,message_id_header,status,error
+a@example.com,,,queued,
+b@example.com,,,queued,
 === smtp
 name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
@@ -304,6 +316,9 @@ default,,,,,,Acme,,,,,,,,,,
 === sparse campaign
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom
 October,,,,,,,,,,,,,,,,,,,,
+=== sparse campaign recipients
+email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
+user@example.com,,,,,,,,,0,,
 === sparse campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 ,0,0,0,0,0,0,,,,,false,,,,,,,,
@@ -362,8 +377,8 @@ Inbound,,,false,,false,false,false,false,,,0,0,0,
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,,,false,,false,false,false,false,,,0,0,0,
 === sparse sent message
-recipient,id,status,error
-to@example.com,,queued,
+recipient,id,message_id_header,status,error
+to@example.com,,,queued,
 === sparse smtp
 name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,,,,,false,,
@@ -385,9 +400,6 @@ user@example.com,,,,,,false
 === sparse template
 name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
 Welcome,,,,,,,false,,,,,,,
-=== sparse template draft
-subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom
-Draft,,,,,,,,,,
 === sparse template version
 version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
 0,,,,,,,,,,,,
@@ -431,9 +443,6 @@ name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,up
 Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,Example <hello@example.com>,support@example.com,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"<mjml>
 <mj-body></mj-body>
 </mjml>",,Hello,true
-=== template draft
-subject,template_id,preheader,from,reply_to,updated_at,variables,mjml,html,text,text_is_custom
-Draft subject,33333333-3333-4333-8333-333333333333,Draft preheader,hello@example.com,,2026-09-11T08:00:00Z,order_id (required),,<p>Order {{ order_id }}</p>,Order,false
 === template version
 version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,first_name (optional),,,Hi,false

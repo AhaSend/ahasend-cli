@@ -16,7 +16,11 @@ func NewCommand() *cobra.Command {
 
 Changes go to the template's draft. Sends use the published copy, so publish
 the draft with --publish or "templates publish" before sending. Every publish
-is kept as a version that can be restored.`,
+is kept as a version that can be restored.
+
+"templates get" shows a template's working copy, the draft while it has one,
+so a change builds on what it shows; "templates get --published" shows the
+copy that sends use.`,
 	}
 
 	cmd.AddCommand(NewListCommand())

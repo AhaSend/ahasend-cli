@@ -2037,14 +2037,16 @@ such as `Contact 'person@example.com' removed from list '<list-id>' successfully
 Transactional templates are stored designs that `messages send --template-id`
 sends. Changes go to the template's draft, the same draft the dashboard edits,
 and sends use the published copy, so a draft must be published before sends
-see it. Every publish is kept as a version that can be restored. The draft and
-the versions are managed through the nested `templates draft` and
-`templates versions` groups.
+see it. Every publish is kept as a version that can be restored.
+`templates get` shows a template's working copy, the draft while it has one,
+and `templates get --published` the published copy. The nested
+`templates draft` group discards the draft, and `templates versions` manages
+the versions.
 
-**Scopes:** `templates:read` for `templates list`, `get`, `draft get`,
-`versions list` and `versions get`, `templates:write` for `create`, `update`,
-`publish`, `draft discard` and `versions restore`, and `templates:delete` for
-`delete`. The same scopes cover the `campaigns templates` commands.
+**Scopes:** `templates:read` for `templates list`, `get`, `versions list` and
+`versions get`, `templates:write` for `create`, `update`, `publish`,
+`draft discard` and `versions restore`, and `templates:delete` for `delete`.
+The same scopes cover the `campaigns templates` commands.
 `messages send --template-id` needs only the send scope of the sender's
 domain.
 
@@ -2084,17 +2086,27 @@ ahasend templates list --limit 20
 **Flags:**
 - `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
 
-Table output shows each template's name, ID, editor, subject, whether it has a
+Each template is listed as its published copy, the one sends use. Table
+output shows each template's name, ID, editor, subject, whether it has a
 draft, and when it was updated.
 
 #### `ahasend templates get`
 
-Get a template as sends use it: its published copy, with the variables a send
-must supply.
+Get a template's working copy: its draft while it has one, else its published
+copy. `Has Draft` says which one it is. `templates update` changes this copy,
+so a change builds on what `templates get` shows.
 
 ```bash
+# Get a template's working copy
 ahasend templates get <template-id>
+
+# Get the published copy that sends use
+ahasend templates get <template-id> --published
 ```
+
+**Flags:**
+- `--published`: Get the published copy, which sends use, instead of the
+  working copy
 
 #### `ahasend templates create`
 
@@ -2202,15 +2214,6 @@ ahasend templates publish <template-id> --idempotency-key publish-welcome
 
 **Flags:**
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
-
-#### `ahasend templates draft get`
-
-Show a template's unpublished draft. A template with no draft returns a not
-found error.
-
-```bash
-ahasend templates draft get <template-id>
-```
 
 #### `ahasend templates draft discard`
 
@@ -2586,8 +2589,10 @@ ahasend campaigns recipients <campaign-id> --status "Administratively Bounced" -
 - `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
 
 Give exactly one of `--status` and `--bounce-classification`. Table output
-shows each recipient's email, contact ID, list, status, bounce classification,
-and delivery attempts.
+shows each recipient's email, contact ID, list, segment, status, bounce
+classification, and delivery attempts; plain and CSV output show the segment
+ID too. A recipient the campaign reached through a list has its list and no
+segment, and one reached through a segment has its segment and no list.
 
 #### `ahasend campaigns templates list`
 
@@ -3028,6 +3033,7 @@ Message sent to 1 of 2 recipients
 Message 1:
   Recipient: u@example.com
   ID: 0d371db4-00d0-5eec-851c-e1db1e2b190d
+  Message-ID: <0d371db4-00d0-5eec-851c-e1db1e2b190d@example.com>
   Status: queued
 
 Message 2:
@@ -3037,8 +3043,13 @@ Message 2:
 ```
 
 Table output shows the same as a row per message with the columns `#`,
-`Recipient`, `ID`, `Status` and `Error`, and CSV output has the columns
-`recipient,id,status,error`.
+`Recipient`, `ID`, `Message-ID`, `Status` and `Error`, and CSV output has the
+columns `recipient,id,message_id_header,status,error`. `ID` is the message's
+`id`, which [`messages get`](#ahasend-messages-get) and
+[`messages cancel`](#ahasend-messages-cancel) take, and `Message-ID` is the
+email's Message-ID header, which
+[`messages list --message-id`](#ahasend-messages-list) takes. A message the
+API did not send has neither.
 
 When the API refuses the request, the command prints the API error, such as
 `Error: rate_limit error (HTTP 429): Too many requests, rate limited. (the API asked to wait 1 s)`,
@@ -3307,6 +3318,13 @@ attempt's time, status and log. Plain output lists each attempt as an
 content. CSV output has a column for every field the table shows, followed by
 `delivery_attempts`, the attempts as a JSON array, `content_size` and
 `content`, which keeps the content's line breaks.
+
+The attempt of an out-of-band bounce, which the recipient's mail server
+reported after it accepted the message, names the bounce report message:
+`messages get` takes its ID too. Table output then adds a
+`Report Message ID` column to the `Delivery Attempts` table, and plain output
+a `Report Message ID:` line to that attempt; CSV output has it in the
+attempt's `report_message_id`.
 
 #### `ahasend messages cancel`
 
@@ -4468,6 +4486,12 @@ API keys require specific scopes to define permissions. Choose scopes based on t
 - `lists:read` - List and view lists, their members, and a contact's lists
 - `lists:write` - Create and update lists, and add, change and remove members
 - `lists:delete` - Delete lists
+
+**Segments:**
+- `segments:read` - List and view segments, their members and a contact's
+  segments, and preview a definition
+- `segments:write` - Create and update segments
+- `segments:delete` - Delete segments
 
 **Templates and Campaigns:**
 - `templates:read` - View transactional templates, their drafts and versions,

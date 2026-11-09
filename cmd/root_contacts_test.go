@@ -4,6 +4,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AhaSend/ahasend-cli/internal/mocks"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
+	"github.com/AhaSend/ahasend-go/models/responses"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +22,7 @@ func TestRootExposesMarketingCommandGroups(t *testing.T) {
 		"lists":               {"list", "get", "create", "update", "delete", "members"},
 		"lists members":       {"list", "add", "set", "remove"},
 		"templates":           {"list", "get", "create", "update", "delete", "publish", "draft", "versions"},
-		"templates draft":     {"get", "discard"},
+		"templates draft":     {"discard"},
 		"templates versions":  {"list", "get", "restore"},
 		"campaigns":           {"list", "get", "create", "update", "delete", "duplicate", "send", "unschedule", "test", "stats", "recipients", "templates"},
 		"campaigns templates": {"list", "get", "create", "update", "delete"},
@@ -37,6 +41,34 @@ func TestRootExposesMarketingCommandGroups(t *testing.T) {
 			assert.ElementsMatch(t, subcommands, names)
 		})
 	}
+}
+
+// TestTemplatesDraftHoldsDiscardAlone checks that templates draft get, whose
+// read the API no longer has, is an unknown command, while templates draft
+// discard still runs.
+func TestTemplatesDraftHoldsDiscardAlone(t *testing.T) {
+	t.Run("get", func(t *testing.T) {
+		called := testutil.RefuseAuth(t)
+
+		stdout, stderr, code := runRoot(t, "templates", "draft", "get", rawTestID)
+
+		assert.Equal(t, 4, code)
+		assert.Empty(t, stdout)
+		assert.True(t, strings.HasPrefix(stderr, `Error: unknown command "get" for "ahasend templates draft"`), stderr)
+		assert.False(t, *called, "the command must not authenticate")
+	})
+	t.Run("discard", func(t *testing.T) {
+		mockClient := &mocks.MockClient{}
+		mockClient.On("GetAccountID").Return(rawTestID).Maybe()
+		mockClient.On("DiscardTemplateDraft", uuid.MustParse(rawTestID)).Return(&responses.Template{Name: "Welcome"}, nil)
+		testutil.InjectClient(t, mockClient)
+
+		stdout, stderr, code := runRoot(t, "templates", "draft", "discard", rawTestID, "--force")
+
+		assert.Equal(t, 0, code, stderr)
+		assert.Contains(t, stdout, "Template draft discarded successfully\n")
+		mockClient.AssertExpectations(t)
+	})
 }
 
 func TestEachRootGetsItsOwnPingCommand(t *testing.T) {

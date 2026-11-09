@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 // tableHandler handles table output formatting with complete type safety
@@ -22,10 +23,16 @@ func (h *tableHandler) HandleEmpty(message string) error {
 	return err
 }
 
-// renderTable renders a table with the headers and a row for each of rows.
+// renderTable renders a table with the headers, in capitals, and a row for
+// each of rows. The table's own header formatting is off, as it would split a
+// header such as Message-ID at its hyphen.
 func (h *tableHandler) renderTable(headers []any, rows ...[]string) {
-	table := tablewriter.NewWriter(h.writer)
-	table.Header(headers...)
+	table := tablewriter.NewTable(h.writer, tablewriter.WithHeaderAutoFormat(tw.Off))
+	capitals := make([]any, len(headers))
+	for i, header := range headers {
+		capitals[i] = strings.ToUpper(fmt.Sprint(header))
+	}
+	table.Header(capitals...)
 	for _, row := range rows {
 		addTableRow(table, row)
 	}

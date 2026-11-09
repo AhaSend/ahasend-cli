@@ -188,9 +188,6 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"single template", func(h ResponseHandler) error {
 			return h.HandleSingleTemplate(recorded[responses.Template](), SingleConfig{})
 		}},
-		{"template draft", func(h ResponseHandler) error {
-			return h.HandleTemplateDraft(recorded[responses.TemplateDraft](), SingleConfig{})
-		}},
 		{"template version list", func(h ResponseHandler) error {
 			return h.HandleTemplateVersionList(recorded[responses.TemplateVersionsResponse](), ListConfig{})
 		}},
