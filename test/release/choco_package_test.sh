@@ -31,8 +31,11 @@ expect_success "the nuspec has the version" grep -qF '<version>1.2.3</version>' 
 expect_success "the icon URL is the tag's icon" grep -qF \
 	'<iconUrl>https://cdn.jsdelivr.net/gh/AhaSend/ahasend-cli@v1.2.3/packaging/chocolatey/icon.png</iconUrl>' \
 	"$tmp/out/ahasend.nuspec"
-# A placeholder is @NAME@; the description's example addresses hold an @ too
+# A placeholder is @NAME@
 expect_success "the nuspec has no placeholder left" test -z "$(grep -E '@[A-Z_]+@' "$tmp/out/ahasend.nuspec" || true)"
+# Chocolatey's automated validation refuses an email address in the description
+expect_success "the description has no email address" test -z "$(sed -n '/<description>/,/<\/description>/p' "$tmp/out/ahasend.nuspec" |
+	grep -E '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' || true)"
 expect_success "VERIFICATION.txt gives the exe's release URL" grep -qF \
 	"  https://releases.example.com/ahasend/download/v1.2.3/ahasend-windows-amd64.exe" \
 	"$tmp/out/tools/VERIFICATION.txt"

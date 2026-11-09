@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Chocolatey package page holds no email address, which Chocolatey's
+  automated validation refuses. Its usage example points to
+  `ahasend messages send --help`.
+
 ## [0.4.0] - 2026-11-09
 
 This release moves the CLI to AhaSend Go SDK v0.6.0. It adds segments,
