@@ -2,6 +2,7 @@ package printer
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/AhaSend/ahasend-go/models/responses"
 )
@@ -22,10 +23,12 @@ var templateVersionHeaders = map[string]string{
 	"published_by": "Published By",
 }
 
-var templateVersionDetailCSVHeaders = []string{
+// templateVersionDetailCSVHeaders are the CSV columns of a version with its
+// content, which ends with templateContentColumns.
+var templateVersionDetailCSVHeaders = slices.Concat([]string{
 	"version", "id", "published_at", "published_by", "subject",
-	"preheader", "from", "reply_to", "variables", "mjml", "html", "text", "text_is_custom",
-}
+	"preheader", "from", "reply_to", "variables",
+}, templateContentColumns)
 
 func (h *jsonHandler) HandleTemplateVersionList(response *responses.TemplateVersionsResponse, config ListConfig) error {
 	return h.printAPIResponse(response)

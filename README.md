@@ -299,6 +299,16 @@ ahasend templates versions list <template-id>
 ahasend messages send --template-id <template-id> --recipients users.csv
 ```
 
+A simple template's design reads and writes as
+[AhaML](https://ahasend.com/docs/send-api/ahaml), AhaSend Markup, so it can be
+saved, edited as text and written back. `campaigns` and `campaigns templates`
+take the same `--markup` and `--markup-file` flags:
+
+```bash
+ahasend templates get <template-id> --markup > design.ahaml
+ahasend templates update <template-id> --markup-file design.ahaml
+```
+
 The template commands, and the campaign template commands, need the
 `templates:read`, `templates:write` and `templates:delete` scopes. Sending a
 template needs only the usual send scope.

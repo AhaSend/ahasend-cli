@@ -19,6 +19,11 @@ var campaignTemplateFields = []string{"name", "id", "editor", "created_at", "upd
 // list, which plain and CSV output show.
 var campaignTemplateListFields = slices.Concat(campaignTemplateFields, templateContentColumns)
 
+// campaignTemplateDetailFields are the CSV columns of a single campaign
+// template: those of a campaign template of a list, then the warnings of a
+// write that carried AhaML.
+var campaignTemplateDetailFields = slices.Concat(campaignTemplateListFields, []string{"markup_warnings"})
+
 // campaignTemplateTableColumns are the fields a table of campaign templates
 // shows.
 var campaignTemplateTableColumns = []string{"name", "id", "editor", "updated_at"}
@@ -53,7 +58,8 @@ func (h *tableHandler) HandleSingleCampaignTemplate(template *responses.Campaign
 	if _, err := fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage); err != nil {
 		return err
 	}
-	h.renderFieldTable(append(campaignTemplateDetailRows(template), templateContentRows(template.Content)...))
+	h.renderFieldTable(slices.Concat(campaignTemplateDetailRows(template), templateContentRows(template.Content),
+		markupWarningsRows(template.MarkupWarnings)))
 	return nil
 }
 
@@ -68,7 +74,10 @@ func (h *plainHandler) HandleSingleCampaignTemplate(template *responses.Campaign
 	if _, err := fmt.Fprintln(h.writer, config.SuccessMessage); err != nil {
 		return err
 	}
-	return h.renderCampaignTemplateDetails(template)
+	if err := h.renderCampaignTemplateDetails(template); err != nil {
+		return err
+	}
+	return writeMarkupWarnings(h.writer, template.MarkupWarnings)
 }
 
 func (h *plainHandler) renderCampaignTemplateDetails(template *responses.CampaignTemplate) error {
@@ -86,7 +95,13 @@ func (h *csvHandler) HandleSingleCampaignTemplate(template *responses.CampaignTe
 	if template == nil {
 		return nil
 	}
-	return h.writeFieldMaps(campaignTemplateListFields, campaignTemplateCSVFields(template))
+	values := campaignTemplateCSVFields(template)
+	warnings, err := formatMarkupWarningsCSV(template.MarkupWarnings)
+	if err != nil {
+		return err
+	}
+	values["markup_warnings"] = warnings
+	return h.writeFieldMaps(campaignTemplateDetailFields, values)
 }
 
 // campaignTemplateCSVFields maps each campaign template field to its CSV

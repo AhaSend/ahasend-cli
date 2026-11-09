@@ -22,15 +22,20 @@ func NewCreateCommand() *cobra.Command {
 "campaigns update", and the campaign lists its issues until it is ready to
 send.
 
-The design comes from files, --mjml-file for an advanced design or --html-file
-for an html design, with --text-file for the plain text version, which is
-otherwise made from the HTML. --editor alone gives the campaign an empty
-design of that editor. --campaign-template-id copies the design of a campaign
-template instead, and cannot be combined with the content flags or --editor.`,
+The design comes from files, --markup-file for the AhaML of a simple design,
+--mjml-file for an advanced design or --html-file for an html design, with
+--text-file for the plain text version, which is otherwise made from the
+HTML. --markup-file makes the editor simple. --editor alone gives the
+campaign an empty design of that editor. --campaign-template-id copies the
+design of a campaign template instead, and cannot be combined with the
+content flags or --editor.`,
 		Example: `  # Create a campaign ready to send
   ahasend campaigns create --name "October news" --subject "What's new" \
     --from news@example.com --from-name "Example" --list-id 123e4567-e89b-12d3-a456-426614174000 \
     --html-file october.html
+
+  # Create a campaign from an AhaML design
+  ahasend campaigns create --name "October news" --markup-file october.ahaml
 
   # Start a campaign from a campaign template
   ahasend campaigns create --name "Launch" --campaign-template-id 123e4567-e89b-12d3-a456-426614174001
@@ -56,7 +61,7 @@ template instead, and cannot be combined with the content flags or --editor.`,
 
 // designFlags are the flags that set a design, which --campaign-template-id
 // replaces.
-var designFlags = []string{"editor", "mjml-file", "html-file", "text-file"}
+var designFlags = []string{"editor", "markup-file", "mjml-file", "html-file", "text-file"}
 
 func runCampaignsCreate(cmd *cobra.Command, _ []string) error {
 	name, err := cmdutil.ReadRequiredText(cmd, "name")
@@ -95,6 +100,9 @@ func runCampaignsCreate(cmd *cobra.Command, _ []string) error {
 	}
 	editor, err := cmdutil.ReadOneOf(cmd, "editor")
 	if err != nil {
+		return err
+	}
+	if editor, err = cmdutil.MarkupEditor(content, editor); err != nil {
 		return err
 	}
 	replyTo, err := cmdutil.ReadNonEmpty(cmd, "reply-to", "")

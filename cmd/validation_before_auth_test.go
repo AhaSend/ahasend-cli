@@ -122,6 +122,16 @@ var localValidationErrors = []struct {
 	{append(sendArgs("--text", "Hi"), "--header", `"X-Test: a`),
 		`invalid --header value "\"X-Test: a": a value with a comma or a double quote must be in double quotes, ` +
 			`with each double quote in it doubled, such as '"a, ""b"""'`},
+	// The API refuses MJML beside AhaML and ignores HTML beside it, and a
+	// campaign template's design replaces both.
+	{[]string{"templates", "create", "--name", "Fall", "--markup-file", "a.ahaml", "--mjml-file", "a.mjml"},
+		"--markup-file and --mjml-file cannot be used together"},
+	{[]string{"campaigns", "update", rawTestID, "--markup-file", "a.ahaml", "--html-file", "a.html"},
+		"--markup-file and --html-file cannot be used together"},
+	{[]string{"campaigns", "templates", "update", rawTestID, "--markup-file", "a.ahaml", "--mjml-file", "a.mjml"},
+		"--markup-file and --mjml-file cannot be used together"},
+	{[]string{"campaigns", "create", "--name", "Fall", "--campaign-template-id", rawTestID, "--markup-file", "a.ahaml"},
+		"--campaign-template-id and --markup-file cannot be used together"},
 	// Limits the API checks: 50 lists, each scope once, a subdomain label,
 	// and send times
 	{[]string{"campaigns", "create", "--name", "Fall", "--list-id", listIDs(51)}, "--list-id takes at most 50 lists, got 51"},
@@ -276,6 +286,37 @@ func TestLocalValidationErrorsExitFourBeforeAuthenticating(t *testing.T) {
 			assert.Equal(t, "Error: "+tt.message+"\n", stderr)
 			assert.False(t, *called, "the command must not authenticate")
 		})
+	}
+}
+
+// TestMarkupCannotBeUsedWithOutput checks that --markup, which writes the
+// markup alone, is a validation error with --output in every format, before
+// the command authenticates.
+func TestMarkupCannotBeUsedWithOutput(t *testing.T) {
+	const message = "--markup and --output cannot be used together"
+	for _, command := range [][]string{
+		{"templates", "get", rawTestID},
+		{"templates", "get", rawTestID, "--published"},
+		{"campaigns", "get", rawTestID},
+		{"campaigns", "templates", "get", rawTestID},
+	} {
+		for _, format := range []string{"json", "table"} {
+			t.Run(strings.Join(command, " ")+" "+format, func(t *testing.T) {
+				called := testutil.RefuseAuth(t)
+
+				stdout, stderr, code := runRoot(t, slices.Concat(command, []string{"--markup", "--output", format})...)
+
+				assert.Equal(t, 4, code, "stderr: %s", stderr)
+				if format == "json" {
+					assert.JSONEq(t, `{"error":true,"message":"`+message+`"}`, stdout)
+					assert.Empty(t, stderr)
+				} else {
+					assert.Empty(t, stdout)
+					assert.Equal(t, "Error: "+message+"\n", stderr)
+				}
+				assert.False(t, *called, "the command must not authenticate")
+			})
+		}
 	}
 }
 

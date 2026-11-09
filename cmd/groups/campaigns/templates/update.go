@@ -21,12 +21,16 @@ func NewUpdateCommand() *cobra.Command {
 		Long: `Partially update a campaign template. Only the flags you set are sent, and the
 change applies at once. Campaigns already made from the template keep their
 own copies. --regenerate-text makes the text version again from the HTML. The
-editor cannot change.`,
+editor cannot change: --markup-file replaces the design of a simple template,
+--mjml-file that of an advanced one and --html-file that of an html one.`,
 		Example: `  # Rename a campaign template
   ahasend campaigns templates update 123e4567-e89b-12d3-a456-426614174000 --name "Newsletter v2"
 
   # Replace the design of a campaign template
   ahasend campaigns templates update 123e4567-e89b-12d3-a456-426614174000 --html-file newsletter.html
+
+  # Write back an edited AhaML design
+  ahasend campaigns templates update 123e4567-e89b-12d3-a456-426614174000 --markup-file design.ahaml
 
   # Make the text version again from the HTML
   ahasend campaigns templates update 123e4567-e89b-12d3-a456-426614174000 --regenerate-text`,
@@ -64,8 +68,8 @@ func runCampaignTemplatesUpdate(cmd *cobra.Command, args []string) error {
 		Content: content,
 	}
 	if request.Name == nil && request.Content == nil {
-		return errors.NewValidationError("at least one of --name, --mjml-file, --html-file, --text-file "+
-			"or --regenerate-text must be provided", nil)
+		return errors.NewValidationError("at least one of --name, --markup-file, --mjml-file, --html-file, "+
+			"--text-file or --regenerate-text must be provided", nil)
 	}
 
 	idempotency, err := cmdutil.IdempotencyOptions(cmd)

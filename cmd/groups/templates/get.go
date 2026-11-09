@@ -21,17 +21,25 @@ template has one, else the published copy. Has Draft says which one it is.
 shows.
 
 --published gets the published copy instead, the one sends use, with the
-variables a send must supply.`,
+variables a send must supply.
+
+--markup writes only the AhaML of a Simple Editor design to stdout. Save it,
+edit it and write it back with "templates update --markup-file". It fails
+when the design has no AhaML, and cannot be used with --output.`,
 		Example: `  # Get a template's working copy
   ahasend templates get 123e4567-e89b-12d3-a456-426614174000
 
   # Get the published copy that sends use
-  ahasend templates get 123e4567-e89b-12d3-a456-426614174000 --published`,
+  ahasend templates get 123e4567-e89b-12d3-a456-426614174000 --published
+
+  # Save the design as AhaML to edit it
+  ahasend templates get 123e4567-e89b-12d3-a456-426614174000 --markup > design.ahaml`,
 		Args:         cmdutil.ExactArgs(1),
 		RunE:         runTemplatesGet,
 		SilenceUsage: true,
 	}
 	cmd.Flags().Bool("published", false, "Get the published copy, which sends use, instead of the working copy")
+	cmdutil.AddMarkupFlag(cmd)
 	return cmd
 }
 
@@ -41,6 +49,10 @@ func runTemplatesGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	published, _ := cmd.Flags().GetBool("published")
+	markup, err := cmdutil.ReadMarkupFlag(cmd)
+	if err != nil {
+		return err
+	}
 
 	apiClient, err := auth.GetAuthenticatedClient(cmd)
 	if err != nil {
@@ -60,6 +72,13 @@ func runTemplatesGet(cmd *cobra.Command, args []string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if markup {
+		var content *responses.TemplateContent
+		if template != nil {
+			content = template.Content
+		}
+		return cmdutil.WriteMarkup(cmd, "template", args[0], content)
 	}
 	return printer.GetResponseHandlerFromCommand(cmd).HandleSingleTemplate(template, printer.SingleConfig{
 		SuccessMessage: "Template retrieved successfully",

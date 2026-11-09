@@ -20,13 +20,14 @@ type printerRender struct {
 
 // renders renders a fixture through each handler method of every printer:
 // a full fixture of each, the sparse fixtures, and the views that only some
-// fixtures reach, such as DNS records, message content, several items and
-// the auth views.
+// fixtures reach, such as DNS records, message content, markup, several
+// items and the auth views.
 func renders() map[string]printerRender {
 	full := map[string]func(ResponseHandler) error{}
 	sparse := map[string]func(ResponseHandler) error{}
 	addFullRenders(full)
 	addMoreRenders(full)
+	addMarkupRenders(full)
 	addSparseRenders(sparse)
 
 	all := make(map[string]printerRender, len(full)+len(sparse))
@@ -126,6 +127,7 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 		"campaigns list":   func(h ResponseHandler) error { return h.HandleCampaignList(campaignsPageFixture(), ListConfig{}) },
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign stats":   func(h ResponseHandler) error { return h.HandleCampaignStats(campaignStatsFixture(), SingleConfig{}) },
+		"campaign send":    func(h ResponseHandler) error { return h.HandleCampaignSend(campaignSendFixture(), SingleConfig{}) },
 		"campaign recipients": func(h ResponseHandler) error {
 			return h.HandleCampaignRecipientList(campaignRecipientsPageFixture(), ListConfig{})
 		},
@@ -327,6 +329,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
 		},
 		"campaign stats": func(h ResponseHandler) error { return h.HandleCampaignStats(&stats, SingleConfig{}) },
+		"campaign send": func(h ResponseHandler) error {
+			return h.HandleCampaignSend(&responses.CampaignSend{Campaign: campaign}, SingleConfig{})
+		},
 		"campaign recipients": func(h ResponseHandler) error {
 			return h.HandleCampaignRecipientList(&responses.PaginatedCampaignRecipientsResponse{
 				Data: []responses.CampaignRecipient{{Email: "user@example.com"}},

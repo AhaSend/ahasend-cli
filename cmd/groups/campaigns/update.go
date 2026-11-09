@@ -25,12 +25,17 @@ sender address and name together, and --clear-from removes the sender but
 keeps the reply-to. --clear-reply-to removes the reply-to. --list-id replaces
 the campaign's lists.
 --regenerate-text makes the text version again from the HTML. The editor
-cannot change.`,
+cannot change: --markup-file replaces a simple design, --mjml-file an
+advanced one and --html-file an html one. A campaign with no design yet
+takes any of the three, which sets its editor.`,
 		Example: `  # Change the subject
   ahasend campaigns update 123e4567-e89b-12d3-a456-426614174000 --subject "What's new in October"
 
   # Replace the design and make the text version again
   ahasend campaigns update 123e4567-e89b-12d3-a456-426614174000 --html-file october.html --regenerate-text
+
+  # Write back an edited AhaML design
+  ahasend campaigns update 123e4567-e89b-12d3-a456-426614174000 --markup-file october.ahaml
 
   # Replace the lists the campaign sends to
   ahasend campaigns update 123e4567-e89b-12d3-a456-426614174000 --list-id 123e4567-e89b-12d3-a456-426614174001
@@ -107,8 +112,9 @@ func runCampaignsUpdate(cmd *cobra.Command, args []string) error {
 	}
 	if request.Name == nil && request.Subject == nil && request.Preheader == nil && request.From == nil &&
 		request.ReplyTo == nil && request.ListIDs == nil && request.Content == nil {
-		return errors.NewValidationError("at least one of --name, --subject, --preheader, --mjml-file, --html-file, "+
-			"--text-file, --regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --list-id must be provided", nil)
+		return errors.NewValidationError("at least one of --name, --subject, --preheader, --markup-file, --mjml-file, "+
+			"--html-file, --text-file, --regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --list-id "+
+			"must be provided", nil)
 	}
 
 	idempotency, err := cmdutil.IdempotencyOptions(cmd)

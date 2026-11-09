@@ -918,9 +918,9 @@ own values.
   JSON array in a last `dns_records` column.
 - A CSV value is on one line: line breaks and tabs in it become spaces.
   Content columns are the exception and keep their text exactly, line breaks
-  included, inside the quotes CSV gives them: the `mjml`, `html` and `text`
-  of a template, a campaign or a campaign template, and the `content` of
-  `messages get`.
+  included, inside the quotes CSV gives them: the `mjml`, `markup`, `html`
+  and `text` of a template, a template version, a campaign or a campaign
+  template, and the `content` of `messages get`.
 - A CSV result with no rows, such as an empty list or a batch whose response
   lists no items, still writes its header row.
 - CSV output writes each value as the API sent it, so a value that starts
@@ -2052,6 +2052,12 @@ domain.
 
 `templates create` and `templates update` take these content and sender flags:
 
+- `--markup-file <path>` sets the design of a simple template as
+  [AhaML](https://ahasend.com/docs/send-api/ahaml) (AhaSend Markup), the
+  text form of a Simple Editor design; see [AhaML Designs](#ahaml-designs).
+  It cannot be combined with `--mjml-file`, which the API refuses beside
+  it, or `--html-file`, which the API ignores beside it. An empty file is
+  rejected.
 - `--mjml-file <path>` sets the MJML of an advanced template, and
   `--html-file <path>` the HTML of an html template. They cannot be combined.
 - `--text-file <path>` sets the plain text version. An empty file is rejected.
@@ -2068,8 +2074,67 @@ domain.
   removes the reply-to, as `campaigns update --clear-reply-to` does for a
   campaign.
 
-Single views list the template's variables, each marked required or optional,
-and show the content when the API returned it.
+Single views list the template's variables, each with its kind and whether a
+send must give it a value. A value, such as `first_name (required)`, shows no
+kind; a condition, which only shows or hides part of the email, shows as
+`vip (condition; optional)`; a list, whose section repeats for each element,
+shows the fields each element gives, as `items (list of name/price; required)`,
+or `tags (list; optional)` when the section uses none. A kind the CLI does not
+know shows as the API names it, in the place of `condition`.
+
+Single views show the content when the API returned it: the MJML, the
+`Markup` of a simple design, the HTML and the text. When the API could not
+give a simple design as AhaML, `Markup Error` says why, as
+`<code>: <message>`, such as `html_block: ...` for a design that holds an
+HTML block.
+
+#### AhaML Designs
+
+The design of a simple template, campaign or campaign template reads and
+writes as AhaML. `templates get --markup` writes only the design's AhaML to
+stdout, so it can be saved, edited and written back with `--markup-file`:
+
+```bash
+ahasend templates get <template-id> --markup > design.ahaml
+# Edit design.ahaml, then write it back to the draft
+ahasend templates update <template-id> --markup-file design.ahaml
+```
+
+`campaigns get --markup` and `campaigns templates get --markup` do the same
+for a campaign and a campaign template. To a file or a pipe, `--markup`
+writes the AhaML exactly as the API returned it; to a terminal, it escapes
+control characters as table and plain output do. It cannot be used with
+`--output`, and it fails with exit code 1 when there is no AhaML to write,
+with one of these errors, in which `campaigns get` and
+`campaigns templates get` name a `campaign` or a `campaign template`:
+
+- `template <id> has no content`, for a design with no content
+- `the design could not be read as AhaML: <code>: <message>`, when the API
+  could not make the design's AhaML, as `Markup Error` shows
+- `template <id> has no AhaML: only a Simple Editor design has one`, for an
+  advanced or html design
+
+`--markup-file` on a create makes the editor `simple`; `--editor advanced`
+and `--editor html` cannot be used with it. On an update it replaces the
+design of a simple template, campaign or campaign template; the editor
+cannot change. A campaign with no design yet takes it and becomes simple.
+`--text-file` and `--regenerate-text` can be used with it.
+
+A write that carries AhaML answers with the warnings about it, such as `{{`
+in text, which stays text. Table and plain output show them in a
+`Markup Warnings` row after the content, one per line, and CSV output as a
+JSON array in a last `markup_warnings` column, empty when there is none:
+
+```text
+line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1]
+```
+
+A warning or problem shows its line and column when it has a place in the
+AhaML, its path when it has one, and a hint when the API knows a fix:
+`line <line>, column <column>: <message> (<code>) at <path>; hint: <hint>`.
+A write whose AhaML the API refuses fails with exit code 4 and lists each
+problem in that form under the error; see
+[Error Response Format](#error-response-format).
 
 #### `ahasend templates list`
 
@@ -2102,11 +2167,16 @@ ahasend templates get <template-id>
 
 # Get the published copy that sends use
 ahasend templates get <template-id> --published
+
+# Save the design as AhaML to edit it
+ahasend templates get <template-id> --markup > design.ahaml
 ```
 
 **Flags:**
 - `--published`: Get the published copy, which sends use, instead of the
   working copy
+- `--markup`: Write only the design's AhaML to stdout; see
+  [AhaML Designs](#ahaml-designs)
 
 #### `ahasend templates create`
 
@@ -2121,6 +2191,9 @@ ahasend templates create --name Welcome --subject "Welcome, {{ first_name }}" \
 # Create an html template with its own text version
 ahasend templates create --name Receipt --html-file receipt.html --text-file receipt.txt
 
+# Create a simple template from its AhaML
+ahasend templates create --name Digest --markup-file digest.ahaml
+
 # Create a simple template from text only
 ahasend templates create --name Notice --editor simple --text-file notice.txt
 ```
@@ -2129,9 +2202,10 @@ ahasend templates create --name Notice --editor simple --text-file notice.txt
 - `--name`: Template name (required)
 - `--subject`: Subject, within its [length limit](#length-limits)
 - `--preheader`: Preview text, within its [length limit](#length-limits)
-- `--editor`: `advanced`, `simple` or `html`; needed when there is neither an
-  MJML nor an HTML file
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as described above
+- `--editor`: `advanced`, `simple` or `html`; needed when there is no markup,
+  MJML or HTML file, and `simple` when given with `--markup-file`
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as described above
 - `--from`, `--from-name`, `--reply-to`: Default sender and reply-to, as
   described above
 - `--publish`: Publish the draft in the same request. Without it the template
@@ -2151,6 +2225,9 @@ ahasend templates update <template-id> --subject "Welcome aboard"
 # Replace the design and publish it
 ahasend templates update <template-id> --mjml-file welcome.mjml --publish
 
+# Write back an edited AhaML design
+ahasend templates update <template-id> --markup-file design.ahaml
+
 # Clear the subject
 ahasend templates update <template-id> --subject ""
 
@@ -2168,7 +2245,8 @@ ahasend templates update <template-id> --publish
 - `--name`: New template name
 - `--subject`, `--preheader`: New subject or preview text, within their
   [length limits](#length-limits); an empty value clears it
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as described above
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as described above
 - `--regenerate-text`: Make the text version again from the HTML; cannot be
   combined with `--text-file`
 - `--from`, `--from-name`: New sender; `--from` replaces the address and the
@@ -2292,10 +2370,12 @@ the designs a campaign can copy, are managed through the nested
 [template scopes](#template-commands).
 
 `campaigns create` and `campaigns update` take the same content and sender
-flags as `templates create` and `templates update`: `--mjml-file`,
-`--html-file`, `--text-file`, `--editor` (create only), `--regenerate-text`
-(update only), `--from`, `--from-name` and `--clear-from` (update only). A
-campaign's reply-to is a plain address and needs no sender: an empty
+flags as `templates create` and `templates update`: `--markup-file`,
+`--mjml-file`, `--html-file`, `--text-file`, `--editor` (create only),
+`--regenerate-text` (update only), `--from`, `--from-name` and `--clear-from`
+(update only). A campaign's design reads and writes as AhaML as a
+template's does; see [AhaML Designs](#ahaml-designs). A campaign's reply-to
+is a plain address and needs no sender: an empty
 `--reply-to` is an error, and `campaigns update --clear-reply-to` removes the
 reply-to. `--list-id` names a list to send to; it is a
 [repeatable flag](#repeatable-flags) that splits on commas. The
@@ -2329,8 +2409,16 @@ Get a campaign with its lists and content. For a draft it shows `Ready` and
 lists each issue as `code: message`.
 
 ```bash
+# Get a campaign
 ahasend campaigns get <campaign-id>
+
+# Save the design as AhaML to edit it
+ahasend campaigns get <campaign-id> --markup > october.ahaml
 ```
+
+**Flags:**
+- `--markup`: Write only the design's AhaML to stdout; see
+  [AhaML Designs](#ahaml-designs)
 
 #### `ahasend campaigns create`
 
@@ -2342,6 +2430,9 @@ Create a draft campaign. Every field but the name can be set later with
 ahasend campaigns create --name "October news" --subject "What's new" \
   --from news@example.com --from-name "Example" \
   --list-id <list-id> --list-id <other-list-id> --html-file october.html
+
+# Create a campaign from an AhaML design
+ahasend campaigns create --name "October news" --markup-file october.ahaml
 
 # Start a campaign from a campaign template
 ahasend campaigns create --name Launch --campaign-template-id <campaign-template-id>
@@ -2363,11 +2454,12 @@ ahasend campaigns create --name Draft
   twice counting once, and more fail with
   `--list-id takes at most 50 lists, got <n>` and exit code 4.
 - `--editor`: `advanced`, `simple` or `html`; on its own it gives the campaign
-  an empty design of that editor
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
-  `templates create`
+  an empty design of that editor, and with `--markup-file` it is `simple`
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as on `templates create`
 - `--campaign-template-id`: Copy a campaign template's design; cannot be
-  combined with `--editor`, `--mjml-file`, `--html-file` or `--text-file`
+  combined with `--editor`, `--markup-file`, `--mjml-file`, `--html-file` or
+  `--text-file`
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
 
 #### `ahasend campaigns update`
@@ -2384,6 +2476,9 @@ ahasend campaigns update <campaign-id> --list-id <list-id>
 
 # Replace the design and make the text version again
 ahasend campaigns update <campaign-id> --html-file october.html --regenerate-text
+
+# Write back an edited AhaML design
+ahasend campaigns update <campaign-id> --markup-file october.ahaml
 
 # Remove the reply-to
 ahasend campaigns update <campaign-id> --clear-reply-to
@@ -2404,8 +2499,8 @@ ahasend campaigns update <campaign-id> --clear-reply-to
 - `--list-id`: New list to send to, replacing the campaign's lists; a
   [repeatable flag](#repeatable-flags) that splits on commas, with the limit
   of 50 lists of `campaigns create`
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
-  `templates update`
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as on `templates update`
 - `--regenerate-text`: Make the text version again from the HTML; cannot be
   combined with `--text-file`
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
@@ -2617,8 +2712,16 @@ updated.
 Get a campaign template with its content.
 
 ```bash
+# Get a campaign template
 ahasend campaigns templates get <campaign-template-id>
+
+# Save the design as AhaML to edit it
+ahasend campaigns templates get <campaign-template-id> --markup > newsletter.ahaml
 ```
+
+**Flags:**
+- `--markup`: Write only the design's AhaML to stdout; see
+  [AhaML Designs](#ahaml-designs)
 
 #### `ahasend campaigns templates create`
 
@@ -2632,16 +2735,19 @@ ahasend campaigns templates create --name Newsletter --mjml-file newsletter.mjml
 # Create an html campaign template with its own text version
 ahasend campaigns templates create --name Announcement --html-file announcement.html --text-file announcement.txt
 
+# Create a simple campaign template from its AhaML
+ahasend campaigns templates create --name Digest --markup-file digest.ahaml
+
 # Create an empty simple campaign template
 ahasend campaigns templates create --name Blank --editor simple
 ```
 
 **Flags:**
 - `--name`: Campaign template name (required)
-- `--editor`: `advanced`, `simple` or `html`; needed when there is neither an
-  MJML nor an HTML file
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
-  `templates create`
+- `--editor`: `advanced`, `simple` or `html`; needed when there is no markup,
+  MJML or HTML file, and `simple` when given with `--markup-file`
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as on `templates create`
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
 
 #### `ahasend campaigns templates update`
@@ -2657,14 +2763,17 @@ ahasend campaigns templates update <campaign-template-id> --name "Newsletter v2"
 # Replace the design
 ahasend campaigns templates update <campaign-template-id> --html-file newsletter.html
 
+# Write back an edited AhaML design
+ahasend campaigns templates update <campaign-template-id> --markup-file newsletter.ahaml
+
 # Make the text version again from the HTML
 ahasend campaigns templates update <campaign-template-id> --regenerate-text
 ```
 
 **Flags:**
 - `--name`: New campaign template name
-- `--mjml-file`, `--html-file`, `--text-file`: Content files, as on
-  `templates update`
+- `--markup-file`, `--mjml-file`, `--html-file`, `--text-file`: Content
+  files, as on `templates update`
 - `--regenerate-text`: Make the text version again from the HTML; cannot be
   combined with `--text-file`
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
@@ -5378,6 +5487,16 @@ to check:
 ```
 Error: rate_limit error (HTTP 429): too many requests (the API asked to wait 30 s)
 Error: Get "https://api.ahasend.com/v2/...": dial tcp: lookup api.ahasend.com: no such host (check the network connection and the API URL: auth login --api-url or the profile's api_url)
+```
+
+A write whose [AhaML](#ahaml-designs) the API refuses lists each problem on
+its own line under the error, indented by two spaces, with its place when it
+has one:
+
+```
+Error: validation error (HTTP 400): content.markup has 2 problems
+  line 4, column 14: Paragraph has no attribute "color" (unknown_attribute) at Email > Section[2] > Paragraph[1]; hint: wrap the text in <Color value="..."> instead
+  the markup is larger than the limit (too_large)
 ```
 </Tab>
 <Tab title="JSON Format">

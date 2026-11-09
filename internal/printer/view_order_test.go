@@ -86,6 +86,10 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 	version := templateVersionDetailFixture()
 	contact, list, member := contactFixture(), listFixture(), listMemberFixture()
 	template, campaign, campaignTemplate := templateFixture(), campaignFixture(), campaignTemplateFixture()
+	simpleTemplate, simpleCampaign := simpleTemplateFixture(), simpleCampaignFixture()
+	simpleCampaignTemplate := simpleCampaignTemplateFixture()
+	failedVersion := templateVersionDetailFixture()
+	failedVersion.Content = markupErrorContentFixture()
 	views := map[string]func(ResponseHandler) error{
 		"api key":          func(h ResponseHandler) error { return h.HandleSingleAPIKey(&key, SingleConfig{}) },
 		"created api key":  func(h ResponseHandler) error { return h.HandleCreateAPIKey(&key, ResultConfig{}) },
@@ -106,6 +110,14 @@ func TestSingleViewsShowTheirFieldsInOneOrder(t *testing.T) {
 		"campaign":         func(h ResponseHandler) error { return h.HandleSingleCampaign(&campaign, SingleConfig{}) },
 		"campaign template": func(h ResponseHandler) error {
 			return h.HandleSingleCampaignTemplate(&campaignTemplate, SingleConfig{})
+		},
+		"template with markup": func(h ResponseHandler) error { return h.HandleSingleTemplate(&simpleTemplate, SingleConfig{}) },
+		"campaign with markup": func(h ResponseHandler) error { return h.HandleSingleCampaign(&simpleCampaign, SingleConfig{}) },
+		"campaign template with markup": func(h ResponseHandler) error {
+			return h.HandleSingleCampaignTemplate(&simpleCampaignTemplate, SingleConfig{})
+		},
+		"template version with a markup error": func(h ResponseHandler) error {
+			return h.HandleSingleTemplateVersion(&failedVersion, SingleConfig{})
 		},
 	}
 	for name, render := range views {

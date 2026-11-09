@@ -271,7 +271,7 @@ func TestCampaignCSVWritesOneRowPerCampaign(t *testing.T) {
 	require.NoError(t, testHandler(t, "csv", &output, os.Stderr).HandleSingleCampaign(&campaign, SingleConfig{}))
 	headers, rows := readCSV(t, output.String())
 	require.Len(t, rows, 1)
-	assert.Equal(t, slices.Concat(campaignDetailFields, templateContentColumns), headers)
+	assert.Equal(t, slices.Concat(campaignDetailFields, templateContentColumns, []string{"markup_warnings"}), headers)
 	row := rows[0]
 	assert.Equal(t, "October", row["name"])
 	assert.Equal(t, "55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666", row["list_ids"])

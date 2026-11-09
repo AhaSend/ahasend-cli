@@ -142,7 +142,7 @@ views that share their fields: `templates list` (`templateListFields`),
 `campaigns templates list` (`campaignTemplateListFields`), and
 `campaigns send`, whose `HandleCampaignSend` prints its campaign with the
 campaign detail fields (`campaignDetailFields`, written in CSV by
-`writeCampaignsCSV`).
+`writeCampaignCSV`).
 
 **Problems in errors.** The API refuses AhaML it cannot read with up to 100
 problems, which the SDK puts in `APIError.Errors`. In table, plain and CSV
@@ -662,7 +662,7 @@ write prints each problem with its line and column outside JSON mode.
 - Variables print in each form in Template variables: value, empty kind,
   condition, list with fields, list without fields, and an unknown kind.
 
-**Status**: Not Started
+**Status**: Complete
 
 ## Stage 3: Segments and segment audiences
 

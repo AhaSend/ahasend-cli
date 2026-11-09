@@ -144,6 +144,54 @@ func TestGetShowsDraftIssues(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+// testMarkup is the AhaML of a Simple Editor design, with the trailing
+// newline the API ends it with.
+const testMarkup = "<Email version=\"1\">\n  <Paragraph>October news</Paragraph>\n</Email>\n"
+
+func TestGetMarkupWritesTheMarkupAlone(t *testing.T) {
+	campaign := testCampaign()
+	markup := testMarkup
+	campaign.Content = &responses.TemplateContent{Markup: &markup, HTML: "<p>October news</p>"}
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetCampaign", uuid.MustParse(testCampaignID)).Return(campaign, nil)
+	testutil.InjectClient(t, mockClient)
+
+	stdout, stderr, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testCampaignID, "--markup")
+	require.NoError(t, err)
+	assert.Equal(t, testMarkup, stdout)
+	assert.Empty(t, stderr)
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetMarkupFailsWithoutAhaML(t *testing.T) {
+	withError := testCampaign()
+	withError.Content = &responses.TemplateContent{HTML: "<p>Hi</p>",
+		MarkupError: &responses.MarkupError{Code: "renderer_unavailable", Message: "try again later"}}
+	html := testCampaign()
+	html.Content = &responses.TemplateContent{HTML: "<p>Hi</p>"}
+	tests := map[string]struct {
+		campaign *responses.Campaign
+		message  string
+	}{
+		"markup error": {withError, "the design could not be read as AhaML: renderer_unavailable: try again later"},
+		"HTML design":  {html, "campaign " + testCampaignID + " has no AhaML: only a Simple Editor design has one"},
+		"no content":   {testCampaign(), "campaign " + testCampaignID + " has no content"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("GetCampaign", uuid.MustParse(testCampaignID)).Return(test.campaign, nil)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testCampaignID, "--markup")
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.Equal(t, 1, clierrors.GetExitCode(err))
+			assert.Empty(t, stdout)
+		})
+	}
+}
+
 func TestGetRejectsBadCampaignIDBeforeAuthentication(t *testing.T) {
 	authCalled := testutil.RefuseAuth(t)
 
@@ -231,6 +279,20 @@ func TestCreateSendsEveryContentAndSenderField(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestCreateWithMarkupFileSendsMarkupAndTheSimpleEditor(t *testing.T) {
+	var captured requests.CreateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	testutil.CaptureRequest(mockClient, "CreateCampaign", &captured, testCampaign())
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "October",
+		"--markup-file", testutil.WriteTempFile(t, "october.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"name": "October", "editor": "simple", "content": map[string]any{"markup": testMarkup}},
+		testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
 func TestCreateWithCampaignTemplateIDSendsTemplateID(t *testing.T) {
 	templateID := uuid.MustParse(testTemplateID)
 	mockClient := &mocks.MockClient{}
@@ -247,6 +309,7 @@ func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 	htmlPath := testutil.WriteTempFile(t, "body.html", "<p></p>")
 	mjmlPath := testutil.WriteTempFile(t, "body.mjml", "<mjml></mjml>")
 	textPath := testutil.WriteTempFile(t, "body.txt", "Hi")
+	markupPath := testutil.WriteTempFile(t, "body.ahaml", testMarkup)
 	tests := []struct {
 		args    []string
 		message string
@@ -260,6 +323,15 @@ func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 			"--campaign-template-id and --text-file cannot be used together"},
 		{[]string{"--name", "x", "--campaign-template-id", testTemplateID, "--editor", "html"},
 			"--campaign-template-id and --editor cannot be used together"},
+		{[]string{"--name", "x", "--campaign-template-id", testTemplateID, "--markup-file", markupPath},
+			"--campaign-template-id and --markup-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--mjml-file", mjmlPath}, "--markup-file and --mjml-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--html-file", htmlPath}, "--markup-file and --html-file cannot be used together"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--editor", "html"},
+			"--editor html cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "x", "--markup-file", markupPath, "--editor", "advanced"},
+			"--editor advanced cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "x", "--markup-file", testutil.WriteTempFile(t, "empty.ahaml", "")}, "--markup-file is empty"},
 		{[]string{"--name", "x", "--campaign-template-id", "nope"}, `invalid campaign template ID value "nope": not a UUID`},
 		{[]string{"--name", "x", "--list-id", "nope"}, `invalid list ID value "nope": not a UUID`},
 		{[]string{"--name", "x", "--mjml-file", mjmlPath, "--html-file", htmlPath}, "--mjml-file and --html-file cannot be used together"},
@@ -351,6 +423,19 @@ func TestUpdateSendsChangedFieldsAndIdempotencyKey(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestUpdateWithMarkupFileAloneSendsTheMarkup(t *testing.T) {
+	var captured requests.UpdateCampaignRequest
+	mockClient := &mocks.MockClient{}
+	expectUpdate(mockClient, &captured)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewUpdateCommand(), testCampaignID,
+		"--markup-file", testutil.WriteTempFile(t, "october.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"content": map[string]any{"markup": testMarkup}}, testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
 func TestUpdateSendsContentAndSender(t *testing.T) {
 	mjml := "<mjml></mjml>"
 	text := "Hi"
@@ -370,7 +455,7 @@ func TestUpdateSendsContentAndSender(t *testing.T) {
 
 func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 	textPath := testutil.WriteTempFile(t, "body.txt", "Hi")
-	atLeastOne := "at least one of --name, --subject, --preheader, --mjml-file, --html-file, --text-file, " +
+	atLeastOne := "at least one of --name, --subject, --preheader, --markup-file, --mjml-file, --html-file, --text-file, " +
 		"--regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --list-id must be provided"
 	tests := []struct {
 		args    []string
@@ -385,6 +470,8 @@ func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 		{[]string{testCampaignID, "--regenerate-text", "--text-file", textPath}, "--regenerate-text and --text-file cannot be used together"},
 		{[]string{testCampaignID, "--text-file", testutil.WriteTempFile(t, "empty.txt", "")}, "--text-file is empty"},
 		{[]string{testCampaignID, "--mjml-file", textPath, "--html-file", textPath}, "--mjml-file and --html-file cannot be used together"},
+		{[]string{testCampaignID, "--markup-file", textPath, "--html-file", textPath}, "--markup-file and --html-file cannot be used together"},
+		{[]string{testCampaignID, "--markup-file", testutil.WriteTempFile(t, "empty.ahaml", "")}, "--markup-file is empty"},
 		{[]string{testCampaignID, "--from-name", "Jane"}, "--from-name needs --from"},
 		{[]string{testCampaignID, "--from", ""}, "--from cannot be empty; use --clear-from to clear it"},
 		{[]string{testCampaignID, "--name", ""}, "--name cannot be empty"},

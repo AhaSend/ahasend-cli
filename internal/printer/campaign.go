@@ -24,6 +24,13 @@ var (
 	// its content. The view ends with the content: templateContentColumns in
 	// CSV output.
 	campaignDetailFields = slices.Concat(campaignListFields, []string{"list_ids", "editor", "ready", "issues"})
+	// campaignCSVColumns are the CSV columns of a campaign with its content,
+	// which a send's warnings follow.
+	campaignCSVColumns = slices.Concat(campaignDetailFields, templateContentColumns)
+	// singleCampaignCSVColumns are the CSV columns of a single campaign: those
+	// of a campaign with its content, then the warnings of a write that
+	// carried AhaML.
+	singleCampaignCSVColumns = slices.Concat(campaignCSVColumns, []string{"markup_warnings"})
 )
 
 // campaignHeaders names the table column or row of each campaign field.
@@ -81,7 +88,7 @@ func (h *tableHandler) HandleSingleCampaign(campaign *responses.Campaign, config
 	if _, err := fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage); err != nil {
 		return err
 	}
-	h.renderCampaignDetails(campaign, nil)
+	h.renderCampaignDetails(campaign, markupWarningsRows(campaign.MarkupWarnings))
 	return nil
 }
 
@@ -92,18 +99,19 @@ func (h *tableHandler) HandleCampaignSend(send *responses.CampaignSend, config S
 	if _, err := fmt.Fprintf(h.writer, "%s\n\n", config.SuccessMessage); err != nil {
 		return err
 	}
-	h.renderCampaignDetails(&send.Campaign, send.Warnings)
+	var warnings [][]string
+	if len(send.Warnings) > 0 {
+		warnings = [][]string{{"Warnings", formatStringSlice(send.Warnings)}}
+	}
+	h.renderCampaignDetails(&send.Campaign, warnings)
 	return nil
 }
 
 // renderCampaignDetails renders a campaign as field rows, followed by the
-// warnings of a send when there are any.
-func (h *tableHandler) renderCampaignDetails(campaign *responses.Campaign, warnings []string) {
-	rows := append(campaignDetailRows(campaign), templateContentRows(campaign.Content)...)
-	if len(warnings) > 0 {
-		rows = append(rows, []string{"Warnings", formatStringSlice(warnings)})
-	}
-	h.renderFieldTable(rows)
+// rows of warnings: the markup warnings of a single campaign or the
+// warnings of a send.
+func (h *tableHandler) renderCampaignDetails(campaign *responses.Campaign, warnings [][]string) {
+	h.renderFieldTable(slices.Concat(campaignDetailRows(campaign), templateContentRows(campaign.Content), warnings))
 }
 
 func (h *tableHandler) HandleCampaignTest(test *responses.CampaignTest, config SingleConfig) error {
@@ -143,7 +151,10 @@ func (h *plainHandler) HandleSingleCampaign(campaign *responses.Campaign, config
 	if _, err := fmt.Fprintln(h.writer, config.SuccessMessage); err != nil {
 		return err
 	}
-	return h.renderCampaignDetails(campaign)
+	if err := h.renderCampaignDetails(campaign); err != nil {
+		return err
+	}
+	return writeMarkupWarnings(h.writer, campaign.MarkupWarnings)
 }
 
 func (h *plainHandler) HandleCampaignSend(send *responses.CampaignSend, config SingleConfig) error {
@@ -197,7 +208,11 @@ func (h *csvHandler) HandleSingleCampaign(campaign *responses.Campaign, config S
 	if campaign == nil {
 		return nil
 	}
-	return h.writeCampaignsCSV([]responses.Campaign{*campaign}, nil)
+	warnings, err := formatMarkupWarningsCSV(campaign.MarkupWarnings)
+	if err != nil {
+		return err
+	}
+	return h.writeCampaignCSV(singleCampaignCSVColumns, campaign, map[string]string{"markup_warnings": warnings})
 }
 
 func (h *csvHandler) HandleCampaignSend(send *responses.CampaignSend, config SingleConfig) error {
@@ -206,35 +221,24 @@ func (h *csvHandler) HandleCampaignSend(send *responses.CampaignSend, config Sin
 	}
 	// A send always has the warnings column, whether the API sent an empty
 	// list, null or no warnings key.
-	warnings := send.Warnings
-	if warnings == nil {
-		warnings = []string{}
-	}
-	return h.writeCampaignsCSV([]responses.Campaign{send.Campaign}, warnings)
+	return h.writeCampaignCSV(slices.Concat(campaignCSVColumns, []string{"warnings"}), &send.Campaign,
+		map[string]string{"warnings": formatStringSlice(send.Warnings)})
 }
 
-// writeCampaignsCSV writes one row per campaign. A send's warnings add a
-// warnings column.
-func (h *csvHandler) writeCampaignsCSV(campaigns []responses.Campaign, warnings []string) error {
-	columns := slices.Concat(campaignDetailFields, templateContentColumns)
-	if warnings != nil {
-		columns = append(columns, "warnings")
-	}
-
-	rows := make([]map[string]string, len(campaigns))
-	for i := range campaigns {
-		campaign := &campaigns[i]
-		rows[i] = campaignListItemCSVFields(&campaign.CampaignListItem)
-		maps.Copy(rows[i], map[string]string{
-			"list_ids": formatStringSlice(formatCampaignListIDs(campaign)),
-			"editor":   formatOptionalString(campaign.Editor),
-			"ready":    formatOptionalBool(campaign.Ready),
-			"issues":   formatStringSlice(formatCampaignIssues(campaign.Issues)),
-			"warnings": formatStringSlice(warnings),
-		})
-		maps.Copy(rows[i], templateContentCSVFields(campaign.Content))
-	}
-	return h.writeFieldMaps(columns, rows...)
+// writeCampaignCSV writes the columns of campaign as one row, with the
+// values of the columns that follow its content, such as its warnings, in
+// extra.
+func (h *csvHandler) writeCampaignCSV(columns []string, campaign *responses.Campaign, extra map[string]string) error {
+	row := campaignListItemCSVFields(&campaign.CampaignListItem)
+	maps.Copy(row, map[string]string{
+		"list_ids": formatStringSlice(formatCampaignListIDs(campaign)),
+		"editor":   formatOptionalString(campaign.Editor),
+		"ready":    formatOptionalBool(campaign.Ready),
+		"issues":   formatStringSlice(formatCampaignIssues(campaign.Issues)),
+	})
+	maps.Copy(row, templateContentCSVFields(campaign.Content))
+	maps.Copy(row, extra)
+	return h.writeFieldMaps(columns, row)
 }
 
 func (h *csvHandler) HandleCampaignTest(test *responses.CampaignTest, config SingleConfig) error {

@@ -48,9 +48,9 @@ var csvViews = []csvView{
 	{[]string{"campaigns", "list"}, returns[responses.PaginatedCampaignsResponse]("ListCampaigns", csvListBody),
 		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at"},
 	{[]string{"campaigns", "get", rawTestID}, returns[responses.Campaign]("GetCampaign", csvItemBody),
-		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom"},
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
 	{[]string{"campaigns", "send", rawTestID, "--force"}, returns[responses.CampaignSend]("SendCampaign", csvItemBody),
-		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom,warnings"},
+		"name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings"},
 	{[]string{"campaigns", "test", rawTestID, "--to", "user@example.com"}, returns[responses.CampaignTest]("TestCampaign", csvCampaignTest),
 		"email,outcome,reason"},
 	{[]string{"campaigns", "stats", rawTestID}, returns[responses.CampaignStats]("GetCampaignStats", csvItemBody),
@@ -58,9 +58,9 @@ var csvViews = []csvView{
 	{[]string{"campaigns", "recipients", rawTestID, "--status", "Delivered"}, returns[responses.PaginatedCampaignRecipientsResponse]("ListCampaignRecipients", csvListBody),
 		"email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at"},
 	{[]string{"campaigns", "templates", "list"}, returns[responses.PaginatedCampaignTemplatesResponse]("ListCampaignTemplates", csvListBody),
-		"name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom"},
+		"name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom"},
 	{[]string{"campaigns", "templates", "get", rawTestID}, returns[responses.CampaignTemplate]("GetCampaignTemplate", csvItemBody),
-		"name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom"},
+		"name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
 
 	// Contacts
 	{[]string{"contacts", "list"}, returns[responses.PaginatedContactsResponse]("GetContacts", csvListBody),
@@ -143,16 +143,16 @@ var csvViews = []csvView{
 
 	// Templates
 	{[]string{"templates", "list"}, returns[responses.PaginatedTemplatesResponse]("GetTemplates", csvListBody),
-		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom"},
 	{[]string{"templates", "get", rawTestID}, returns[responses.Template]("GetTemplate", csvItemBody),
-		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
 	{[]string{"templates", "get", rawTestID, "--published"}, returns[responses.Template]("GetPublishedTemplate", csvItemBody),
-		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom"},
+		"name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings"},
 	{[]string{"templates", "versions", "list", rawTestID}, returns[responses.TemplateVersionsResponse]("GetTemplateVersions", csvListBody),
 		"version,id,published_at,published_by"},
 	{[]string{"templates", "versions", "get", rawTestID, rawTestOtherID},
 		returns[responses.TemplateVersionDetail]("GetTemplateVersion", csvItemBody),
-		"version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom"},
+		"version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,markup,markup_error,html,text,text_is_custom"},
 
 	// Webhooks
 	{[]string{"webhooks", "list"}, returns[responses.PaginatedWebhooksResponse]("ListWebhooks", csvListBody),

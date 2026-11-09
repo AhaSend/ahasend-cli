@@ -17,23 +17,44 @@ default,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,,,,Acme,,,2026-09-10T08:30:00Z
 from_timestamp,to_timestamp,classification,count,percentage
 2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,invalid,1,100.00
 === campaign
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom
-October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,<p>News</p>,News,false
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,,,<p>News</p>,News,false,
 === campaign recipients
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 bad@example.com,88888888-8888-4888-8888-888888888888,Newsletter,,,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
 === campaign recipients through a segment
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 bad@example.com,88888888-8888-4888-8888-888888888888,,99999999-9999-4999-8999-999999999999,Active buyers,Bounced,invalid_recipient,mailbox does not exist,550 5.1.1 unknown user,2,2026-10-02T09:00:00Z,2026-10-02T09:01:00Z
+=== campaign send
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
+October,44444444-4444-4444-8444-444444444444,validating,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",html,,,,,,<p>News</p>,News,false,"The account cannot send right now, The view-in-browser page cannot show the design"
 === campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 44444444-4444-4444-8444-444444444444,100,80,50,10,2,1,42.5,,1.25,,false,2026-10-02T10:00:00Z,80,34,8,1,0,"{""Bounced"":1,""Delivered"":79}","{""Unknown"":1}"
 === campaign template
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
-Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,<mjml></mjml>,<p>News</p>,News,false
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,<mjml></mjml>,,,<p>News</p>,News,false,
+=== campaign template with a markup error
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Newsletter,77777777-7777-4777-8777-777777777777,simple,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false,
+=== campaign template with markup
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Newsletter,77777777-7777-4777-8777-777777777777,simple,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,"<Email version=""1"">
+  <Heading level=""2"">Welcome</Heading>
+  <Paragraph>Hi <Var name=""first_name"" fallback=""there""/>, {{ plan }}</Paragraph>
+</Email>",,<h2>Welcome</h2>,Welcome,false,"[{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text"",""line"":3,""column"":48,""path"":""Email > Paragraph[1]""},{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text""}]"
 === campaign templates list
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
-Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,,,
+=== campaign with a markup error
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",simple,,,,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false,
+=== campaign with markup
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z,"55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666",simple,,,,"<Email version=""1"">
+  <Heading level=""2"">Welcome</Heading>
+  <Paragraph>Hi <Var name=""first_name"" fallback=""there""/>, {{ plan }}</Paragraph>
+</Email>",,<h2>Welcome</h2>,Welcome,false,"[{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text"",""line"":3,""column"":48,""path"":""Email > Paragraph[1]""},{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text""}]"
 === campaigns list
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at
 October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z
@@ -128,7 +149,7 @@ label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
 === page of 0 SMTP credentials
 name,id,username,scope,domains,sandbox,created_at,updated_at
 === page of 0 campaign templates
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
 === page of 0 campaigns
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at
 === page of 0 contacts
@@ -152,7 +173,7 @@ name,id,status,website,monthly_credit,domain_count,member_count,created_at
 === page of 0 suppressions
 email,id,domain,reason,created_at,expires_at,protected
 === page of 0 templates
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
 === page of 0 versions
 version,id,published_at,published_by
 === page of 0 webhooks
@@ -164,8 +185,8 @@ Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twen
 name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 === page of 1 campaign templates
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
-Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,,,
 === page of 1 campaigns
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at
 October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z
@@ -200,8 +221,8 @@ Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T0
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 === page of 1 templates
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
-Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,,,
 === page of 1 versions
 version,id,published_at,published_by
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
@@ -217,9 +238,9 @@ name,id,username,scope,domains,sandbox,created_at,updated_at
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,scoped,"example.com, news.example.com",false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 === page of 2 campaign templates
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
-Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,
-Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,,,
+Newsletter,77777777-7777-4777-8777-777777777777,advanced,2026-09-20T08:00:00Z,2026-09-20T09:00:00Z,,,,,,
 === page of 2 campaigns
 name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at
 October,44444444-4444-4444-8444-444444444444,scheduled,,October news,Read me,news@example.com,support@example.com,2026-11-01T09:00:00Z,,,2026-10-01T08:00:00Z,2026-10-01T09:00:00Z
@@ -265,9 +286,9 @@ email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 === page of 2 templates
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
-Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
-Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,,,
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,,,
 === page of 2 versions
 version,id,published_at,published_by
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
@@ -314,17 +335,20 @@ Production,,,,,,,
 profile,account_id,valid,error,note,parent_account_id,account_name,website,about,created_at,updated_at,track_opens,track_clicks,reject_bad_recipients,reject_mistyped_recipients,message_metadata_retention,message_data_retention
 default,,,,,,Acme,,,,,,,,,,
 === sparse campaign
-name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,html,text,text_is_custom
-October,,,,,,,,,,,,,,,,,,,,
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+October,,,,,,,,,,,,,,,,,,,,,,,
 === sparse campaign recipients
 email,contact_id,list_name,segment_id,segment_name,status,bounce_classification,bounce_reason,bounce_message,attempts,created_at,updated_at
 user@example.com,,,,,,,,,0,,
+=== sparse campaign send
+name,id,status,status_reason,subject,preheader,from,reply_to,send_at,send_resumes_at,finished_at,created_at,updated_at,list_ids,editor,ready,issues,mjml,markup,markup_error,html,text,text_is_custom,warnings
+October,,,,,,,,,,,,,,,,,,,,,,,
 === sparse campaign stats
 campaign_id,recipients,delivered,opens,clicks,unsubscribes,complaints,open_rate,click_rate,bounce_rate,deferral_rate,recount_failed,report_computed_at,report_recipients,report_openers,report_clickers,report_bounces,report_deferrals,report_by_status,report_by_bounce_classification
 ,0,0,0,0,0,0,,,,,false,,,,,,,,
 === sparse campaign template
-name,id,editor,created_at,updated_at,mjml,html,text,text_is_custom
-Newsletter,,,,,,,,
+name,id,editor,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Newsletter,,,,,,,,,,,
 === sparse contact
 email,id,first_name,last_name,status,status_reason,unsubscribed,unsubscribed_at,attributes,validation_status,last_validated_at,created_at,updated_at
 user@example.com,,,,,,false,,,,,,
@@ -398,11 +422,11 @@ Acme,,,,0,0,0,
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,,,,,,false
 === sparse template
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
-Welcome,,,,,,,false,,,,,,,
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Welcome,,,,,,,false,,,,,,,,,,
 === sparse template version
-version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
-0,,,,,,,,,,,,
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,markup,markup_error,html,text,text_is_custom
+0,,,,,,,,,,,,,,
 === sparse updated api key
 label,id,public_key,account_id,scopes,ip_allow_list,updated_at
 Production,,,,,,
@@ -439,20 +463,38 @@ user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 === template
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
 Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,Example <hello@example.com>,support@example.com,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,"<mjml>
 <mj-body></mj-body>
-</mjml>",,Hello,true
+</mjml>",,,,Hello,true,
 === template version
-version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,html,text,text_is_custom
-2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,first_name (optional),,,Hi,false
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,markup,markup_error,html,text,text_is_custom
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,first_name (optional),,,,,Hi,false
+=== template version with a markup error
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,markup,markup_error,html,text,text_is_custom
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,first_name (optional),,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false
+=== template version with markup
+version,id,published_at,published_by,subject,preheader,from,reply_to,variables,mjml,markup,markup_error,html,text,text_is_custom
+2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,user:55555555-5555-4555-8555-555555555555,Version subject,,,,"first_name (optional), vip (condition; optional), items (list of name/price; required)",,"<Email version=""1"">
+  <Heading level=""2"">Welcome</Heading>
+  <Paragraph>Hi <Var name=""first_name"" fallback=""there""/>, {{ plan }}</Paragraph>
+</Email>",,<h2>Welcome</h2>,Welcome,false
 === template versions
 version,id,published_at,published_by
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 1,66666666-6666-4666-8666-666666666666,2026-09-12T07:00:00Z,
+=== template with a markup error
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Welcome,33333333-3333-4333-8333-333333333333,simple,Hello {{ first_name }},Read me,Example <hello@example.com>,support@example.com,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,html_block: the design holds an HTML block,<div>Custom</div>,Custom,false,
+=== template with markup
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom,markup_warnings
+Welcome,33333333-3333-4333-8333-333333333333,simple,Hello {{ first_name }},Read me,Example <hello@example.com>,support@example.com,true,"first_name (optional), vip (condition; optional), items (list of name/price; required)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,"<Email version=""1"">
+  <Heading level=""2"">Welcome</Heading>
+  <Paragraph>Hi <Var name=""first_name"" fallback=""there""/>, {{ plan }}</Paragraph>
+</Email>",,<h2>Welcome</h2>,Welcome,false,"[{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text"",""line"":3,""column"":48,""path"":""Email > Paragraph[1]""},{""code"":""jinja_in_text"",""message"":""text holds {{, which stays text""}]"
 === templates list
-name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,html,text,text_is_custom
-Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,
+name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,updated_at,mjml,markup,markup_error,html,text,text_is_custom
+Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Read me,,,true,"first_name (required), nickname (optional)",2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,,,,,
 === two bounce periods
 from_timestamp,to_timestamp,classification,count,percentage
 2026-09-10T08:30:00Z,,,0,

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/models/common"
@@ -87,6 +88,68 @@ func TestGetPublishedReadsThePublishedCopy(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+// testMarkup is the AhaML of a Simple Editor design, with the trailing
+// newline the API ends it with.
+const testMarkup = "<Email version=\"1\">\n  <Paragraph>Hi <Var name=\"first_name\"/></Paragraph>\n</Email>\n"
+
+// simpleTemplate returns a template of the Simple Editor with its markup.
+func simpleTemplate() *responses.Template {
+	template := testTemplate()
+	markup := testMarkup
+	template.Editor = "simple"
+	template.Content = &responses.TemplateContent{Markup: &markup, HTML: "<p>Hi</p>", Text: "Hi"}
+	return template
+}
+
+func TestGetMarkupWritesTheMarkupAlone(t *testing.T) {
+	for method, args := range map[string][]string{
+		"GetTemplate":          {testTemplateID, "--markup"},
+		"GetPublishedTemplate": {testTemplateID, "--published", "--markup"},
+	} {
+		t.Run(method, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On(method, uuid.MustParse(testTemplateID)).Return(simpleTemplate(), nil)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, stderr, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", args...)
+			require.NoError(t, err)
+			assert.Equal(t, testMarkup, stdout)
+			assert.Empty(t, stderr)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetMarkupFailsWithoutAhaML(t *testing.T) {
+	withError := testTemplate()
+	withError.Editor = "simple"
+	withError.Content = &responses.TemplateContent{HTML: "<p>Hi</p>",
+		MarkupError: &responses.MarkupError{Code: "html_block", Message: "the design holds an HTML block"}}
+	mjml := testTemplate()
+	mjml.Content = &responses.TemplateContent{MJML: "<mjml></mjml>", HTML: "<p>Hi</p>"}
+	tests := map[string]struct {
+		template *responses.Template
+		message  string
+	}{
+		"markup error": {withError, "the design could not be read as AhaML: html_block: the design holds an HTML block"},
+		"MJML design":  {mjml, "template " + testTemplateID + " has no AhaML: only a Simple Editor design has one"},
+		"no content":   {testTemplate(), "template " + testTemplateID + " has no content"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("GetTemplate", uuid.MustParse(testTemplateID)).Return(test.template, nil)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, _, err := testutil.RunCommand(t, NewGetCommand(), "plain", "", testTemplateID, "--markup")
+			require.Error(t, err)
+			assert.Equal(t, test.message, err.Error())
+			assert.Equal(t, 1, clierrors.GetExitCode(err))
+			assert.Empty(t, stdout)
+		})
+	}
+}
+
 func TestGetRejectsBadTemplateIDBeforeAuthentication(t *testing.T) {
 	authCalled := testutil.RefuseAuth(t)
 
@@ -110,6 +173,20 @@ func TestCreateWithMJMLFileSendsMJMLAndNoEditor(t *testing.T) {
 
 	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "Welcome", "--mjml-file", mjmlPath)
 	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateWithMarkupFileSendsMarkupAndTheSimpleEditor(t *testing.T) {
+	var captured requests.CreateTemplateRequest
+	mockClient := &mocks.MockClient{}
+	testutil.CaptureRequest(mockClient, "CreateTemplate", &captured, simpleTemplate())
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewCreateCommand(), "--name", "Welcome",
+		"--markup-file", testutil.WriteTempFile(t, "welcome.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"name": "Welcome", "editor": "simple", "content": map[string]any{"markup": testMarkup}},
+		testutil.WireJSON(t, captured))
 	mockClient.AssertExpectations(t)
 }
 
@@ -142,6 +219,7 @@ func TestCreateSendsEveryFieldAndIdempotencyKey(t *testing.T) {
 func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 	mjmlPath := testutil.WriteTempFile(t, "welcome.mjml", "<mjml></mjml>")
 	htmlPath := testutil.WriteTempFile(t, "welcome.html", "<p></p>")
+	markupPath := testutil.WriteTempFile(t, "welcome.ahaml", testMarkup)
 	latin1Path := testutil.WriteTempFile(t, "latin1.html", "<p>caf\xe9</p>")
 	tests := []struct {
 		args    []string
@@ -155,8 +233,16 @@ func TestCreateValidationHappensBeforeAuthentication(t *testing.T) {
 		{[]string{"--name", "Welcome", "--editor", "simple", "--reply-to", "a@example.com"}, "--reply-to needs --from"},
 		{[]string{"--name", "Welcome", "--text-file", testutil.WriteTempFile(t, "empty.txt", "")}, "--text-file is empty"},
 		{[]string{"--name", "Welcome", "--mjml-file", filepath.Join(t.TempDir(), "missing.mjml")}, "failed to read --mjml-file"},
-		{[]string{"--name", "Welcome"}, "--editor is needed when there is neither --mjml-file nor --html-file"},
-		{[]string{"--name", "Welcome", "--text-file", testutil.WriteTempFile(t, "notice.txt", "Hi")}, "--editor is needed when there is neither --mjml-file nor --html-file"},
+		{[]string{"--name", "Welcome"}, "--editor is needed when there is no --markup-file, --mjml-file or --html-file"},
+		{[]string{"--name", "Welcome", "--text-file", testutil.WriteTempFile(t, "notice.txt", "Hi")},
+			"--editor is needed when there is no --markup-file, --mjml-file or --html-file"},
+		{[]string{"--name", "Welcome", "--markup-file", markupPath, "--mjml-file", mjmlPath}, "--markup-file and --mjml-file cannot be used together"},
+		{[]string{"--name", "Welcome", "--markup-file", markupPath, "--html-file", htmlPath}, "--markup-file and --html-file cannot be used together"},
+		{[]string{"--name", "Welcome", "--markup-file", markupPath, "--editor", "html"},
+			"--editor html cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "Welcome", "--markup-file", markupPath, "--editor", "advanced"},
+			"--editor advanced cannot be used with --markup-file, which holds a Simple Editor design"},
+		{[]string{"--name", "Welcome", "--markup-file", testutil.WriteTempFile(t, "empty.ahaml", "")}, "--markup-file is empty"},
 		{[]string{"--name", "Welcome", "--editor", ""}, "--editor cannot be empty"},
 		{[]string{"--name", "Welcome", "--html-file", latin1Path}, latin1Path + " is not UTF-8 text; save it as UTF-8"},
 	}
@@ -262,6 +348,43 @@ func TestUpdateSendsContentSenderAndPreheader(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestUpdateWithMarkupFileAloneSendsTheMarkup(t *testing.T) {
+	var captured requests.UpdateTemplateRequest
+	mockClient := &mocks.MockClient{}
+	expectUpdate(mockClient, &captured)
+	testutil.InjectClient(t, mockClient)
+
+	_, err := testutil.RunPlain(t, NewUpdateCommand(), testTemplateID,
+		"--markup-file", testutil.WriteTempFile(t, "welcome.ahaml", testMarkup))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"content": map[string]any{"markup": testMarkup}}, testutil.WireJSON(t, captured))
+	mockClient.AssertExpectations(t)
+}
+
+func TestUpdateWithMarkupFileTakesATextFileOrRegeneratesTheText(t *testing.T) {
+	markupPath := testutil.WriteTempFile(t, "welcome.ahaml", testMarkup)
+	tests := map[string]struct {
+		args []string
+		text any
+	}{
+		"--text-file":       {[]string{"--text-file", testutil.WriteTempFile(t, "welcome.txt", "Hi")}, "Hi"},
+		"--regenerate-text": {[]string{"--regenerate-text"}, nil},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var captured requests.UpdateTemplateRequest
+			mockClient := &mocks.MockClient{}
+			expectUpdate(mockClient, &captured)
+			testutil.InjectClient(t, mockClient)
+
+			_, err := testutil.RunPlain(t, NewUpdateCommand(), append([]string{testTemplateID, "--markup-file", markupPath}, test.args...)...)
+			require.NoError(t, err)
+			assert.Equal(t, map[string]any{"content": map[string]any{"markup": testMarkup, "text": test.text}},
+				testutil.WireJSON(t, captured))
+		})
+	}
+}
+
 func TestUpdatePublishAloneOnlyPublishes(t *testing.T) {
 	mockClient := &mocks.MockClient{}
 	mockClient.On("UpdateTemplate", uuid.MustParse(testTemplateID), requests.UpdateTemplateRequest{Publish: true}).
@@ -276,7 +399,7 @@ func TestUpdatePublishAloneOnlyPublishes(t *testing.T) {
 func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 	emptyPath := testutil.WriteTempFile(t, "empty.txt", "")
 	textPath := testutil.WriteTempFile(t, "text.txt", "Hello")
-	atLeastOne := "at least one of --name, --subject, --preheader, --mjml-file, --html-file, --text-file, " +
+	atLeastOne := "at least one of --name, --subject, --preheader, --markup-file, --mjml-file, --html-file, --text-file, " +
 		"--regenerate-text, --from, --clear-from, --reply-to, --clear-reply-to or --publish must be provided"
 	tests := []struct {
 		args    []string
@@ -290,6 +413,9 @@ func TestUpdateValidationHappensBeforeAuthentication(t *testing.T) {
 		{[]string{testTemplateID, "--publish=false", "--clear-from=false", "--regenerate-text=false"}, atLeastOne},
 		{[]string{"not-a-uuid", "--name", "x"}, `invalid template ID value "not-a-uuid": not a UUID`},
 		{[]string{testTemplateID, "--mjml-file", textPath, "--html-file", textPath}, "--mjml-file and --html-file cannot be used together"},
+		{[]string{testTemplateID, "--markup-file", textPath, "--mjml-file", textPath}, "--markup-file and --mjml-file cannot be used together"},
+		{[]string{testTemplateID, "--html-file", textPath, "--markup-file", textPath}, "--html-file and --markup-file cannot be used together"},
+		{[]string{testTemplateID, "--markup-file", emptyPath}, "--markup-file is empty"},
 		{[]string{testTemplateID, "--from-name", "Jane"}, "--from-name needs --from"},
 		{[]string{testTemplateID, "--from", ""}, "--from cannot be empty; use --clear-from to clear it"},
 		{[]string{testTemplateID, "--reply-to", ""}, "--reply-to cannot be empty; use --clear-reply-to to clear it"},

@@ -15,10 +15,12 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-go/api"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -167,6 +169,47 @@ func TestRunExitsWithNotFoundCodeWhenAPIReturns404(t *testing.T) {
 
 			assert.Equal(t, 5, run(root, []string{"lists", "get", listID, "--output", format}))
 			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+// TestRefusedMarkupWritePrintsEachProblemOutsideJSON checks that a write
+// whose AhaML the API refused prints each problem with its place outside
+// JSON output, and the API's body unchanged in JSON output.
+func TestRefusedMarkupWritePrintsEachProblemOutsideJSON(t *testing.T) {
+	const body = `{"message":"content.markup has 2 problems","errors":[` +
+		`{"code":"unknown_attribute","message":"Paragraph has no attribute \"color\"","line":4,"column":14,` +
+		`"path":"Email > Section[2] > Paragraph[1]","hint":"wrap the text in <Color value=\"...\"> instead"},` +
+		`{"code":"too_large","message":"the markup is larger than the limit"}]}`
+	refused := &api.APIError{
+		Type: api.ErrorTypeValidation, StatusCode: 400, Message: "content.markup has 2 problems", Raw: []byte(body),
+		Errors: []common.MarkupProblem{
+			{Code: "unknown_attribute", Message: `Paragraph has no attribute "color"`, Line: 4, Column: 14,
+				Path: "Email > Section[2] > Paragraph[1]", Hint: `wrap the text in <Color value="..."> instead`},
+			{Code: "too_large", Message: "the markup is larger than the limit"},
+		},
+	}
+	markupPath := testutil.WriteTempFile(t, "design.ahaml", "<Email version=\"1\">\n  <Paragraph color=\"red\">Hi</Paragraph>\n</Email>\n")
+	for _, format := range []string{"table", "plain", "csv", "json"} {
+		t.Run(format, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("UpdateTemplate", uuid.MustParse(rawTestID), mock.AnythingOfType("requests.UpdateTemplateRequest")).
+				Return(nil, refused)
+			testutil.InjectClient(t, mockClient)
+
+			stdout, stderr, code := runRoot(t, "templates", "update", rawTestID, "--markup-file", markupPath, "--output", format)
+
+			assert.Equal(t, 4, code)
+			if format == "json" {
+				assert.JSONEq(t, body, stdout)
+				assert.Empty(t, stderr)
+				return
+			}
+			assert.Empty(t, stdout)
+			assert.Equal(t, "Error: validation error (HTTP 400): content.markup has 2 problems\n"+
+				`  line 4, column 14: Paragraph has no attribute "color" (unknown_attribute) at Email > Section[2] > Paragraph[1]; `+
+				`hint: wrap the text in <Color value="..."> instead`+"\n"+
+				"  the markup is larger than the limit (too_large)\n", stderr)
 		})
 	}
 }

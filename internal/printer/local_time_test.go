@@ -91,12 +91,17 @@ func TestPlainLeavesANilTimeOut(t *testing.T) {
 	assert.NotContains(t, output.String(), "Unsubscribed At")
 }
 
+// variableKindAndRequired matches the end of a template variable that has a
+// kind, such as "vip (condition; optional)": one value, not a list.
+var variableKindAndRequired = regexp.MustCompile(`; (required|optional)\)`)
+
 func TestTableAndPlainUseOneLabelForEachTimeAndNoObjectField(t *testing.T) {
 	for _, format := range []string{"table", "plain"} {
 		for name, r := range renders() {
 			t.Run(format+"/"+name, func(t *testing.T) {
 				// The port line of the SMTP settings is a sentence, not a list.
 				text := strings.ReplaceAll(renderWith(t, format, r.render), "(STARTTLS, recommended); 25", "")
+				text = variableKindAndRequired.ReplaceAllString(text, ")")
 				assert.NotRegexp(t, `(?m)^Object:|│ Object `, text)
 				assert.NotContains(t, text, "Created At")
 				assert.NotContains(t, text, "Updated At")

@@ -162,6 +162,9 @@ func TestOnlyFileFlagsCompleteFileNames(t *testing.T) {
 		{"messages", "send", "--text-template"},
 		{"smtp", "send", "--html-file"},
 		{"templates", "create", "--mjml-file"},
+		{"templates", "update", rawTestID, "--markup-file"},
+		{"campaigns", "create", "--markup-file"},
+		{"campaigns", "templates", "update", rawTestID, "--markup-file"},
 		{"contacts", "batch", "--file"},
 		{"domains", "create", "example.com", "--dkim-private-key-file"},
 	} {

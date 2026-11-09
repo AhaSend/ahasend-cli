@@ -18,6 +18,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The CSV output of `messages send` has the column `message_id_header` after
   `id`, and that of `campaigns recipients` the columns `segment_id` and
   `segment_name` after `list_name`.
+- The CSV output of a template, a template version, a campaign and a
+  campaign template, in the `templates`, `templates versions`, `campaigns`
+  and `campaigns templates` commands, has the columns `markup` and
+  `markup_error` after `mjml`. The single views of a template, a campaign and
+  a campaign template end with a `markup_warnings` column.
+- The `variables` value of a template and a template version names each
+  variable's kind, so `items (required)` reads
+  `items (list of name/price; required)` for a list.
 
 ### Added
 
@@ -34,9 +42,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the List of such a recipient is empty.
 - `apikeys` and `subaccounts api-keys` take the `segments:read`,
   `segments:write` and `segments:delete` scopes.
+- `templates`, `campaigns` and `campaigns templates` read and write the
+  design of the Simple Editor as AhaML (AhaSend Markup). `create` and
+  `update` take `--markup-file`, which makes a created design `simple`, and
+  `get --markup` writes only the design's AhaML to stdout, so it can be
+  edited and written back.
+- The views of a template, a template version, a campaign and a campaign
+  template show a design's markup, or why the API could not give it as
+  AhaML, after the MJML, and a write that carried AhaML shows its warnings.
+- A write whose AhaML the API refuses lists each problem under the error,
+  with its line and column, outside JSON output.
+- A template's variables show their kind: a condition, or a list with the
+  fields of its elements.
 
 ### Changed
 
+- Plain output prints no blank line under a template's MJML, HTML or text
+  that ends in a newline.
 - `messages get` and `messages cancel` help describe the message ID as the
   message's `id`, a UUID, which `messages send` prints. The error for an ID
   that is not valid now ends in `not a UUID`.
@@ -46,6 +68,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Message-ID header `Message-ID`, not `Message ID`.
 - The `messages list --message-id` help says it filters by the Message-ID
   header, with its angle brackets.
+- The error of `templates create` and `campaigns templates create` without
+  a design file or `--editor`, and the "at least one of" errors of the
+  `update` commands of `templates`, `campaigns` and `campaigns templates`,
+  name `--markup-file`.
 
 ## [0.3.1] - 2026-10-16
 

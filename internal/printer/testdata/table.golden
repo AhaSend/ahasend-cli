@@ -132,6 +132,34 @@ Showing 1 recipient (more available)
 Showing 1 recipient (more available)
 --after next-recipient
 --before previous-recipient
+=== campaign send
+
+
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────────────┐
+│      FIELD      │                                       VALUE                                        │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Name            │ October                                                                            │
+│ ID              │ 44444444-4444-4444-8444-444444444444                                               │
+│ Status          │ validating                                                                         │
+│ Status Reason   │ -                                                                                  │
+│ Subject         │ October news                                                                       │
+│ Preheader       │ Read me                                                                            │
+│ From            │ news@example.com                                                                   │
+│ Reply To        │ support@example.com                                                                │
+│ Send At         │ 2026-11-01 11:00:00 UTC+2                                                          │
+│ Send Resumes At │ -                                                                                  │
+│ Finished At     │ -                                                                                  │
+│ Created         │ 2026-10-01 10:00:00 UTC+2                                                          │
+│ Updated         │ 2026-10-01 11:00:00 UTC+2                                                          │
+│ Lists           │ 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666         │
+│ Editor          │ html                                                                               │
+│ Ready           │ -                                                                                  │
+│ Issues          │ -                                                                                  │
+│ HTML            │ <p>News</p>                                                                        │
+│ Text            │ News                                                                               │
+│ Text Is Custom  │ No                                                                                 │
+│ Warnings        │ The account cannot send right now, The view-in-browser page cannot show the design │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────────────┘
 === campaign stats
 
 
@@ -175,6 +203,43 @@ Showing 1 recipient (more available)
 │ Text           │ News                                 │
 │ Text Is Custom │ No                                   │
 └────────────────┴──────────────────────────────────────┘
+=== campaign template with a markup error
+
+
+┌────────────────┬────────────────────────────────────────────┐
+│     FIELD      │                   VALUE                    │
+├────────────────┼────────────────────────────────────────────┤
+│ Name           │ Newsletter                                 │
+│ ID             │ 77777777-7777-4777-8777-777777777777       │
+│ Editor         │ simple                                     │
+│ Created        │ 2026-09-20 10:00:00 UTC+2                  │
+│ Updated        │ 2026-09-20 11:00:00 UTC+2                  │
+│ Markup Error   │ html_block: the design holds an HTML block │
+│ HTML           │ <div>Custom</div>                          │
+│ Text           │ Custom                                     │
+│ Text Is Custom │ No                                         │
+└────────────────┴────────────────────────────────────────────┘
+=== campaign template with markup
+
+
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐
+│      FIELD      │                                           VALUE                                            │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Name            │ Newsletter                                                                                 │
+│ ID              │ 77777777-7777-4777-8777-777777777777                                                       │
+│ Editor          │ simple                                                                                     │
+│ Created         │ 2026-09-20 10:00:00 UTC+2                                                                  │
+│ Updated         │ 2026-09-20 11:00:00 UTC+2                                                                  │
+│ Markup          │ <Email version="1">                                                                        │
+│                 │   <Heading level="2">Welcome</Heading>                                                     │
+│                 │   <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>          │
+│                 │ </Email>                                                                                   │
+│ HTML            │ <h2>Welcome</h2>                                                                           │
+│ Text            │ Welcome                                                                                    │
+│ Text Is Custom  │ No                                                                                         │
+│ Markup Warnings │ line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1] │
+│                 │ text holds {{, which stays text (jinja_in_text)                                            │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘
 === campaign templates list
 
 
@@ -187,6 +252,67 @@ Showing 1 recipient (more available)
 Showing 1 campaign template (more available)
 --after next-campaign-template
 --before previous-campaign-template
+=== campaign with a markup error
+
+
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────┐
+│      FIELD      │                                   VALUE                                    │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────┤
+│ Name            │ October                                                                    │
+│ ID              │ 44444444-4444-4444-8444-444444444444                                       │
+│ Status          │ scheduled                                                                  │
+│ Status Reason   │ -                                                                          │
+│ Subject         │ October news                                                               │
+│ Preheader       │ Read me                                                                    │
+│ From            │ news@example.com                                                           │
+│ Reply To        │ support@example.com                                                        │
+│ Send At         │ 2026-11-01 11:00:00 UTC+2                                                  │
+│ Send Resumes At │ -                                                                          │
+│ Finished At     │ -                                                                          │
+│ Created         │ 2026-10-01 10:00:00 UTC+2                                                  │
+│ Updated         │ 2026-10-01 11:00:00 UTC+2                                                  │
+│ Lists           │ 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666 │
+│ Editor          │ simple                                                                     │
+│ Ready           │ -                                                                          │
+│ Issues          │ -                                                                          │
+│ Markup Error    │ html_block: the design holds an HTML block                                 │
+│ HTML            │ <div>Custom</div>                                                          │
+│ Text            │ Custom                                                                     │
+│ Text Is Custom  │ No                                                                         │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────┘
+=== campaign with markup
+
+
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐
+│      FIELD      │                                           VALUE                                            │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Name            │ October                                                                                    │
+│ ID              │ 44444444-4444-4444-8444-444444444444                                                       │
+│ Status          │ scheduled                                                                                  │
+│ Status Reason   │ -                                                                                          │
+│ Subject         │ October news                                                                               │
+│ Preheader       │ Read me                                                                                    │
+│ From            │ news@example.com                                                                           │
+│ Reply To        │ support@example.com                                                                        │
+│ Send At         │ 2026-11-01 11:00:00 UTC+2                                                                  │
+│ Send Resumes At │ -                                                                                          │
+│ Finished At     │ -                                                                                          │
+│ Created         │ 2026-10-01 10:00:00 UTC+2                                                                  │
+│ Updated         │ 2026-10-01 11:00:00 UTC+2                                                                  │
+│ Lists           │ 55555555-5555-4555-8555-555555555555, 66666666-6666-4666-8666-666666666666                 │
+│ Editor          │ simple                                                                                     │
+│ Ready           │ -                                                                                          │
+│ Issues          │ -                                                                                          │
+│ Markup          │ <Email version="1">                                                                        │
+│                 │   <Heading level="2">Welcome</Heading>                                                     │
+│                 │   <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>          │
+│                 │ </Email>                                                                                   │
+│ HTML            │ <h2>Welcome</h2>                                                                           │
+│ Text            │ Welcome                                                                                    │
+│ Text Is Custom  │ No                                                                                         │
+│ Markup Warnings │ line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1] │
+│                 │ text holds {{, which stays text (jinja_in_text)                                            │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘
 === campaigns list
 
 
@@ -1349,6 +1475,30 @@ Account Details:
 └──────────────────┴────────────┴──────┴─────────┴────────┴───────────────────────┴──────────┘
 
 Showing 1 recipient
+=== sparse campaign send
+
+
+┌─────────────────┬─────────┐
+│      FIELD      │  VALUE  │
+├─────────────────┼─────────┤
+│ Name            │ October │
+│ ID              │ -       │
+│ Status          │ -       │
+│ Status Reason   │ -       │
+│ Subject         │ -       │
+│ Preheader       │ -       │
+│ From            │ -       │
+│ Reply To        │ -       │
+│ Send At         │ -       │
+│ Send Resumes At │ -       │
+│ Finished At     │ -       │
+│ Created         │ -       │
+│ Updated         │ -       │
+│ Lists           │ -       │
+│ Editor          │ -       │
+│ Ready           │ -       │
+│ Issues          │ -       │
+└─────────────────┴─────────┘
 === sparse campaign stats
 
 
@@ -1944,6 +2094,49 @@ Showing 1 suppression
 │ Text           │ Hi                                        │
 │ Text Is Custom │ No                                        │
 └────────────────┴───────────────────────────────────────────┘
+=== template version with a markup error
+
+
+┌────────────────┬────────────────────────────────────────────┐
+│     FIELD      │                   VALUE                    │
+├────────────────┼────────────────────────────────────────────┤
+│ Version        │ 2                                          │
+│ ID             │ 44444444-4444-4444-8444-444444444444       │
+│ Published At   │ 2026-09-12 10:00:00 UTC+2                  │
+│ Published By   │ user:55555555-5555-4555-8555-555555555555  │
+│ Subject        │ Version subject                            │
+│ Preheader      │ -                                          │
+│ From           │ -                                          │
+│ Reply To       │ -                                          │
+│ Variables      │ first_name (optional)                      │
+│ Markup Error   │ html_block: the design holds an HTML block │
+│ HTML           │ <div>Custom</div>                          │
+│ Text           │ Custom                                     │
+│ Text Is Custom │ No                                         │
+└────────────────┴────────────────────────────────────────────┘
+=== template version with markup
+
+
+┌────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+│     FIELD      │                                         VALUE                                          │
+├────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ Version        │ 2                                                                                      │
+│ ID             │ 44444444-4444-4444-8444-444444444444                                                   │
+│ Published At   │ 2026-09-12 10:00:00 UTC+2                                                              │
+│ Published By   │ user:55555555-5555-4555-8555-555555555555                                              │
+│ Subject        │ Version subject                                                                        │
+│ Preheader      │ -                                                                                      │
+│ From           │ -                                                                                      │
+│ Reply To       │ -                                                                                      │
+│ Variables      │ first_name (optional), vip (condition; optional), items (list of name/price; required) │
+│ Markup         │ <Email version="1">                                                                    │
+│                │   <Heading level="2">Welcome</Heading>                                                 │
+│                │   <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>      │
+│                │ </Email>                                                                               │
+│ HTML           │ <h2>Welcome</h2>                                                                       │
+│ Text           │ Welcome                                                                                │
+│ Text Is Custom │ No                                                                                     │
+└────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
 === template versions
 
 
@@ -1955,6 +2148,55 @@ Showing 1 suppression
 └─────────┴──────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────────┘
 
 Showing 2 versions
+=== template with a markup error
+
+
+┌────────────────┬────────────────────────────────────────────┐
+│     FIELD      │                   VALUE                    │
+├────────────────┼────────────────────────────────────────────┤
+│ Name           │ Welcome                                    │
+│ ID             │ 33333333-3333-4333-8333-333333333333       │
+│ Editor         │ simple                                     │
+│ Subject        │ Hello {{ first_name }}                     │
+│ Preheader      │ Read me                                    │
+│ From           │ Example <hello@example.com>                │
+│ Reply To       │ support@example.com                        │
+│ Has Draft      │ Yes                                        │
+│ Variables      │ first_name (required), nickname (optional) │
+│ Created        │ 2026-09-10 10:30:00 UTC+2                  │
+│ Updated        │ 2026-09-10 11:30:00 UTC+2                  │
+│ Markup Error   │ html_block: the design holds an HTML block │
+│ HTML           │ <div>Custom</div>                          │
+│ Text           │ Custom                                     │
+│ Text Is Custom │ No                                         │
+└────────────────┴────────────────────────────────────────────┘
+=== template with markup
+
+
+┌─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐
+│      FIELD      │                                           VALUE                                            │
+├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Name            │ Welcome                                                                                    │
+│ ID              │ 33333333-3333-4333-8333-333333333333                                                       │
+│ Editor          │ simple                                                                                     │
+│ Subject         │ Hello {{ first_name }}                                                                     │
+│ Preheader       │ Read me                                                                                    │
+│ From            │ Example <hello@example.com>                                                                │
+│ Reply To        │ support@example.com                                                                        │
+│ Has Draft       │ Yes                                                                                        │
+│ Variables       │ first_name (optional), vip (condition; optional), items (list of name/price; required)     │
+│ Created         │ 2026-09-10 10:30:00 UTC+2                                                                  │
+│ Updated         │ 2026-09-10 11:30:00 UTC+2                                                                  │
+│ Markup          │ <Email version="1">                                                                        │
+│                 │   <Heading level="2">Welcome</Heading>                                                     │
+│                 │   <Paragraph>Hi <Var name="first_name" fallback="there"/>, {{ plan }}</Paragraph>          │
+│                 │ </Email>                                                                                   │
+│ HTML            │ <h2>Welcome</h2>                                                                           │
+│ Text            │ Welcome                                                                                    │
+│ Text Is Custom  │ No                                                                                         │
+│ Markup Warnings │ line 3, column 48: text holds {{, which stays text (jinja_in_text) at Email > Paragraph[1] │
+│                 │ text holds {{, which stays text (jinja_in_text)                                            │
+└─────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘
 === templates list
 
 
