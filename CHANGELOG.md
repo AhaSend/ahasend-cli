@@ -22,6 +22,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   with `not a UUID or <uuid@domain>`.
 - `smtp send` help says to find a sent message with `messages list
   --message-id` and the Message-ID the command printed.
+- `smtp send` labels the Message-ID it prints `Message-ID`, not `Message ID`.
 - The `messages list --message-id` help says it filters by the Message-ID
   header, with its angle brackets.
 

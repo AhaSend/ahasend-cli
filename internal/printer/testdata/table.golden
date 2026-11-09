@@ -1148,7 +1148,7 @@ Showing 1 SMTP credential
 │   FIELD    │            VALUE            │
 ├────────────┼─────────────────────────────┤
 │ Status     │ Sent                        │
-│ Message ID │ <id>                        │
+│ Message-ID │ <id>                        │
 │ Delivery   │ Message queued for delivery │
 └────────────┴─────────────────────────────┘
 === smtp test
@@ -1587,7 +1587,7 @@ Showing 1 SMTP credential
 │   FIELD    │            VALUE            │
 ├────────────┼─────────────────────────────┤
 │ Status     │ Sent                        │
-│ Message ID │ -                           │
+│ Message-ID │ -                           │
 │ Delivery   │ Message queued for delivery │
 └────────────┴─────────────────────────────┘
 === sparse sub-account

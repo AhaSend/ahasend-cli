@@ -1226,7 +1226,7 @@ Updated: 2026-09-10 10:30:00 UTC+2
 Showing 1 SMTP credential
 === smtp sent
 
-Message ID: <id>
+Message-ID: <id>
 === smtp test
 SMTP Test Result:
   Connection: Successful
