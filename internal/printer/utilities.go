@@ -247,16 +247,27 @@ func formatOptionalCSVRate(rate *float64) string {
 // list of event names, in the order of webhooks.Events
 func formatWebhookEvents(webhook *responses.Webhook) string {
 	subscribed := map[string]bool{
-		"reception":           webhook.OnReception,
-		"delivered":           webhook.OnDelivered,
-		"transient_error":     webhook.OnTransientError,
-		"failed":              webhook.OnFailed,
-		"bounced":             webhook.OnBounced,
-		"suppressed":          webhook.OnSuppressed,
-		"opened":              webhook.OnOpened,
-		"clicked":             webhook.OnClicked,
-		"suppression_created": webhook.OnSuppressionCreated,
-		"dns_error":           webhook.OnDNSError,
+		"reception":                 webhook.OnReception,
+		"delivered":                 webhook.OnDelivered,
+		"transient_error":           webhook.OnTransientError,
+		"failed":                    webhook.OnFailed,
+		"bounced":                   webhook.OnBounced,
+		"suppressed":                webhook.OnSuppressed,
+		"opened":                    webhook.OnOpened,
+		"clicked":                   webhook.OnClicked,
+		"unsubscribed":              webhook.OnUnsubscribed,
+		"complained":                webhook.OnComplained,
+		"suppression_created":       webhook.OnSuppressionCreated,
+		"suppression_deleted":       webhook.OnSuppressionDeleted,
+		"dns_error":                 webhook.OnDNSError,
+		"contact_created":           webhook.OnContactCreated,
+		"contact_updated":           webhook.OnContactUpdated,
+		"contact_deleted":           webhook.OnContactDeleted,
+		"contact_added_to_list":     webhook.OnContactAddedToList,
+		"contact_removed_from_list": webhook.OnContactRemovedFromList,
+		"contact_subscribed":        webhook.OnContactSubscribed,
+		"contact_unsubscribed":      webhook.OnContactUnsubscribed,
+		"contact_complained":        webhook.OnContactComplained,
 	}
 	var events []string
 	for _, event := range webhooks.Events {
@@ -280,6 +291,17 @@ func formatDomains(domains []string) string {
 		return "all"
 	}
 	return strings.Join(domains, ", ")
+}
+
+// formatOrigins returns the origins whose contact and suppression events a
+// webhook gets, for table and plain output, or "all" when the API returned
+// none, which means every origin. CSV output leaves the column empty
+// instead, as formatDomains does.
+func formatOrigins(origins []string) string {
+	if len(origins) == 0 {
+		return "all"
+	}
+	return strings.Join(origins, ", ")
 }
 
 // batchResultHeaders name the columns of a batch row in table output.

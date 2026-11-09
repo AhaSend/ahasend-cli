@@ -32,7 +32,7 @@ type AhaSendClient interface {
 	DeleteDomain(domain string) (*common.SuccessResponse, error)
 
 	// Webhook operations
-	ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error)
+	ListWebhooks(pagination common.PaginationParams, enabled *bool, events []string) (*responses.PaginatedWebhooksResponse, error)
 	CreateWebhook(req requests.CreateWebhookRequest, opts ...api.RequestOption) (*responses.Webhook, error)
 	GetWebhook(webhookID uuid.UUID) (*responses.Webhook, error)
 	UpdateWebhook(webhookID uuid.UUID, req requests.UpdateWebhookRequest) (*responses.Webhook, error)

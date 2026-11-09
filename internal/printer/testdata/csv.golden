@@ -80,8 +80,8 @@ Relay,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,relay,smtp-password,scoped,"example.c
 email,id,domain,reason,created_at,expires_at,protected
 user@example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,example.com,bounce,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,false
 === created webhook
-name,id,url,enabled,events,secret,scope,domains,created_at,updated_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,whsec_secret,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,secret,scope,domains,created_at,updated_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",whsec_secret,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
 === deliverability
 from_timestamp,to_timestamp,reception_count,delivered_count,deferred_count,bounced_count,failed_count,suppressed_count,opened_count,clicked_count,delivery_rate,open_rate
 2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,2,1,0,0,0,0,0,0,50.00,0.00
@@ -183,7 +183,7 @@ name,id,editor,subject,preheader,from,reply_to,has_draft,variables,created_at,up
 === page of 0 versions
 version,id,published_at,published_by
 === page of 0 webhooks
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 === page of 1 API keys
 label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
 Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
@@ -239,8 +239,8 @@ Welcome,33333333-3333-4333-8333-333333333333,advanced,Hello {{ first_name }},Rea
 version,id,published_at,published_by
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 === page of 1 webhooks
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
 === page of 2 API keys
 label,id,public_key,scopes,ip_allow_list,last_used_at,created_at,updated_at
 Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twenty,"messages:send:all, domains:read",192.0.2.1,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
@@ -314,9 +314,9 @@ version,id,published_at,published_by
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 2,44444444-4444-4444-8444-444444444444,2026-09-12T08:00:00Z,api_key:55555555-5555-4555-8555-555555555555
 === page of 2 webhooks
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
 === route
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
@@ -404,8 +404,8 @@ Production,,,,,,,
 name,id,username,password,scope,domains,sandbox,created_at
 Relay,,,,,,false,
 === sparse created webhook
-name,id,url,enabled,events,secret,scope,domains,created_at,updated_at
-Events,,,false,none,,,,,
+name,id,url,enabled,events,origins,secret,scope,domains,created_at,updated_at
+Events,,,false,none,,,,,,
 === sparse deliverability
 from_timestamp,to_timestamp,reception_count,delivered_count,deferred_count,bounced_count,failed_count,suppressed_count,opened_count,clicked_count,delivery_rate,open_rate
 ,,0,0,0,0,0,0,0,0,,
@@ -488,14 +488,14 @@ version,id,published_at,published_by,subject,preheader,from,reply_to,variables,m
 label,id,public_key,account_id,scopes,ip_allow_list,updated_at
 Production,,,,,,
 === sparse updated webhook
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,,,false,none,,,,,0,0,0,
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,,0,0,0,
 === sparse webhook
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,,,false,none,,,,,0,0,0,
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,,0,0,0,
 === sparse webhook list
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,,,false,none,,,,,0,0,0,
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,,,false,none,,,,,,0,0,0,
 === sub-account
 name,id,parent_account_id,status,website,monthly_credit,domain_count,member_count,created_at,last_activity_at
 Acme,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,active,acme.example,0,0,0,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z
@@ -583,11 +583,11 @@ Production,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,pk_a_public_key_longer_than_twen
 name,id,url,enabled,recipient,attachments,headers,group_by_message_id,strip_replies,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
 Inbound,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,*@example.com,false,false,false,false,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,0,0,0,2026-09-10T08:30:00Z
 === updated webhook
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
 === webhook
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
 === webhook list
-name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
-Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,delivered,account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z
+name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at
+Events,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table,true,"delivered, contact_created","api, system",account,example.com,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2,0,0,2026-09-10T08:30:00Z

@@ -22,15 +22,28 @@ func NewCreateCommand() *cobra.Command {
 		Use:   "create --name <name> --url <url>",
 		Short: "Create a webhook",
 		Long: `Create a webhook endpoint to receive event notifications from AhaSend,
-such as message deliveries, bounces, opens and clicks.
+such as message deliveries, bounces, opens and clicks, suppressions and
+changes to contacts.
 
 --name and --url are required. When one is missing and stdin is a terminal,
 the command asks for it; --non-interactive never asks. On a terminal, it
-asks for the events too when neither --events nor --all-events is given; a
-webhook created without events receives none until "webhooks update" gives
-it some. --scope is global unless set: a global webhook receives the events
-of every domain; a scoped one only those of the domains given with
---domains, which it requires.
+asks for the events too when no event flag (--events, --all-events or
+--all-contact-events) is given; a webhook created without events receives
+none until "webhooks update" gives it some. --scope is global unless set: a
+global webhook receives the events of every domain; a scoped one only those
+of the domains given with --domains, which it requires.
+
+--all-events selects every event except the contact events: the 13 events
+any account can use. --all-contact-events selects the 8 contact events, and
+the two can be used together.
+
+` + contactEventsHelp + `
+
+--origins picks whose changes the contact and suppression events report:
+recipient (the contact or recipient, through an unsubscribe or a spam
+complaint), api, dashboard or system (AhaSend). Without it, the webhook gets
+them from every origin. Message events and dns_error have no origin and
+always reach it.
 
 The webhook URL must be publicly accessible and support HTTPS for production
 use. A webhook is enabled unless --enabled=false is set.`,
@@ -46,6 +59,12 @@ use. A webhook is enabled unless --enabled=false is set.`,
     --url "https://api.example.com/webhooks/delivery" \
     --scope global \
     --events delivered --events bounced --events failed
+
+  # Create a webhook for the contact events of changes made through the API
+  ahasend webhooks create \
+    --name "Contact Sync" \
+    --url "https://api.example.com/webhooks/contacts" \
+    --all-contact-events --origins api
 
   # Create a webhook for the events of one domain
   ahasend webhooks create \
@@ -66,9 +85,9 @@ use. A webhook is enabled unless --enabled=false is set.`,
 
 	cmd.Flags().String("name", "", "Webhook name (required)")
 	cmd.Flags().String("url", "", "Webhook URL (required)")
-	cmdutil.AddRepeatableFlag(cmd, "events", "Event type, such as delivered or message.delivered (can be used multiple times)")
-	cmdutil.CompleteValues(cmd, "events", webhooks.EventValues())
-	cmd.Flags().Bool("all-events", false, "Select every event type")
+	addEventFlags(cmd, "Event type, such as delivered or message.delivered (can be used multiple times)")
+	cmdutil.AddRepeatableOneOfFlag(cmd, "origins",
+		"Origin whose contact and suppression events the webhook gets: %s; every origin when not set (can be used multiple times)", origins)
 	cmd.Flags().Bool("enabled", true, "Enable the webhook (the API enables it when omitted)")
 	cmdutil.AddNegatedFlagAlias(cmd, "disabled", "enabled")
 	cmdutil.AddOneOfFlag(cmd, "scope", "global", "Webhook scope: %s", cmdutil.Scopes)
@@ -81,10 +100,6 @@ use. A webhook is enabled unless --enabled=false is set.`,
 }
 
 func runWebhooksCreate(cmd *cobra.Command, args []string) error {
-	events, err := cmdutil.ReadRepeatable(cmd, "events", "")
-	if err != nil {
-		return err
-	}
 	domains, err := cmdutil.ReadRepeatable(cmd, "domains", "")
 	if err != nil {
 		return err
@@ -92,14 +107,14 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 	if err := validation.ValidateDomainNames("--domains", domains); err != nil {
 		return err
 	}
-	if err := cmdutil.RejectTogether(cmd, "events", "all-events"); err != nil {
-		return err
-	}
-	parsedEvents, err := webhooks.ParseEvents(events)
+	events, eventsGiven, err := readEventFlags(cmd, "")
 	if err != nil {
 		return err
 	}
-	allEvents, _ := cmd.Flags().GetBool("all-events")
+	webhookOrigins, err := readOrigins(cmd)
+	if err != nil {
+		return err
+	}
 	scope, _ := cmd.Flags().GetString("scope")
 	scope, err = cmdutil.MatchOneOf(cmd, "scope", scope)
 	if err != nil {
@@ -124,8 +139,8 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	cmdutil.WarnIfInsecureURL(cmd, "url", webhookURL, cmdutil.WebhookSends)
-	if events == nil && !allEvents && prompt.CanPrompt(cmd) {
-		if parsedEvents, allEvents, err = askForEvents(cmd); err != nil {
+	if !eventsGiven && prompt.CanPrompt(cmd) {
+		if events, err = askForEvents(cmd); err != nil {
 			return err
 		}
 	}
@@ -134,20 +149,21 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 		Name:    name,
 		URL:     webhookURL,
 		Enabled: cmdutil.ChangedBool(cmd, "enabled"),
+		Origins: webhookOrigins,
 		Scope:   scope,
 	}
-	setCreateEvents(&req, eventSettings(parsedEvents, allEvents))
+	setCreateEvents(&req, eventSettings(events))
 	if domains != nil {
 		req.Domains = &domains
 	}
 
 	logger.Get().WithFields(map[string]interface{}{
-		"name":       name,
-		"url":        webhookURL,
-		"events":     events,
-		"all_events": allEvents,
-		"scope":      scope,
-		"domains":    domains,
+		"name":    name,
+		"url":     webhookURL,
+		"events":  webhooks.EventTypes(events),
+		"origins": webhookOrigins,
+		"scope":   scope,
+		"domains": domains,
 	}).Debug("Executing webhooks create command")
 
 	idempotency, err := cmdutil.IdempotencyOptions(cmd)
@@ -171,18 +187,19 @@ func runWebhooksCreate(cmd *cobra.Command, args []string) error {
 }
 
 // askForEvents asks for the events a new webhook sends, as --events takes
-// them, separated by commas, or all, and returns them, or whether all were
-// asked for. A blank answer is a validation error, since a webhook without
-// events receives nothing, and so is an answer that names something other
-// than an event, or an event twice.
-func askForEvents(cmd *cobra.Command) ([]webhooks.Event, bool, error) {
-	answer, err := prompt.Prompt(cmd, fmt.Sprintf("Events to send (%s), separated by commas, or all: ",
-		strings.Join(webhooks.EventNames(), ", ")))
+// them, separated by commas, or all, which selects the events of
+// --all-events, and returns them. A blank answer is a validation error,
+// since a webhook without events receives nothing, and so is an answer that
+// names something other than an event, or an event twice.
+func askForEvents(cmd *cobra.Command) ([]webhooks.Event, error) {
+	answer, err := prompt.Prompt(cmd, fmt.Sprintf(
+		"Events to send (%s), separated by commas, or all for every event except the contact events: ",
+		strings.Join(webhooks.EventNames(webhooks.Events), ", ")))
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	if strings.EqualFold(answer, "all") {
-		return nil, true, nil
+		return webhooks.SelectEvents(nil, true, false), nil
 	}
 	var values []string
 	for _, value := range strings.Split(answer, ",") {
@@ -191,37 +208,25 @@ func askForEvents(cmd *cobra.Command) ([]webhooks.Event, bool, error) {
 		}
 	}
 	if len(values) == 0 {
-		return nil, false, errors.NewValidationError("one of --events or --all-events is required: a webhook without events receives none", nil)
+		return nil, errors.NewValidationError(
+			"one of --events, --all-events or --all-contact-events is required: a webhook without events receives none", nil)
 	}
 	var events []webhooks.Event
 	given := map[webhooks.Event]string{}
 	for _, value := range values {
 		event, ok := webhooks.FindEvent(value)
 		if !ok {
-			return nil, false, errors.NewValidationError(fmt.Sprintf(
+			return nil, errors.NewValidationError(fmt.Sprintf(
 				"%q is not an event; answer with events of the list, separated by commas, or all", value), nil)
 		}
 		if earlier, ok := given[event]; ok {
-			return nil, false, errors.NewValidationError(fmt.Sprintf(
+			return nil, errors.NewValidationError(fmt.Sprintf(
 				"%q names the same event as %q; answer with each event once", value, earlier), nil)
 		}
 		given[event] = value
 		events = append(events, event)
 	}
-	return events, false, nil
-}
-
-// eventSettings returns, for the Name of each webhook event, whether events
-// holds it, or true for every event when all is set.
-func eventSettings(events []webhooks.Event, all bool) map[string]bool {
-	settings := make(map[string]bool, len(webhooks.Events))
-	for _, event := range webhooks.Events {
-		settings[event.Name] = all
-	}
-	for _, event := range events {
-		settings[event.Name] = true
-	}
-	return settings
+	return events, nil
 }
 
 // setCreateEvents sets the event subscriptions of req from settings.
@@ -234,6 +239,17 @@ func setCreateEvents(req *requests.CreateWebhookRequest, settings map[string]boo
 	req.OnSuppressed = settings["suppressed"]
 	req.OnOpened = settings["opened"]
 	req.OnClicked = settings["clicked"]
+	req.OnUnsubscribed = settings["unsubscribed"]
+	req.OnComplained = settings["complained"]
 	req.OnSuppressionCreated = settings["suppression_created"]
+	req.OnSuppressionDeleted = settings["suppression_deleted"]
 	req.OnDnsError = settings["dns_error"]
+	req.OnContactCreated = settings["contact_created"]
+	req.OnContactUpdated = settings["contact_updated"]
+	req.OnContactDeleted = settings["contact_deleted"]
+	req.OnContactAddedToList = settings["contact_added_to_list"]
+	req.OnContactRemovedFromList = settings["contact_removed_from_list"]
+	req.OnContactSubscribed = settings["contact_subscribed"]
+	req.OnContactUnsubscribed = settings["contact_unsubscribed"]
+	req.OnContactComplained = settings["contact_complained"]
 }

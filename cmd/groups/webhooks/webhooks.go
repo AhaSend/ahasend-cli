@@ -11,7 +11,7 @@ func NewCommand() *cobra.Command {
 		Short: "Manage your webhook endpoints",
 		Long: `Manage your webhook endpoints for receiving real-time event notifications
 from AhaSend. Configure webhooks to receive notifications about message events,
-domain verification, suppressions, and more.
+domain verification, suppressions, contacts, and more.
 
 Webhooks allow you to build reactive applications that respond to email events
 in real-time, such as tracking deliveries, bounces, opens, and clicks.

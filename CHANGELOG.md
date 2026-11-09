@@ -33,6 +33,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the excluded lists too, and more fail with
   `--list-id and --exclude-list-id take at most 50 lists in all, got <n>`
   instead of `--list-id takes at most 50 lists, got <n>`.
+- The CSV output of a webhook, in `webhooks list`, `get`, `create` and
+  `update`, has the column `origins` after `events`.
+- The event flags of `webhooks update` name the webhook's whole set of 21
+  events, so an event they do not name, such as a contact event turned on in
+  the dashboard, is turned off.
 
 ### Added
 
@@ -77,6 +82,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - A campaign send or test refused with the `text_unchecked` issue ends with
   a line that says to run the command again, with a new `--idempotency-key`
   for a send that had one.
+- The webhook commands take 21 events: `unsubscribed`, `complained` and
+  `suppression_deleted` join the others, with eight contact events, such as
+  `contact_created` and `contact_added_to_list`, which need an account with
+  the marketing features and the `contacts:read` scope, and `lists:read` for
+  some. `webhooks create`, `update` and `trigger` take
+  `--all-contact-events`, which selects the contact events.
+- `webhooks create` and `webhooks update` take `--origins`, which picks whose
+  changes the contact and suppression events report, and `webhooks update`
+  takes `--all-origins`. The views of a webhook show its origins after its
+  events.
+- `webhooks list --events` lists only the webhooks that have every event it
+  names on.
 
 ### Changed
 
@@ -103,6 +120,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `--idempotency-key`, a refusal included. The help of `lists delete` and
   `campaigns delete` says the API refuses while a segment refers to the list
   or campaign.
+- `--all-events` of `webhooks create`, `update` and `trigger`, and `all` in
+  the events prompt of `webhooks create`, select every event except the
+  contact events. The "at least one of" errors of `webhooks update` and
+  `webhooks trigger`, and the error for a blank answer to the events prompt,
+  name `--all-contact-events`; the error of `webhooks update` also names
+  `--origins` and `--all-origins`.
 
 ## [0.3.1] - 2026-10-16
 

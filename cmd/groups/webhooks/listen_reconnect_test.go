@@ -2,10 +2,13 @@ package webhooks
 
 import (
 	stderrors "errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -64,4 +67,44 @@ func TestListenWithAWebhookIDPrintsNoNote(t *testing.T) {
 
 	require.Error(t, err)
 	assert.NotContains(t, stderr, "Note:")
+}
+
+// TestListenTakesAContactEventFilter checks that --events takes a contact
+// event, so listen shows that event and drops a message event.
+func TestListenTakesAContactEventFilter(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for _, message := range []string{
+			`{"type":"event","timestamp":0,"event":{"data":{"type":"message.delivered","recipient":"a@example.com"}}}`,
+			`{"type":"event","timestamp":0,"event":{"data":{"type":"contact.created","data":{"email":"b@example.com"}}}}`,
+		} {
+			_ = conn.WriteMessage(websocket.TextMessage, []byte(message))
+		}
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		_, _, _ = conn.ReadMessage()
+	}))
+	t.Cleanup(server.Close)
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	streamClient, err := client.NewClient("test-key", testWebhookID, "http://127.0.0.1:1")
+	require.NoError(t, err)
+	stream, err := streamClient.ConnectWebSocket(wsURL, false)
+	require.NoError(t, err)
+
+	webhookID := uuid.MustParse(testWebhookID)
+	mockClient := &mocks.MockClient{}
+	mockClient.On("InitiateWebhookStream", &webhookID).Return(&client.WebhookStreamResponse{WebhookID: testWebhookID, WsURL: wsURL}, nil)
+	mockClient.On("ConnectWebSocket", wsURL, false).Return(stream, nil)
+	testutil.InjectClient(t, mockClient)
+
+	stdout, _, err := testutil.RunCommand(t, NewListenCommand(), "plain", "",
+		"--webhook-id", testWebhookID, "--events", "contact.created", "--slim-output")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "] contact.created\n")
+	assert.NotContains(t, stdout, "message.delivered")
 }

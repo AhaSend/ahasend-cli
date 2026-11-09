@@ -43,9 +43,12 @@ func TestUpdateWarnsAboutHTTPOnStderr(t *testing.T) {
 	assert.Contains(t, stderr, "uses plain HTTP, so each event is sent unencrypted. Use HTTPS.")
 }
 
-// eventsPrompt is the question webhooks create asks for the events.
+// eventsPrompt is the question webhooks create asks for the events: it
+// lists the 21 events, and says that all leaves out the contact events.
 const eventsPrompt = "Events to send (reception, delivered, transient_error, failed, bounced, suppressed, opened, " +
-	"clicked, suppression_created, dns_error), separated by commas, or all: "
+	"clicked, unsubscribed, complained, suppression_created, suppression_deleted, dns_error, contact_created, " +
+	"contact_updated, contact_deleted, contact_added_to_list, contact_removed_from_list, contact_subscribed, " +
+	"contact_unsubscribed, contact_complained), separated by commas, or all for every event except the contact events: "
 
 // TestCreateRefusesAWrongEventsAnswerAsAnAnswer checks that an answer to the
 // events prompt that names something other than an event, or an event
@@ -87,9 +90,9 @@ func TestCreatePromptsOnStderrForMissingRequiredFlags(t *testing.T) {
 }
 
 // TestCreateAsksForTheEventsOfAWebhook checks that, on a terminal, a webhook
-// created without --events or --all-events gets the events asked for, all of
-// them for "all", and that a blank answer fails before any request, since a
-// webhook without events receives none.
+// created without an event flag gets the events asked for, those of
+// --all-events for "all", and that a blank answer fails before any request,
+// since a webhook without events receives none.
 func TestCreateAsksForTheEventsOfAWebhook(t *testing.T) {
 	t.Cleanup(prompt.TreatStdinAsTerminalForTesting())
 	var sent requests.CreateWebhookRequest
@@ -100,13 +103,13 @@ func TestCreateAsksForTheEventsOfAWebhook(t *testing.T) {
 	_, _, err := testutil.RunCommand(t, NewCreateCommand(), "json", "All\n", "--name", "Events", "--url", "https://example.com/hook")
 
 	require.NoError(t, err)
-	assert.True(t, sent.OnReception && sent.OnDelivered && sent.OnDnsError, "%+v", sent)
+	assert.Equal(t, onFields(otherEvents()), eventFields(t, sent))
 
 	called := testutil.RefuseAuth(t)
 	_, _, err = testutil.RunCommand(t, NewCreateCommand(), "json", " , \n", "--name", "Events", "--url", "https://example.com/hook")
 
 	require.Error(t, err)
-	assert.Equal(t, "one of --events or --all-events is required: a webhook without events receives none", err.Error())
+	assert.Equal(t, "one of --events, --all-events or --all-contact-events is required: a webhook without events receives none", err.Error())
 	assert.Equal(t, 4, clierrors.GetExitCode(err))
 	assert.False(t, *called)
 }

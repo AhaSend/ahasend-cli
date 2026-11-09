@@ -417,11 +417,71 @@ func (c *Client) GetMessage(messageID string) (*responses.Message, error) {
 	return recordBody(c.MessagesAPI.GetMessageByAPIID(c.auth, c.accountUUID, messageID))
 }
 
-// ListWebhooks lists a page of webhooks; a non-nil enabled keeps only the
-// webhooks with that status, filtered by the API.
-func (c *Client) ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error) {
+// ListWebhooks lists a page of webhooks, filtered by the API: a non-nil
+// enabled keeps only the webhooks with that status, and events, the Names of
+// webhook events, keep only the webhooks that have every one of them on. A
+// name that is not a webhook event is an error, and sends no request.
+func (c *Client) ListWebhooks(pagination common.PaginationParams, enabled *bool, events []string) (*responses.PaginatedWebhooksResponse, error) {
 	params := api.GetWebhooksParams{Enabled: enabled, PaginationParams: pagination}
+	for _, name := range events {
+		if err := setWebhookEventFilter(&params, name); err != nil {
+			return nil, err
+		}
+	}
 	return recordBody(c.WebhooksAPI.GetWebhooks(c.auth, c.accountUUID, params))
+}
+
+// setWebhookEventFilter sets the filter of params that keeps only the
+// webhooks that have the event of the Name name on.
+func setWebhookEventFilter(params *api.GetWebhooksParams, name string) error {
+	on := true
+	switch name {
+	case "reception":
+		params.OnReception = &on
+	case "delivered":
+		params.OnDelivered = &on
+	case "transient_error":
+		params.OnTransientError = &on
+	case "failed":
+		params.OnFailed = &on
+	case "bounced":
+		params.OnBounced = &on
+	case "suppressed":
+		params.OnSuppressed = &on
+	case "opened":
+		params.OnOpened = &on
+	case "clicked":
+		params.OnClicked = &on
+	case "unsubscribed":
+		params.OnUnsubscribed = &on
+	case "complained":
+		params.OnComplained = &on
+	case "suppression_created":
+		params.OnSuppressionCreated = &on
+	case "suppression_deleted":
+		params.OnSuppressionDeleted = &on
+	case "dns_error":
+		params.OnDnsError = &on
+	case "contact_created":
+		params.OnContactCreated = &on
+	case "contact_updated":
+		params.OnContactUpdated = &on
+	case "contact_deleted":
+		params.OnContactDeleted = &on
+	case "contact_added_to_list":
+		params.OnContactAddedToList = &on
+	case "contact_removed_from_list":
+		params.OnContactRemovedFromList = &on
+	case "contact_subscribed":
+		params.OnContactSubscribed = &on
+	case "contact_unsubscribed":
+		params.OnContactUnsubscribed = &on
+	case "contact_complained":
+		params.OnContactComplained = &on
+	default:
+		return fmt.Errorf("internal error: %q is not a webhook event to filter by", name)
+	}
+	return nil
 }
 
 // CreateWebhook creates a new webhook

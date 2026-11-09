@@ -387,7 +387,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Secret: whsec_secret
 Scope: account
 Domains: example.com
@@ -1010,7 +1011,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1481,7 +1483,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1495,7 +1498,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -1865,6 +1869,7 @@ SMTP Settings:
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 === sparse deliverability
 Time Period:  to 
@@ -2048,6 +2053,7 @@ IP Allow List: any
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -2057,6 +2063,7 @@ Errors Since Last Success: 0
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -2066,6 +2073,7 @@ Errors Since Last Success: 0
 Name: Events
 Enabled: No
 Events: none
+Origins: all
 Domains: all
 Successful Calls: 0
 Failed Calls: 0
@@ -2421,7 +2429,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -2436,7 +2445,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2
@@ -2451,7 +2461,8 @@ Name: Events
 ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 URL: https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table
 Enabled: Yes
-Events: delivered
+Events: delivered, contact_created
+Origins: api, system
 Scope: account
 Domains: example.com
 Created: 2026-09-10 10:30:00 UTC+2

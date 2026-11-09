@@ -569,8 +569,8 @@ that starts with a space fails (see
 | `smtp send` | `--to`, `--cc`, `--bcc`, `--header`, `--tag`, `--attach` |
 | `smtp create` | `--domains` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--sender-domain`, `--recipient-domain`, `--tag` |
-| `webhooks create`, `webhooks update` | `--events`, `--domains` |
-| `webhooks trigger`, `webhooks listen` | `--events` |
+| `webhooks create`, `webhooks update` | `--events`, `--origins`, `--domains` |
+| `webhooks list`, `webhooks trigger`, `webhooks listen` | `--events` |
 | `apikeys create`, `subaccounts api-keys create` | `--scope`, `--ip-allow-list` |
 | `apikeys update`, `subaccounts api-keys update` | `--scope`, `--ip-allow-list` |
 | `lists create`, `lists update` | `--tag` |
@@ -731,7 +731,8 @@ lists:
 | `templates create`, `campaigns create`, `campaigns templates create` | `--editor` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--group-by` |
 | `webhooks create`, `webhooks update`, `smtp create` | `--scope` |
-| `webhooks create`, `webhooks update`, `webhooks trigger`, `webhooks listen` | `--events` |
+| `webhooks list`, `webhooks create`, `webhooks update`, `webhooks trigger`, `webhooks listen` | `--events` |
+| `webhooks create`, `webhooks update` | `--origins` |
 | `messages send`, `smtp send` | `--sandbox-result`, checked with or without `--sandbox`, which it needs |
 | every command | `--output` |
 
@@ -3828,8 +3829,8 @@ output format. A second Ctrl+C stops the command at once.
 ### Webhook Commands
 
 Webhooks deliver event notifications from AhaSend to your endpoint. The
-`--events` flag of `webhooks create`, `update`, `trigger` and `listen` takes
-each event by its key or by its type, such as `delivered` or
+`--events` flag of `webhooks list`, `create`, `update`, `trigger` and
+`listen` takes each event by its key or by its type, such as `delivered` or
 `message.delivered`:
 
 | Event key | Event type | Description |
@@ -3842,8 +3843,39 @@ each event by its key or by its type, such as `delivered` or
 | `suppressed` | `message.suppressed` | Email suppressed |
 | `opened` | `message.opened` | Email opened by recipient |
 | `clicked` | `message.clicked` | Link clicked in email |
+| `unsubscribed` | `message.unsubscribed` | Recipient unsubscribed through a campaign email |
+| `complained` | `message.complained` | Campaign email reported as spam |
 | `suppression_created` | `suppression.created` | New suppression added |
+| `suppression_deleted` | `suppression.deleted` | Suppression deleted |
 | `dns_error` | `domain.dns_error` | DNS configuration error for a domain |
+| `contact_created` | `contact.created` | Contact created |
+| `contact_updated` | `contact.updated` | A field of a contact changed |
+| `contact_deleted` | `contact.deleted` | Contact deleted |
+| `contact_added_to_list` | `contact.added_to_list` | Contact added to a list |
+| `contact_removed_from_list` | `contact.removed_from_list` | Contact removed from a list |
+| `contact_subscribed` | `contact.subscribed` | Contact's list subscription confirmed, or its unsubscribe from all lists cleared |
+| `contact_unsubscribed` | `contact.unsubscribed` | Contact unsubscribed from a list, or from all lists |
+| `contact_complained` | `contact.complained` | Contact reported a campaign email as spam |
+
+The last eight are the contact events. They need an account with the
+marketing features and an API key with the `contacts:read` scope, and
+`lists:read` as well for `contact_added_to_list`,
+`contact_removed_from_list`, `contact_subscribed`, `contact_unsubscribed` and
+`contact_complained`. The API checks the key for every event an enabled
+webhook has on, so a change to such a webhook needs these scopes even when it
+names no event. On `webhooks create`,
+`update` and `trigger`, `--all-events` selects every event except the
+contact events, the 13 events any account can use, and
+`--all-contact-events` selects the eight contact events. The two can be used
+together, and neither with `--events`.
+
+A webhook's origins pick whose changes its contact and suppression events
+report: `recipient` (the contact or recipient, through an unsubscribe or a
+spam complaint), `api`, `dashboard` or `system` (AhaSend). Message events and
+`dns_error` have no origin, and a webhook always gets them. The views of a
+webhook show its `Origins` after its `Events`: `all` in table and plain
+output, and an empty CSV cell, for a webhook that gets every origin. A table
+of webhooks has no Origins column.
 
 An unknown event fails before any request is sent, with an error that names
 the values it does not know before the events, such as
@@ -3881,22 +3913,29 @@ ahasend webhooks list --enabled
 
 # List only the disabled webhooks
 ahasend webhooks list --enabled=false
+
+# List only the webhooks that get contact.created
+ahasend webhooks list --events contact_created
 ```
 
 **Flags:**
 - `--enabled`: List only the enabled webhooks, or with `--enabled=false` only
   the disabled ones. The API filters, so a page holds up to `--limit` matching
   webhooks.
+- `--events`: List only the webhooks that have every event it names on, from
+  the table above; a repeatable flag. The API filters, as for `--enabled`.
 - `--limit`, `--after`, `--before`: [Cursor pagination](#cursor-pagination)
 
 #### `ahasend webhooks create`
 
 Create a webhook. `--name` and `--url` are required; the command asks for a
 missing one only when stdin is a terminal (see
-[Required Values](#required-values)). On a terminal, without `--events` or
-`--all-events`, it asks for the events too, listing them: give one or more,
-separated by commas, or `all`; a blank answer fails with
-`one of --events or --all-events is required: a webhook without events receives none`,
+[Required Values](#required-values)). On a terminal, without `--events`,
+`--all-events` or `--all-contact-events`, it asks for the events too, listing
+all 21: give one or more, separated by commas, or `all`, which selects every
+event except the contact events, as `--all-events` does; a blank answer fails
+with
+`one of --events, --all-events or --all-contact-events is required: a webhook without events receives none`,
 an answer that names something else with
 `"sent" is not an event; answer with events of the list, separated by commas, or all`,
 and one that names an event twice with
@@ -3914,10 +3953,15 @@ ahasend webhooks create \
   --scope global \
   --events delivered,bounced,failed
 
-# Every event of two domains, created disabled: it gets no events, test
-# events of webhooks trigger included, until it is enabled
+# Every event but the contact events of two domains, created disabled: it
+# gets no events, test events of webhooks trigger included, until it is
+# enabled
 ahasend webhooks create --name "Staging" --url https://staging.example.com/webhook \
   --scope scoped --domains example.com,example.org --all-events --enabled=false
+
+# The contact events of changes made through the API
+ahasend webhooks create --name "Contact sync" --url https://your-app.com/webhooks/contacts \
+  --all-contact-events --origins api
 ```
 
 **Flags:**
@@ -3930,7 +3974,14 @@ ahasend webhooks create --name "Staging" --url https://staging.example.com/webho
   `--domains` without `--scope scoped` fails with
   `--domains needs --scope scoped` and exit code 4.
 - `--events`: Event to send, from the table above; a repeatable flag
-- `--all-events`: Select every event type
+- `--all-events`: Select every event except the contact events
+- `--all-contact-events`: Select every contact event
+- `--origins`: Origin whose contact and suppression events the webhook gets:
+  `recipient`, `api`, `dashboard` or `system`; a repeatable flag. Without
+  it, the request leaves the origins out, and the webhook gets every origin.
+  Another value fails with
+  `--origins must be one of: recipient, api, dashboard, system` and exit
+  code 4.
 - `--enabled`: `--enabled=false` creates the webhook disabled; without the
   flag the API enables it
 - `--idempotency-key`: [Idempotency key](#idempotency-keys) for safe retries
@@ -3971,15 +4022,28 @@ ahasend webhooks update <webhook-id> --enabled=false
 - `--enabled`: Enable the webhook, or disable it with `--enabled=false`
 - `--events`: Events, from the table above, replacing the current ones; a
   repeatable flag
-- `--all-events`: Select every event type
+- `--all-events`: Select every event except the contact events
+- `--all-contact-events`: Select every contact event
 - `--clear-events`: Send no events
+- `--origins`: Origins, replacing the current ones: `recipient`, `api`,
+  `dashboard` or `system`; a repeatable flag
+- `--all-origins`: Get the contact and suppression events of every origin
+  again. The API keeps the stored origins when a request has none, so this
+  sends all four.
 - `--scope`: New webhook scope, `global` or `scoped`. `--scope global`
   removes the domain restriction.
 - `--domains`: Domains, replacing the current restriction of a scoped
   webhook; a repeatable flag. The API ignores it on a global webhook unless
   `--scope scoped` is given too.
 
-`--events`, `--all-events` and `--clear-events` cannot be combined. A scoped
+The event flags name the webhook's whole set of events: the request sends
+all 21 settings, and every event the flags do not name is turned off, a
+contact event turned on in the dashboard included. `--all-events` and
+`--all-contact-events` can be used together; `--events` cannot be used with
+either, and `--clear-events` with none of the three. `--origins` cannot be
+used with `--all-origins`. Without any flag, the command fails with
+`at least one of --name, --url, --enabled, --events, --all-events, --all-contact-events, --clear-events, --origins, --all-origins, --scope or --domains must be provided`
+and exit code 4. A scoped
 webhook with no domains receives no events, so an empty `--domains` fails
 with
 `--domains cannot be empty; use --scope global to remove the domain restriction`,
@@ -4022,8 +4086,8 @@ ahasend webhooks listen --events message.opened,message.clicked \
 
 **Flags:**
 - `--webhook-id`: Use an existing webhook instead of a temporary one
-- `--events`: Show only these events, from the table above; a
-  repeatable flag. The filter applies in the CLI.
+- `--events`: Show only these events, from the table above, contact events
+  included; a repeatable flag. The filter applies in the CLI.
 - `--forward-to`: Local endpoint to forward each event to
 - `--skip-verify`: Skip TLS certificate verification of the `--forward-to`
   endpoint; the connection to AhaSend is always verified. Without
@@ -4035,9 +4099,10 @@ The API key needs the `webhooks:write:all` scope, for the request that starts
 the stream and for the stream itself.
 
 The stream sends only the events that the API key's scopes can read. For each
-family of events the webhook turns on, message, suppression or domain, whose
-read scope the key does not have, the server sends a warning when the
-connection starts, and the command prints it on stderr, such as
+family of events the webhook turns on, message, suppression, domain, contact
+or list contact, whose read scope the key does not have, the server sends a
+warning when the connection starts, and the command prints it on stderr, such
+as
 `Warning: The API key does not have the suppressions:read scope, so suppression events are not sent to this stream`.
 A key with no read scope connects but receives no events.
 
@@ -4136,13 +4201,24 @@ ahasend webhooks trigger <webhook-id> --events message.delivered
 ahasend webhooks trigger <webhook-id> \
   --events message.reception,message.delivered,message.opened,message.clicked
 
-# Trigger every event type
+# Trigger every event except the contact events
 ahasend webhooks trigger <webhook-id> --all-events
+
+# Trigger the contact events
+ahasend webhooks trigger <webhook-id> --all-contact-events
 ```
 
 **Flags:**
 - `--events`: Event to trigger, from the table above; a repeatable flag
-- `--all-events`: Select every event type; cannot be combined with `--events`
+- `--all-events`: Trigger every event except the contact events; cannot be
+  combined with `--events`
+- `--all-contact-events`: Trigger every contact event; cannot be combined
+  with `--events`
+
+`--all-events` and `--all-contact-events` together trigger all 21 events.
+Without an event flag, the command fails with
+`at least one of --events, --all-events or --all-contact-events must be provided`
+and exit code 4.
 
 The output is the API's message. A refused trigger prints the API error and
 exits with the code of its HTTP status. A disabled webhook gets no events:

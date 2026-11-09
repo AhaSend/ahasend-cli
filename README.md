@@ -220,7 +220,7 @@ ahasend routes trigger <route-id>
 | `segments` | Manage segments of contacts and preview their rules |
 | `messages` | Send and manage email messages, inline or from a stored template |
 | `templates` | Manage transactional templates, their drafts and published versions |
-| `webhooks` | Configure webhook endpoints |
+| `webhooks` | Configure webhook endpoints, their events and origins |
 | `suppressions` | Manage suppression lists |
 | `stats` | View email statistics |
 | `apikeys` | Manage API keys and their IP allow lists |
@@ -478,10 +478,23 @@ ahasend webhooks create \
   --scope global \
   --events "delivered,bounced,failed"
 
+# Get the contact events of changes made through the API; they need an
+# account with the marketing features and the contacts:read and lists:read
+# scopes
+ahasend webhooks create \
+  --name "Contact sync" \
+  --url https://api.example.com/webhooks/contacts \
+  --all-contact-events \
+  --origins api
+
+# List the webhooks that get contact.created
+ahasend webhooks list --events contact.created
+
 # Stream events in real time and forward them to a local handler
 ahasend webhooks listen --forward-to http://localhost:3000/webhook
 
-# Trigger test events for integration testing
+# Trigger test events for integration testing: every event but the
+# contact events, which --all-contact-events triggers
 ahasend webhooks trigger <webhook-id> \
   --all-events
 

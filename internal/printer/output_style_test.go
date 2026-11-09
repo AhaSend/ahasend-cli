@@ -2,6 +2,7 @@ package printer
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"regexp"
@@ -15,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 )
 
 var (
@@ -46,8 +49,8 @@ func styleMessage() responses.Message {
 func styleWebhook() responses.Webhook {
 	called := styleTime
 	return responses.Webhook{
-		ID: styleID, Name: "Events", URL: styleURL, Enabled: true, OnDelivered: true,
-		Scope: "account", Domains: []string{"example.com"}, Secret: "whsec_secret",
+		ID: styleID, Name: "Events", URL: styleURL, Enabled: true, OnDelivered: true, OnContactCreated: true,
+		Origins: []string{"api", "system"}, Scope: "account", Domains: []string{"example.com"}, Secret: "whsec_secret",
 		SuccessCount: 2, LastRequestAt: &called, CreatedAt: styleTime, UpdatedAt: styleTime,
 	}
 }
@@ -634,6 +637,57 @@ func TestPlainSingleViewsStartTheFieldsRightAfterTheHeading(t *testing.T) {
 			output := renderWith(t, "plain", render)
 			assert.Regexp(t, `^Done\n(Name|Label|Domain): `, output)
 		})
+	}
+}
+
+// TestFormatWebhookEventsNamesEachEventAlone checks formatWebhookEvents over
+// every event: a webhook with that event's on_<name> field alone set true
+// shows that event's name alone.
+func TestFormatWebhookEventsNamesEachEventAlone(t *testing.T) {
+	for _, event := range webhooks.Events {
+		var webhook responses.Webhook
+		require.NoError(t, json.Unmarshal([]byte(`{"on_`+event.Name+`":true}`), &webhook))
+
+		assert.Equal(t, event.Name, formatWebhookEvents(&webhook))
+	}
+}
+
+// TestWebhookOriginsShowAllWhenTheAPIReturnsNone checks the Origins field of
+// each webhook view: a webhook whose origins are null, every origin, shows
+// all in table and plain output and an empty cell in CSV, and one with two
+// shows both. A table of webhooks has no Origins column.
+func TestWebhookOriginsShowAllWhenTheAPIReturnsNone(t *testing.T) {
+	tests := []struct {
+		origins      []string
+		display, csv string
+	}{
+		{nil, "all", ""},
+		{[]string{"api", "system"}, "api, system", "api, system"},
+	}
+	for _, tt := range tests {
+		webhook := styleWebhook()
+		webhook.Origins = tt.origins
+		views := map[string]func(h ResponseHandler) error{
+			"webhook":         func(h ResponseHandler) error { return h.HandleSingleWebhook(&webhook, SingleConfig{}) },
+			"created webhook": func(h ResponseHandler) error { return h.HandleCreateWebhook(&webhook, ResultConfig{}) },
+			"updated webhook": func(h ResponseHandler) error { return h.HandleUpdateWebhook(&webhook, ResultConfig{}) },
+			"webhook list": func(h ResponseHandler) error {
+				return h.HandleWebhookList(&responses.PaginatedWebhooksResponse{Data: []responses.Webhook{webhook}}, ListConfig{})
+			},
+		}
+		for name, render := range views {
+			t.Run(tt.display+"/"+name, func(t *testing.T) {
+				table := renderWith(t, "table", render)
+				if name == "webhook list" {
+					assert.NotContains(t, table, "ORIGINS")
+				} else {
+					assert.Contains(t, tableCells(table), []string{"Origins", tt.display})
+				}
+				assert.Contains(t, renderWith(t, "plain", render), "\nOrigins: "+tt.display+"\n")
+				_, rows := readCSV(t, renderWith(t, "csv", render))
+				assert.Equal(t, tt.csv, rows[0]["origins"])
+			})
+		}
 	}
 }
 

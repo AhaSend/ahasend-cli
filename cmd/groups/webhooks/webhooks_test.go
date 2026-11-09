@@ -125,7 +125,7 @@ func TestWebhooksList_EnabledIsFilteredByTheAPI(t *testing.T) {
 	const body = `{"object":"list","data":[{"object":"webhook","id":"11111111-1111-4111-8111-111111111111","name":"Hook","url":"https://example.com/hook","enabled":false}],"pagination":{"has_more":false}}`
 	enabled := true
 	mockClient := &mocks.MockClient{}
-	mockClient.On("ListWebhooks", common.PaginationParams{}, &enabled).
+	mockClient.On("ListWebhooks", common.PaginationParams{}, &enabled, ([]string)(nil)).
 		Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t, body), nil)
 
 	for _, format := range []string{"json", "plain"} {

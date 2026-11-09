@@ -106,8 +106,8 @@ func (m *MockClient) DeleteDomain(domain string) (*common.SuccessResponse, error
 
 // Webhook operations methods
 
-func (m *MockClient) ListWebhooks(pagination common.PaginationParams, enabled *bool) (*responses.PaginatedWebhooksResponse, error) {
-	return result[responses.PaginatedWebhooksResponse](m.Called(pagination, enabled))
+func (m *MockClient) ListWebhooks(pagination common.PaginationParams, enabled *bool, events []string) (*responses.PaginatedWebhooksResponse, error) {
+	return result[responses.PaginatedWebhooksResponse](m.Called(pagination, enabled, events))
 }
 
 func (m *MockClient) CreateWebhook(req requests.CreateWebhookRequest, opts ...api.RequestOption) (*responses.Webhook, error) {

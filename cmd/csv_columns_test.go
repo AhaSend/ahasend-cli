@@ -195,14 +195,14 @@ var csvViews = []csvView{
 
 	// Webhooks
 	{[]string{"webhooks", "list"}, returns[responses.PaginatedWebhooksResponse]("ListWebhooks", csvListBody),
-		"name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
+		"name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
 	{[]string{"webhooks", "get", rawTestID}, returns[responses.Webhook]("GetWebhook", csvItemBody),
-		"name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
+		"name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
 	{[]string{"webhooks", "create", "--name", "Hook", "--url", "https://example.com", "--all-events"},
 		returns[responses.Webhook]("CreateWebhook", csvItemBody),
-		"name,id,url,enabled,events,secret,scope,domains,created_at,updated_at"},
+		"name,id,url,enabled,events,origins,secret,scope,domains,created_at,updated_at"},
 	{[]string{"webhooks", "update", rawTestID, "--name", "Hook"}, returns[responses.Webhook]("UpdateWebhook", csvItemBody),
-		"name,id,url,enabled,events,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
+		"name,id,url,enabled,events,origins,scope,domains,created_at,updated_at,success_count,error_count,errors_since_last_success,last_request_at"},
 }
 
 // TestCSVColumnsAreTheFieldsOfTheTableView checks the CSV header of every

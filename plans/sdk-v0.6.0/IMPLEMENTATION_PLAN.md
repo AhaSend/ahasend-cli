@@ -767,7 +767,7 @@ sends `on_contact_created=true`.
 - `webhooks listen --events contact.created` keeps a contact event and drops
   a message event.
 
-**Status**: Not Started
+**Status**: Complete
 
 ## Decision log
 

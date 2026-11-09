@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/AhaSend/ahasend-cli/internal/version"
+	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 )
 
 func TestNewClient_Success(t *testing.T) {
@@ -636,10 +638,10 @@ func TestClient_PingAndWebhookMethodsCallTheirEndpoints(t *testing.T) {
 		{"ping", http.MethodGet, "/v2/ping", `{"message":"OK"}`,
 			func(c *Client) error { _, err := c.Ping(); return err }},
 		{"list webhooks", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
-			func(c *Client) error { _, err := c.ListWebhooks(common.PaginationParams{}, nil); return err }},
+			func(c *Client) error { _, err := c.ListWebhooks(common.PaginationParams{}, nil, nil); return err }},
 		{"list webhooks with pagination", http.MethodGet, webhookPath, `{"object":"list","data":[]}`,
 			func(c *Client) error {
-				_, err := c.ListWebhooks(common.PaginationParams{Limit: &limit, After: &cursor}, nil)
+				_, err := c.ListWebhooks(common.PaginationParams{Limit: &limit, After: &cursor}, nil, nil)
 				return err
 			}},
 		{"create webhook", http.MethodPost, webhookPath, `{"object":"webhook"}`,
@@ -688,10 +690,81 @@ func TestClient_ListWebhooksSendsTheEnabledFilter(t *testing.T) {
 	})
 	defer cleanup()
 
-	_, err := client.ListWebhooks(common.PaginationParams{}, ahasend.Bool(true))
+	_, err := client.ListWebhooks(common.PaginationParams{}, ahasend.Bool(true), nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "true", query)
+}
+
+// TestClient_ListWebhooksFiltersByEachEvent checks that the list filter of
+// each webhook event sends its on_<name> query parameter alone, as true, and
+// that no two events send the same one.
+func TestClient_ListWebhooksFiltersByEachEvent(t *testing.T) {
+	accountID := uuid.New()
+	filters := map[string]string{}
+	for _, event := range webhooks.Events {
+		t.Run(event.Name, func(t *testing.T) {
+			eventFilters := url.Values{}
+			client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+				for key, values := range r.URL.Query() {
+					if strings.HasPrefix(key, "on_") {
+						eventFilters[key] = values
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+			})
+			defer cleanup()
+
+			_, err := client.ListWebhooks(common.PaginationParams{}, nil, []string{event.Name})
+
+			require.NoError(t, err)
+			assert.Equal(t, url.Values{"on_" + event.Name: {"true"}}, eventFilters)
+			for key := range eventFilters {
+				assert.NotContains(t, filters, key, "%s and %s send the same filter", filters[key], event.Name)
+				filters[key] = event.Name
+			}
+		})
+	}
+}
+
+// TestClient_ListWebhooksSendsEveryFilterInOneGet checks the method, path,
+// query and body of a list with the enabled filter, two event filters and a
+// limit.
+func TestClient_ListWebhooksSendsEveryFilterInOneGet(t *testing.T) {
+	accountID := uuid.New()
+	limit := int32(5)
+	var method, path, query string
+	var body []byte
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		method, path, query = r.Method, r.URL.Path, r.URL.RawQuery
+		body, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{Limit: &limit}, ahasend.Bool(false), []string{"contact_created", "delivered"})
+
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodGet, method)
+	assert.Equal(t, "/v2/accounts/"+accountID.String()+"/webhooks", path)
+	assert.Equal(t, "enabled=false&limit=5&on_contact_created=true&on_delivered=true", query)
+	assert.Empty(t, body)
+}
+
+func TestClient_ListWebhooksRefusesAnUnknownEventWithoutARequest(t *testing.T) {
+	accountID := uuid.New()
+	requested := false
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		requested = true
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{}, nil, []string{"message.delivered"})
+
+	require.EqualError(t, err, `internal error: "message.delivered" is not a webhook event to filter by`)
+	assert.False(t, requested)
 }
 
 // TestClient_TemplateReadsCallTheirEndpoints checks that GetTemplate reads a

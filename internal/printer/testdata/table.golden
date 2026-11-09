@@ -477,7 +477,8 @@ SMTP Settings:
 │ ID      │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
 │ URL     │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
 │ Enabled │ Yes                                                                       │
-│ Events  │ delivered                                                                 │
+│ Events  │ delivered, contact_created                                                │
+│ Origins │ api, system                                                               │
 │ Secret  │ whsec_secret                                                              │
 │ Scope   │ account                                                                   │
 │ Domains │ example.com                                                               │
@@ -1095,11 +1096,11 @@ Showing 1 version
 === page of 1 webhooks
 Retrieved
 
-┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
-│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
-├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
-│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
-└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬────────────────────────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │           EVENTS           │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼────────────────────────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered, contact_created │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴────────────────────────────┘
 
 Showing 1 webhook (more available)
 --after next-page
@@ -1339,12 +1340,12 @@ Showing 2 versions
 === page of 2 webhooks
 Retrieved
 
-┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
-│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
-├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
-│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
-│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
-└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬────────────────────────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │           EVENTS           │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼────────────────────────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered, contact_created │
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered, contact_created │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴────────────────────────────┘
 
 Showing 2 webhooks (more available)
 --after next-page
@@ -1867,6 +1868,7 @@ SMTP Settings:
 │ URL     │ -      │
 │ Enabled │ No     │
 │ Events  │ none   │
+│ Origins │ all    │
 │ Secret  │ -      │
 │ Scope   │ -      │
 │ Domains │ all    │
@@ -2262,6 +2264,7 @@ Showing 1 suppression
 │ URL                       │ -      │
 │ Enabled                   │ No     │
 │ Events                    │ none   │
+│ Origins                   │ all    │
 │ Scope                     │ -      │
 │ Domains                   │ all    │
 │ Created                   │ -      │
@@ -2282,6 +2285,7 @@ Showing 1 suppression
 │ URL                       │ -      │
 │ Enabled                   │ No     │
 │ Events                    │ none   │
+│ Origins                   │ all    │
 │ Scope                     │ -      │
 │ Domains                   │ all    │
 │ Created                   │ -      │
@@ -2657,7 +2661,8 @@ Count: not counted in time
 │ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
 │ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
 │ Enabled                   │ Yes                                                                       │
-│ Events                    │ delivered                                                                 │
+│ Events                    │ delivered, contact_created                                                │
+│ Origins                   │ api, system                                                               │
 │ Scope                     │ account                                                                   │
 │ Domains                   │ example.com                                                               │
 │ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
@@ -2677,7 +2682,8 @@ Count: not counted in time
 │ ID                        │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa                                      │
 │ URL                       │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │
 │ Enabled                   │ Yes                                                                       │
-│ Events                    │ delivered                                                                 │
+│ Events                    │ delivered, contact_created                                                │
+│ Origins                   │ api, system                                                               │
 │ Scope                     │ account                                                                   │
 │ Domains                   │ example.com                                                               │
 │ Created                   │ 2026-09-10 10:30:00 UTC+2                                                 │
@@ -2690,10 +2696,10 @@ Count: not counted in time
 === webhook list
 
 
-┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬───────────┐
-│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │  EVENTS   │
-├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼───────────┤
-│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered │
-└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴───────────┘
+┌────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────┬─────────┬────────────────────────────┐
+│  NAME  │                  ID                  │                                    URL                                    │ ENABLED │           EVENTS           │
+├────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────┼─────────┼────────────────────────────┤
+│ Events │ aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa │ https://hooks.example.com/inbound/a-path-long-enough-to-be-cut-in-a-table │ Yes     │ delivered, contact_created │
+└────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────┴─────────┴────────────────────────────┘
 
 Showing 1 webhook

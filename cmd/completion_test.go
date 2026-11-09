@@ -46,9 +46,14 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 	filters := []string{"unconfirmed", "confirmed", "unsubscribed", "complained"}
 	editors := []string{"advanced", "simple", "html"}
 	events := []string{"reception", "delivered", "transient_error", "failed", "bounced", "suppressed", "opened",
-		"clicked", "suppression_created", "dns_error", "message.reception", "message.delivered",
+		"clicked", "unsubscribed", "complained", "suppression_created", "suppression_deleted", "dns_error",
+		"contact_created", "contact_updated", "contact_deleted", "contact_added_to_list", "contact_removed_from_list",
+		"contact_subscribed", "contact_unsubscribed", "contact_complained", "message.reception", "message.delivered",
 		"message.transient_error", "message.failed", "message.bounced", "message.suppressed", "message.opened",
-		"message.clicked", "suppression.created", "domain.dns_error"}
+		"message.clicked", "message.unsubscribed", "message.complained", "suppression.created", "suppression.deleted",
+		"domain.dns_error", "contact.created", "contact.updated", "contact.deleted", "contact.added_to_list",
+		"contact.removed_from_list", "contact.subscribed", "contact.unsubscribed", "contact.complained"}
+	origins := []string{"recipient", "api", "dashboard", "system"}
 	tests := []struct {
 		args []string
 		want []string
@@ -69,6 +74,9 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 		{[]string{"webhooks", "update", rawTestID, "--events"}, events},
 		{[]string{"webhooks", "trigger", rawTestID, "--events"}, events},
 		{[]string{"webhooks", "listen", "--events"}, events},
+		{[]string{"webhooks", "list", "--events"}, events},
+		{[]string{"webhooks", "create", "--origins"}, origins},
+		{[]string{"webhooks", "update", rawTestID, "--origins"}, origins},
 		{[]string{"contacts", "create", "a@example.com", "--status"}, contactStatuses},
 		{[]string{"contacts", "update", "a@example.com", "--status"}, contactStatuses},
 		{[]string{"contacts", "list", "--status"}, contactStatuses},
