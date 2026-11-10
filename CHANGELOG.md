@@ -7,6 +7,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The Chocolatey package names its copyright holder, AhaSend B.V.
+
 ### Fixed
 
 - The Chocolatey package page holds no email address, which Chocolatey's
