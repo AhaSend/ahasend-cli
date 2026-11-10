@@ -8,6 +8,7 @@
     <owners>AhaSend</owners>
     <title>AhaSend CLI</title>
     <authors>AhaSend</authors>
+    <copyright>Copyright © AhaSend B.V.</copyright>
     <projectUrl>https://ahasend.com</projectUrl>
     <iconUrl>https://cdn.jsdelivr.net/gh/AhaSend/ahasend-cli@v@VERSION@/packaging/chocolatey/icon.png</iconUrl>
     <licenseUrl>https://github.com/AhaSend/ahasend-cli/blob/v@VERSION@/LICENSE</licenseUrl>
