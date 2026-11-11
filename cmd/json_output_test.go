@@ -291,6 +291,8 @@ func TestJSONOutputIsTheRawAPIResponse(t *testing.T) {
 			[]apiCall{returns[responses.DeliverabilityStatisticsResponse]("GetDeliverabilityStatistics", rawObjectBody)}, rawObjectBody},
 		{"stats delivery-time", []string{"stats", "delivery-time"},
 			[]apiCall{returns[responses.DeliveryTimeStatisticsResponse]("GetDeliveryTimeStatistics", rawObjectBody)}, rawObjectBody},
+		{"stats emails", []string{"stats", "emails"},
+			[]apiCall{returns[responses.EmailStatisticsResponse]("GetEmailStatistics", rawObjectBody)}, rawObjectBody},
 
 		// subaccounts
 		{"subaccounts create", []string{"subaccounts", "create", "--name", "Acme", "--website", "acme.example.com"},

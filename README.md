@@ -538,6 +538,10 @@ ahasend stats deliverability \
 # Check bounce rates
 ahasend stats bounces --group-by day
 
+# Monthly email counts of the last year, for each domain, beyond the
+# message metadata retention period
+ahasend stats emails --from-time 1y --group-by month --breakdown domain
+
 # Export stats to CSV
 ahasend stats deliverability --output csv > stats.csv
 ```

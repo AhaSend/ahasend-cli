@@ -201,6 +201,10 @@ func (m *MockClient) GetDeliveryTimeStatistics(params requests.GetDeliveryTimeSt
 	return result[responses.DeliveryTimeStatisticsResponse](m.Called(params))
 }
 
+func (m *MockClient) GetEmailStatistics(params requests.GetEmailStatisticsParams) (*responses.EmailStatisticsResponse, error) {
+	return result[responses.EmailStatisticsResponse](m.Called(params))
+}
+
 // Sub-account operations methods
 func (m *MockClient) ListSubAccounts(pagination common.PaginationParams) (*responses.PaginatedSubAccountsResponse, error) {
 	return result[responses.PaginatedSubAccountsResponse](m.Called(pagination))

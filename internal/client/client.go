@@ -584,6 +584,12 @@ func (c *Client) GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatis
 	return recordBody(c.StatisticsAPI.GetDeliveryTimeStatistics(c.auth, c.accountUUID, params))
 }
 
+// GetEmailStatistics retrieves email statistics: the whole result, or one
+// page of a breakdown by domain
+func (c *Client) GetEmailStatistics(params requests.GetEmailStatisticsParams) (*responses.EmailStatisticsResponse, error) {
+	return recordBody(c.StatisticsAPI.GetEmailStatistics(c.auth, c.accountUUID, params))
+}
+
 // Sub-account operations
 
 // ListSubAccounts retrieves a page of sub-accounts

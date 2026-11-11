@@ -9,6 +9,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [`stats emails`](USAGE.mdx#ahasend-stats-emails) shows email counts of any
+  period in the account's history, beyond the message metadata retention
+  period, by hour, day, week or month: received, delivered, bounced,
+  suppressed, complaints, deferred, opened and clicked. `--breakdown domain`
+  shows the counts of each domain, and the command fetches every page of
+  domains. The CLI uses AhaSend Go SDK v0.7.0.
 - The Chocolatey package names its copyright holder, AhaSend B.V.
 
 ### Fixed

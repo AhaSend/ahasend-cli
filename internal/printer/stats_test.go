@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -82,4 +83,49 @@ func TestBounceStatsShowAPeriodWithoutBouncesInEveryFormat(t *testing.T) {
 		"2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,0,\n"+
 		"2026-09-10T09:30:00Z,2026-09-10T10:30:00Z,BadMailbox,2,100.00\n", renderWith(t, "csv", render))
 	assert.Contains(t, renderWith(t, "plain", render), "  No bounces recorded\n")
+}
+
+// TestEmailStatsShowTheSenderDomainOnlyInABreakdown checks that table and
+// plain output show a sender domain only for a breakdown by domain, and that
+// CSV output always has the column, empty without a breakdown.
+func TestEmailStatsShowTheSenderDomainOnlyInABreakdown(t *testing.T) {
+	render := func(h ResponseHandler) error { return h.HandleEmailStats(styleEmailStats(false), StatsConfig{}) }
+
+	assert.NotContains(t, renderWith(t, "table", render), "SENDER DOMAIN")
+	assert.NotContains(t, renderWith(t, "plain", render), "Sender Domain")
+	headers, rows := readCSV(t, renderWith(t, "csv", render))
+	assert.Equal(t, "sender_domain", headers[2])
+	assert.Equal(t, "", rows[0]["sender_domain"])
+}
+
+// TestEmailStatsCSVHasOneLinePerRowWithoutTheTotals checks that CSV output
+// writes the counters of each row with the API's field names, and no line
+// for the totals.
+func TestEmailStatsCSVHasOneLinePerRowWithoutTheTotals(t *testing.T) {
+	render := func(h ResponseHandler) error { return h.HandleEmailStats(styleEmailStats(true), StatsConfig{}) }
+
+	assert.Equal(t, "from_timestamp,to_timestamp,sender_domain,reception_count,delivered_count,bounced_count,"+
+		"suppressed_count,complained_count,deferred_count,opened_count,clicked_count\n"+
+		"2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,example.com,9,8,1,2,1,3,5,4\n"+
+		"2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,example.org,9,8,1,2,1,3,5,4\n", renderWith(t, "csv", render))
+}
+
+// TestEmailStatsWithoutRowsShowTheTotals checks that a breakdown in which no
+// domain has counts shows its totals and says so in table and plain output,
+// and writes only the header in CSV output.
+func TestEmailStatsWithoutRowsShowTheTotals(t *testing.T) {
+	stats := styleEmailStats(true)
+	stats.Data = nil
+	render := func(h ResponseHandler) error { return h.HandleEmailStats(stats, StatsConfig{}) }
+
+	table := renderWith(t, "table", render)
+	assert.Equal(t, []string{"18", "16", "2", "4", "2", "6", "10", "8"}, tableCells(table)[1][1:])
+	assert.True(t, strings.HasSuffix(table, "\nNo domain has email statistics in this time range\n"), table)
+	plain := renderWith(t, "plain", render)
+	assert.Contains(t, plain, "Totals:\n  Time Period: ")
+	assert.Contains(t, plain, "  Reception: 18\n")
+	assert.True(t, strings.HasSuffix(plain, "\n\nNo domain has email statistics in this time range\n"), plain)
+	headers, rows := readCSV(t, renderWith(t, "csv", render))
+	assert.Equal(t, "from_timestamp", headers[0])
+	assert.Empty(t, rows)
 }
