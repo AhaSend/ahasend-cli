@@ -109,6 +109,40 @@ func styleDeliveryTimes() *responses.DeliveryTimeStatisticsResponse {
 	}}}
 }
 
+// styleEmailStats returns email statistics of two hours with a row for
+// each, or, broken down by domain, a row for each of two domains in the
+// first hour.
+func styleEmailStats(byDomain bool) *responses.EmailStatisticsResponse {
+	counts := responses.EmailStatisticsTotals{
+		ReceptionCount: 9, DeliveredCount: 8, BouncedCount: 1, SuppressedCount: 2,
+		ComplainedCount: 1, DeferredCount: 3, OpenedCount: 5, ClickedCount: 4,
+	}
+	stats := &responses.EmailStatisticsResponse{
+		Object: "email_statistics", FromTime: styleTime, ToTime: styleTime.Add(2 * time.Hour), GroupBy: "hour",
+		Totals: responses.EmailStatisticsTotals{
+			ReceptionCount: 18, DeliveredCount: 16, BouncedCount: 2, SuppressedCount: 4,
+			ComplainedCount: 2, DeferredCount: 6, OpenedCount: 10, ClickedCount: 8,
+		},
+	}
+	if !byDomain {
+		for hour := range 2 {
+			from := styleTime.Add(time.Duration(hour) * time.Hour)
+			stats.Data = append(stats.Data, responses.EmailStatistics{
+				FromTimestamp: from, ToTimestamp: from.Add(time.Hour), EmailStatisticsTotals: counts,
+			})
+		}
+		return stats
+	}
+	breakdown := "domain"
+	stats.Breakdown = &breakdown
+	for _, name := range []string{"example.com", "example.org"} {
+		stats.Data = append(stats.Data, responses.EmailStatistics{
+			FromTimestamp: styleTime, ToTimestamp: styleTime.Add(time.Hour), SenderDomain: &name, EmailStatisticsTotals: counts,
+		})
+	}
+	return stats
+}
+
 func renderWith(t *testing.T, format string, render func(ResponseHandler) error) string {
 	t.Helper()
 	var output bytes.Buffer

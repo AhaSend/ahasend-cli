@@ -286,6 +286,8 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 			"from_timestamp,to_timestamp,classification,count,percentage"},
 		{[]string{"stats", "delivery-time"}, "GetDeliveryTimeStatistics", &responses.DeliveryTimeStatisticsResponse{},
 			"from_timestamp,to_timestamp,delivered_count,avg_delivery_time,recipient_domain,domain_delivered_count,domain_delivery_time"},
+		{[]string{"stats", "emails"}, "GetEmailStatistics", &responses.EmailStatisticsResponse{},
+			"from_timestamp,to_timestamp,sender_domain,reception_count,delivered_count,bounced_count,suppressed_count,complained_count,deferred_count,opened_count,clicked_count"},
 	}
 	for _, view := range csvViews {
 		full := reflect.TypeOf(view.call.result(t)).Elem()
@@ -294,7 +296,7 @@ func TestCSVListsWriteTheHeaderForAnEmptyPage(t *testing.T) {
 		}
 		views = append(views, emptyView{view.args, view.call.method, reflect.New(full).Interface(), view.header})
 	}
-	require.Len(t, views, 25)
+	require.Len(t, views, 26)
 	for _, view := range views {
 		t.Run(strings.Join(view.args, " "), func(t *testing.T) {
 			mockClient := &mocks.MockClient{}

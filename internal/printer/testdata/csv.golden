@@ -97,6 +97,14 @@ example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,2026-09-10
 === domain with DNS records
 domain,id,account_id,dns_valid,sending_type,paused_at,pause_reason,tracking_subdomain,return_path_subdomain,subscription_subdomain,media_subdomain,dkim_selector,dkim_rotation_interval_days,created_at,updated_at,last_dns_check_at,dns_records
 example.com,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,true,transactional,,,,,,,,,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,2026-09-10T08:30:00Z,"[{""type"":""TXT"",""host"":""example.com"",""content"":""v=spf1"",""required"":false,""propagated"":false}]"
+=== email stats
+from_timestamp,to_timestamp,sender_domain,reception_count,delivered_count,bounced_count,suppressed_count,complained_count,deferred_count,opened_count,clicked_count
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,,9,8,1,2,1,3,5,4
+2026-09-10T09:30:00Z,2026-09-10T10:30:00Z,,9,8,1,2,1,3,5,4
+=== email stats by domain
+from_timestamp,to_timestamp,sender_domain,reception_count,delivered_count,bounced_count,suppressed_count,complained_count,deferred_count,opened_count,clicked_count
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,example.com,9,8,1,2,1,3,5,4
+2026-09-10T08:30:00Z,2026-09-10T09:30:00Z,example.org,9,8,1,2,1,3,5,4
 === empty
 === list
 name,id,description,tags,contact_count,created_at,updated_at
@@ -418,6 +426,9 @@ example.com,,,false,,,,,,,,,,,,,
 === sparse domain list
 domain,id,dns_valid,sending_type,paused_at,pause_reason,created_at,updated_at,last_dns_check_at
 example.com,,false,,,,,,
+=== sparse email stats
+from_timestamp,to_timestamp,sender_domain,reception_count,delivered_count,bounced_count,suppressed_count,complained_count,deferred_count,opened_count,clicked_count
+,,,0,0,0,0,0,0,0,0
 === sparse list
 name,id,description,tags,contact_count,created_at,updated_at
 Newsletter,,,,0,,

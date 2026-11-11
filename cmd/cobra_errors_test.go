@@ -259,7 +259,7 @@ func TestUnknownProfileIsAConfigError(t *testing.T) {
 }
 
 func TestStatsBadGroupByPrintsOneErrorBeforeAuthenticating(t *testing.T) {
-	for _, command := range []string{"bounces", "deliverability", "delivery-time"} {
+	for _, command := range []string{"bounces", "deliverability", "delivery-time", "emails"} {
 		t.Run(command, func(t *testing.T) {
 			called := testutil.RefuseAuth(t)
 

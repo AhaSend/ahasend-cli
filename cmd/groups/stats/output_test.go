@@ -62,6 +62,21 @@ func TestStatsOutputFormats(t *testing.T) {
 				"csv":   {"2026-01-01T00:00:00Z,2026-01-02T00:00:00Z,2,1.5,gmail.com,2,2.126\n"},
 			},
 		},
+		{
+			name: "emails", command: NewEmailsCommand, method: "GetEmailStatistics",
+			result: func(t *testing.T) any {
+				return mocks.APIResponse[responses.EmailStatisticsResponse](t, `{"object":"email_statistics",`+
+					`"from_time":"2026-01-01T00:00:00Z","to_time":"2026-01-02T00:00:00Z","group_by":"day","breakdown":null,`+
+					`"totals":{"reception_count":4,"delivered_count":2,"complained_count":1},`+
+					`"data":[{`+statsPeriod+`,"sender_domain":null,"reception_count":4,"delivered_count":2,"complained_count":1}],`+
+					`"pagination":{"has_more":false}}`)
+			},
+			want: map[string][]string{
+				"table": {"Totals:", "By Period:", "RECEPTION", "COMPLAINED", "│ 4         │ 2         │ 0       │ 0          │ 1          │"},
+				"plain": {"Totals:\n  Time Period: ", "  Reception: 4\n", "  Complained: 1\n"},
+				"csv":   {"2026-01-01T00:00:00Z,2026-01-02T00:00:00Z,,4,2,0,0,1,0,0,0\n"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		for format, want := range tt.want {

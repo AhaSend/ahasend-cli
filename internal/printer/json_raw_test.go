@@ -131,6 +131,9 @@ func TestJSONHandlersPrintRecordedAPIBody(t *testing.T) {
 		{"delivery time stats", func(h ResponseHandler) error {
 			return h.HandleDeliveryTimeStats(recorded[responses.DeliveryTimeStatisticsResponse](), StatsConfig{})
 		}},
+		{"email stats", func(h ResponseHandler) error {
+			return h.HandleEmailStats(recorded[responses.EmailStatisticsResponse](), StatsConfig{})
+		}},
 		{"success response", func(h ResponseHandler) error {
 			return h.HandleSuccessResponse(recorded[common.SuccessResponse](), ResultConfig{})
 		}},

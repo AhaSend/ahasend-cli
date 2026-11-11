@@ -70,6 +70,7 @@ type AhaSendClient interface {
 	GetDeliverabilityStatistics(params requests.GetDeliverabilityStatisticsParams) (*responses.DeliverabilityStatisticsResponse, error)
 	GetBounceStatistics(params requests.GetBounceStatisticsParams) (*responses.BounceStatisticsResponse, error)
 	GetDeliveryTimeStatistics(params requests.GetDeliveryTimeStatisticsParams) (*responses.DeliveryTimeStatisticsResponse, error)
+	GetEmailStatistics(params requests.GetEmailStatisticsParams) (*responses.EmailStatisticsResponse, error)
 
 	// Sub-account operations
 	ListSubAccounts(pagination common.PaginationParams) (*responses.PaginatedSubAccountsResponse, error)

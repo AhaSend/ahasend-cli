@@ -168,6 +168,7 @@ func TestTheCommandTree(t *testing.T) {
 		"ahasend stats bounces",
 		"ahasend stats deliverability",
 		"ahasend stats delivery-time",
+		"ahasend stats emails",
 		"ahasend subaccounts",
 		"ahasend subaccounts api-keys",
 		"ahasend subaccounts api-keys create",

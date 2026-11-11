@@ -114,6 +114,7 @@ func addFullRenders(renders map[string]func(ResponseHandler) error) {
 			}}, StatsConfig{})
 		},
 		"delivery times": func(h ResponseHandler) error { return h.HandleDeliveryTimeStats(styleDeliveryTimes(), StatsConfig{}) },
+		"email stats":    func(h ResponseHandler) error { return h.HandleEmailStats(styleEmailStats(false), StatsConfig{}) },
 		"contact list":   func(h ResponseHandler) error { return h.HandleContactList(contactListFixture(), ListConfig{}) },
 		"contact":        func(h ResponseHandler) error { return h.HandleSingleContact(&contact, SingleConfig{}) },
 		"lists list":     func(h ResponseHandler) error { return h.HandleListsList(listsPageFixture(), ListConfig{}) },
@@ -231,6 +232,9 @@ func addMoreRenders(renders map[string]func(ResponseHandler) error) {
 		"sub-account usage with removed": func(h ResponseHandler) error {
 			return h.HandleSubAccountUsage(usage, SingleConfig{SuccessMessage: "Usage"})
 		},
+		"email stats by domain": func(h ResponseHandler) error {
+			return h.HandleEmailStats(styleEmailStats(true), StatsConfig{Title: "Email Statistics"})
+		},
 		"two deliverability periods": func(h ResponseHandler) error {
 			return h.HandleDeliverabilityStats(&responses.DeliverabilityStatisticsResponse{Data: []responses.DeliverabilityStatistics{
 				{FromTimestamp: styleTime, ReceptionCount: 2, DeliveredCount: 1}, {FromTimestamp: styleTime},
@@ -332,6 +336,9 @@ func addSparseRenders(renders map[string]func(ResponseHandler) error) {
 			return h.HandleDeliveryTimeStats(&responses.DeliveryTimeStatisticsResponse{Data: []responses.DeliveryTimeStatistics{
 				{DeliveryTimes: []responses.DeliveryTime{{}}},
 			}}, StatsConfig{})
+		},
+		"email stats": func(h ResponseHandler) error {
+			return h.HandleEmailStats(&responses.EmailStatisticsResponse{Data: []responses.EmailStatistics{{}}}, StatsConfig{})
 		},
 		"auth status": func(h ResponseHandler) error {
 			return h.HandleAuthStatus(&AuthStatus{Profile: "default", Account: &responses.Account{Name: "Acme"}})

@@ -129,6 +129,7 @@ type ResponseHandler interface {
 	HandleDeliverabilityStats(response *responses.DeliverabilityStatisticsResponse, config StatsConfig) error
 	HandleBounceStats(response *responses.BounceStatisticsResponse, config StatsConfig) error
 	HandleDeliveryTimeStats(response *responses.DeliveryTimeStatisticsResponse, config StatsConfig) error
+	HandleEmailStats(response *responses.EmailStatisticsResponse, config StatsConfig) error
 
 	// Auth responses
 	HandleAuthResult(result AuthResult) error

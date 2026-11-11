@@ -83,6 +83,8 @@ var localValidationErrors = []struct {
 		`invalid --domains value "not a domain": not a domain name`},
 	{[]string{"webhooks", "update", rawTestID, "--domains", "not a domain"}, `invalid --domains value "not a domain": not a domain name`},
 	{[]string{"stats", "deliverability", "--sender-domain", "not a domain"}, `invalid --sender-domain value "not a domain": not a domain name`},
+	{[]string{"stats", "emails", "--sender-domain", "not a domain"}, `invalid --sender-domain value "not a domain": not a domain name`},
+	{[]string{"stats", "emails", "--breakdown", "sender"}, "--breakdown must be one of: domain"},
 	{[]string{"stats", "bounces", "--recipient-domain", "gmail.com", "--recipient-domain", "gmail..com"},
 		`invalid --recipient-domain value "gmail..com": not a domain name`},
 	{[]string{"suppressions", "create", "user@example.com", "--expires", "2020-01-01T00:00:00Z"},

@@ -569,6 +569,7 @@ that starts with a space fails (see
 | `smtp send` | `--to`, `--cc`, `--bcc`, `--header`, `--tag`, `--attach` |
 | `smtp create` | `--domains` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--sender-domain`, `--recipient-domain`, `--tag` |
+| `stats emails` | `--sender-domain` |
 | `webhooks create`, `webhooks update` | `--events`, `--origins`, `--domains` |
 | `webhooks list`, `webhooks trigger`, `webhooks listen` | `--events` |
 | `apikeys create`, `subaccounts api-keys create` | `--scope`, `--ip-allow-list` |
@@ -645,6 +646,7 @@ sent and with exit code 4; such a value is never sent. The rule holds for:
   on `domains create` and `domains update`, where dots around a subdomain
   count as blank too
 - `--server` on `smtp send`
+- `--group-by` and `--breakdown` on `stats emails`
 - `--domain` on `suppressions create`, `suppressions check`,
   `suppressions list`, `suppressions delete`, `suppressions wipe` and
   `routes list`, where an empty value would otherwise act on, or read, every
@@ -730,6 +732,7 @@ lists:
 | `messages list`, `campaigns list`, `campaigns recipients` | `--status` |
 | `templates create`, `campaigns create`, `campaigns templates create` | `--editor` |
 | `stats deliverability`, `stats bounces`, `stats delivery-time` | `--group-by` |
+| `stats emails` | `--group-by`, `--breakdown` |
 | `webhooks create`, `webhooks update`, `smtp create` | `--scope` |
 | `webhooks list`, `webhooks create`, `webhooks update`, `webhooks trigger`, `webhooks listen` | `--events` |
 | `webhooks create`, `webhooks update` | `--origins` |
@@ -971,7 +974,7 @@ deprecation notice to stderr; use the replacement:
 
 | Deprecated | Replacement | Commands |
 |------------|-------------|----------|
-| `--tags` | `--tag` | `messages send`, `messages list`, `smtp send`, `stats` |
+| `--tags` | `--tag` | `messages send`, `messages list`, `smtp send`, `stats deliverability`, `stats bounces`, `stats delivery-time` |
 | `--text-template`, `--html-template`, `--amp-template` | `--text-file`, `--html-file`, `--amp-file` | `messages send` |
 | `--interactive` | none: prompting is the default, and `--non-interactive` turns it off | `webhooks create`, `routes create` |
 | `--disabled` | `--enabled=false` | `webhooks create`, `routes update` |
@@ -1005,7 +1008,8 @@ and `--interactive=false` with
 A value that is neither `true` nor `false` reads as `true`.
 
 These flags are accepted but have no effect: `--raw` and `--show-totals` on
-the `stats` commands, `--chart` on `stats deliverability`, `--classification`,
+`stats deliverability`, `stats bounces` and `stats delivery-time`, `--chart`
+on `stats deliverability`, `--classification`,
 `--trends` and `--show-domains` on `stats bounces`, and `--credential-id` on
 `smtp send`.
 
@@ -4842,7 +4846,8 @@ test.
 
 ### Statistics Commands
 
-The statistics commands share these flags:
+`stats deliverability`, `stats bounces` and `stats delivery-time` share these
+flags; [`stats emails`](#ahasend-stats-emails) has its own:
 
 - `--from-time`: Start time (default `7d`); an empty value leaves the start to
   the API
@@ -4923,6 +4928,69 @@ seconds, as the API sent them. Every recipient domain entry the API sends
 shows, with `-` in table and plain output for a missing domain or time.
 
 **Flags:** the shared flags above.
+
+#### `ahasend stats emails`
+
+Show email counts of any period in the account's history, for the whole
+account or for each of its domains. Unlike the other `stats` commands, the
+counts are not limited to the account's message metadata retention period.
+
+```bash
+# Daily counts of today and the 30 days before it
+ahasend stats emails
+
+# Monthly counts of 2025 for each domain
+ahasend stats emails --from-time 2025-01-01T00:00:00Z --to-time 2026-01-01T00:00:00Z \
+  --group-by month --breakdown domain
+
+# Weekly counts of one domain over the last 90 days
+ahasend stats emails --from-time 90d --group-by week --sender-domain example.com
+```
+
+Each period shows how many messages were received (accepted by AhaSend,
+inbound mail included), delivered, bounced and suppressed, how many spam
+complaints came in, and how many temporary delivery failures (deferred),
+opens and clicks there were. Deferred, opened and clicked count events, so
+one message can add more than one; `stats deliverability` counts messages,
+so its numbers differ. Opens and clicks are not fully accurate: AhaSend makes
+a reasonable effort to filter out bots and scanners. The counts cover
+transactional, campaign and inbound mail, with inbound mail under the domain
+that received it, and include deleted domains. Sandbox mail is not counted.
+
+Periods are in UTC, and weeks start on Monday. The range includes
+`--from-time` and excludes `--to-time`, and the API rounds it out to whole
+periods. A range can be at most 31 days with `--group-by hour`, 366 days
+with `day` and `week`, and 5 years with `month`. The table and plain
+outputs show the start and end of each period in the local time zone.
+
+With `--breakdown domain` the command fetches every page of domains and
+shows them as one result. When a page covers another range than the first
+page, as when the current period ends while the pages are fetched without a
+`--to-time`, the command fails with exit code 1 rather than mix ranges: run
+it again, or give a `--to-time` in the past.
+
+Table and plain output show the totals of the whole range, then each row: a
+period, or with a breakdown, a period of one domain. The rows of a breakdown
+can add up to a few events more or less than the totals. CSV output has a
+line per row and no line for the totals; its columns are `from_timestamp`,
+`to_timestamp`, `sender_domain`, empty without a breakdown, and the counters
+with the API's names, such as `reception_count`. JSON output is the API's
+response; with a breakdown, one response with the rows of every page and
+`pagination.has_more` false.
+
+**Flags:**
+
+- `--from-time`: Start time, included; without it, the range starts 30 days
+  before its end
+- `--to-time`: End time, excluded; without it, the range ends now
+- `--group-by`: `hour`, `day` (the API's default), `week` or `month`
+- `--sender-domain`: Count only these domains of the account; a
+  [repeatable flag](#repeatable-flags). Without it, the counts cover every
+  domain the API key can read.
+- `--breakdown`: `domain` shows the counts of each domain apart
+
+`--from-time` and `--to-time` take a [time value](#time-values), such as
+`90d` or `2026-09-01T00:00:00Z`.
 
 ### API Key Management Commands
 

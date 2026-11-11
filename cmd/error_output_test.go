@@ -295,6 +295,8 @@ func TestAPIErrorsPrintAsTheAPISentThem(t *testing.T) {
 		{"GetBounceStatistics", []string{"stats", "bounces"}},
 		{"GetDeliverabilityStatistics", []string{"stats", "deliverability"}},
 		{"GetDeliveryTimeStatistics", []string{"stats", "delivery-time"}},
+		{"GetEmailStatistics", []string{"stats", "emails"}},
+		{"GetEmailStatistics", []string{"stats", "emails", "--breakdown", "domain"}},
 		{"InitiateWebhookStream", []string{"webhooks", "listen"}},
 		{"InitiateRouteStream", []string{"routes", "listen", "--recipient", "*@example.com"}},
 	}

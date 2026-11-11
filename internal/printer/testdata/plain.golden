@@ -448,6 +448,72 @@ Last DNS Check: 2026-09-10 10:30:00 UTC+2
 
 DNS Records:
   1. Type: TXT, Host: example.com, Content: v=spf1, Required: No, Propagated: No
+=== email stats
+Totals:
+  Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 12:30:00 UTC+2
+  Reception: 18
+  Delivered: 16
+  Bounced: 2
+  Suppressed: 4
+  Complained: 2
+  Deferred: 6
+  Opened: 10
+  Clicked: 8
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Reception: 9
+  Delivered: 8
+  Bounced: 1
+  Suppressed: 2
+  Complained: 1
+  Deferred: 3
+  Opened: 5
+  Clicked: 4
+
+Time Period: 2026-09-10 11:30:00 UTC+2 to 2026-09-10 12:30:00 UTC+2
+  Reception: 9
+  Delivered: 8
+  Bounced: 1
+  Suppressed: 2
+  Complained: 1
+  Deferred: 3
+  Opened: 5
+  Clicked: 4
+=== email stats by domain
+Email Statistics
+
+Totals:
+  Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 12:30:00 UTC+2
+  Reception: 18
+  Delivered: 16
+  Bounced: 2
+  Suppressed: 4
+  Complained: 2
+  Deferred: 6
+  Opened: 10
+  Clicked: 8
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Sender Domain: example.com
+  Reception: 9
+  Delivered: 8
+  Bounced: 1
+  Suppressed: 2
+  Complained: 1
+  Deferred: 3
+  Opened: 5
+  Clicked: 4
+
+Time Period: 2026-09-10 10:30:00 UTC+2 to 2026-09-10 11:30:00 UTC+2
+  Sender Domain: example.org
+  Reception: 9
+  Delivered: 8
+  Bounced: 1
+  Suppressed: 2
+  Complained: 1
+  Deferred: 3
+  Opened: 5
+  Clicked: 4
 === empty
 Nothing found
 === list
@@ -1897,6 +1963,27 @@ Domain: example.com
 DNS Status: Invalid
 
 Showing 1 domain
+=== sparse email stats
+Totals:
+  Time Period:  to 
+  Reception: 0
+  Delivered: 0
+  Bounced: 0
+  Suppressed: 0
+  Complained: 0
+  Deferred: 0
+  Opened: 0
+  Clicked: 0
+
+Time Period:  to 
+  Reception: 0
+  Delivered: 0
+  Bounced: 0
+  Suppressed: 0
+  Complained: 0
+  Deferred: 0
+  Opened: 0
+  Clicked: 0
 === sparse list
 
 Name: Newsletter

@@ -53,6 +53,19 @@ func TestDeliveryTimeTableHeadersAreThePlainLabels(t *testing.T) {
 		tableCells(renderWith(t, "table", render))[0][:3])
 }
 
+func TestEmailStatsTableHeadersAreThePlainLabels(t *testing.T) {
+	render := func(h ResponseHandler) error { return h.HandleEmailStats(styleEmailStats(true), StatsConfig{}) }
+
+	labels := plainLabels(renderWith(t, "plain", render))
+	totals, row := labels[:9], labels[9:19]
+	assert.Equal(t, []string{"Time Period", "Reception", "Delivered", "Bounced", "Suppressed", "Complained",
+		"Deferred", "Opened", "Clicked"}, totals)
+	assert.Equal(t, append([]string{"Time Period", "Sender Domain"}, totals[1:]...), row)
+	cells := tableCells(renderWith(t, "table", render))
+	assert.Equal(t, upper(totals), cells[0], "the header of the totals table")
+	assert.Equal(t, upper(row), cells[2], "the header of the rows table")
+}
+
 func TestSubAccountUsageTableHeadersAreThePlainLabels(t *testing.T) {
 	render := func(h ResponseHandler) error {
 		return h.HandleSubAccountUsage(mocks.NewSubAccountUsage(0), SingleConfig{})
