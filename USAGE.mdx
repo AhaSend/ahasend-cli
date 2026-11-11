@@ -3852,6 +3852,7 @@ Webhooks deliver event notifications from AhaSend to your endpoint. The
 | `suppression_created` | `suppression.created` | New suppression added |
 | `suppression_deleted` | `suppression.deleted` | Suppression deleted |
 | `dns_error` | `domain.dns_error` | DNS configuration error for a domain |
+| `sending_type_changed` | `domain.sending_type_changed` | Sending type of a domain changed between transactional and marketing |
 | `contact_created` | `contact.created` | Contact created |
 | `contact_updated` | `contact.updated` | A field of a contact changed |
 | `contact_deleted` | `contact.deleted` | Contact deleted |
@@ -3869,17 +3870,17 @@ marketing features and an API key with the `contacts:read` scope, and
 webhook has on, so a change to such a webhook needs these scopes even when it
 names no event. On `webhooks create`,
 `update` and `trigger`, `--all-events` selects every event except the
-contact events, the 13 events any account can use, and
+contact events, the 14 events any account can use, and
 `--all-contact-events` selects the eight contact events. The two can be used
 together, and neither with `--events`.
 
 A webhook's origins pick whose changes its contact and suppression events
 report: `recipient` (the contact or recipient, through an unsubscribe or a
-spam complaint), `api`, `dashboard` or `system` (AhaSend). Message events and
-`dns_error` have no origin, and a webhook always gets them. The views of a
-webhook show its `Origins` after its `Events`: `all` in table and plain
-output, and an empty CSV cell, for a webhook that gets every origin. A table
-of webhooks has no Origins column.
+spam complaint), `api`, `dashboard` or `system` (AhaSend). Message events,
+`dns_error` and `sending_type_changed` have no origin, and a webhook always
+gets them. The views of a webhook show its `Origins` after its `Events`:
+`all` in table and plain output, and an empty CSV cell, for a webhook that
+gets every origin. A table of webhooks has no Origins column.
 
 An unknown event fails before any request is sent, with an error that names
 the values it does not know before the events, such as
@@ -3936,7 +3937,7 @@ Create a webhook. `--name` and `--url` are required; the command asks for a
 missing one only when stdin is a terminal (see
 [Required Values](#required-values)). On a terminal, without `--events`,
 `--all-events` or `--all-contact-events`, it asks for the events too, listing
-all 21: give one or more, separated by commas, or `all`, which selects every
+all 22: give one or more, separated by commas, or `all`, which selects every
 event except the contact events, as `--all-events` does; a blank answer fails
 with
 `one of --events, --all-events or --all-contact-events is required: a webhook without events receives none`,
@@ -4041,7 +4042,7 @@ ahasend webhooks update <webhook-id> --enabled=false
   `--scope scoped` is given too.
 
 The event flags name the webhook's whole set of events: the request sends
-all 21 settings, and every event the flags do not name is turned off, a
+all 22 settings, and every event the flags do not name is turned off, a
 contact event turned on in the dashboard included. `--all-events` and
 `--all-contact-events` can be used together; `--events` cannot be used with
 either, and `--clear-events` with none of the three. `--origins` cannot be
@@ -4219,7 +4220,7 @@ ahasend webhooks trigger <webhook-id> --all-contact-events
 - `--all-contact-events`: Trigger every contact event; cannot be combined
   with `--events`
 
-`--all-events` and `--all-contact-events` together trigger all 21 events.
+`--all-events` and `--all-contact-events` together trigger all 22 events.
 Without an event flag, the command fails with
 `at least one of --events, --all-events or --all-contact-events must be provided`
 and exit code 4.

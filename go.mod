@@ -5,7 +5,7 @@ go 1.26.0
 toolchain go1.27.2
 
 require (
-	github.com/AhaSend/ahasend-go v0.7.0
+	github.com/AhaSend/ahasend-go v0.8.0
 	github.com/fatih/color v1.19.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3

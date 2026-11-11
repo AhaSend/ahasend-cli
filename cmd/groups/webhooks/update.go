@@ -223,6 +223,7 @@ func setUpdateEvents(req *requests.UpdateWebhookRequest, settings map[string]boo
 	req.OnSuppressionCreated = ahasend.Bool(settings["suppression_created"])
 	req.OnSuppressionDeleted = ahasend.Bool(settings["suppression_deleted"])
 	req.OnDnsError = ahasend.Bool(settings["dns_error"])
+	req.OnSendingTypeChanged = ahasend.Bool(settings["sending_type_changed"])
 	req.OnContactCreated = ahasend.Bool(settings["contact_created"])
 	req.OnContactUpdated = ahasend.Bool(settings["contact_updated"])
 	req.OnContactDeleted = ahasend.Bool(settings["contact_deleted"])

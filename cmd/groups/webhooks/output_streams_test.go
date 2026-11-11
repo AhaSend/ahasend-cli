@@ -44,11 +44,12 @@ func TestUpdateWarnsAboutHTTPOnStderr(t *testing.T) {
 }
 
 // eventsPrompt is the question webhooks create asks for the events: it
-// lists the 21 events, and says that all leaves out the contact events.
+// lists the 22 events, and says that all leaves out the contact events.
 const eventsPrompt = "Events to send (reception, delivered, transient_error, failed, bounced, suppressed, opened, " +
-	"clicked, unsubscribed, complained, suppression_created, suppression_deleted, dns_error, contact_created, " +
-	"contact_updated, contact_deleted, contact_added_to_list, contact_removed_from_list, contact_subscribed, " +
-	"contact_unsubscribed, contact_complained), separated by commas, or all for every event except the contact events: "
+	"clicked, unsubscribed, complained, suppression_created, suppression_deleted, dns_error, sending_type_changed, " +
+	"contact_created, contact_updated, contact_deleted, contact_added_to_list, contact_removed_from_list, " +
+	"contact_subscribed, contact_unsubscribed, contact_complained), separated by commas, or all for every event " +
+	"except the contact events: "
 
 // TestCreateRefusesAWrongEventsAnswerAsAnAnswer checks that an answer to the
 // events prompt that names something other than an event, or an event

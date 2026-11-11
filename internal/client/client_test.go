@@ -696,6 +696,28 @@ func TestClient_ListWebhooksSendsTheEnabledFilter(t *testing.T) {
 	assert.Equal(t, "true", query)
 }
 
+// TestClient_ListWebhooksSendsTheSendingTypeChangedFilter checks that the
+// list filter of sending_type_changed sends on_sending_type_changed alone.
+func TestClient_ListWebhooksSendsTheSendingTypeChangedFilter(t *testing.T) {
+	accountID := uuid.New()
+	eventFilters := url.Values{}
+	client, cleanup := newClientTestServer(t, accountID.String(), func(w http.ResponseWriter, r *http.Request) {
+		for key, values := range r.URL.Query() {
+			if strings.HasPrefix(key, "on_") {
+				eventFilters[key] = values
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	})
+	defer cleanup()
+
+	_, err := client.ListWebhooks(common.PaginationParams{}, nil, []string{"sending_type_changed"})
+
+	require.NoError(t, err)
+	assert.Equal(t, url.Values{"on_sending_type_changed": {"true"}}, eventFilters)
+}
+
 // TestClient_ListWebhooksFiltersByEachEvent checks that the list filter of
 // each webhook event sends its on_<name> query parameter alone, as true, and
 // that no two events send the same one.

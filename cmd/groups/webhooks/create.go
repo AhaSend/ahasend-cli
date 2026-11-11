@@ -33,7 +33,7 @@ none until "webhooks update" gives it some. --scope is global unless set: a
 global webhook receives the events of every domain; a scoped one only those
 of the domains given with --domains, which it requires.
 
---all-events selects every event except the contact events: the 13 events
+--all-events selects every event except the contact events: the 14 events
 any account can use. --all-contact-events selects the 8 contact events, and
 the two can be used together.
 
@@ -42,8 +42,8 @@ the two can be used together.
 --origins picks whose changes the contact and suppression events report:
 recipient (the contact or recipient, through an unsubscribe or a spam
 complaint), api, dashboard or system (AhaSend). Without it, the webhook gets
-them from every origin. Message events and dns_error have no origin and
-always reach it.
+them from every origin. Message events, dns_error and sending_type_changed
+have no origin and always reach it.
 
 The webhook URL must be publicly accessible and support HTTPS for production
 use. A webhook is enabled unless --enabled=false is set.`,
@@ -244,6 +244,7 @@ func setCreateEvents(req *requests.CreateWebhookRequest, settings map[string]boo
 	req.OnSuppressionCreated = settings["suppression_created"]
 	req.OnSuppressionDeleted = settings["suppression_deleted"]
 	req.OnDnsError = settings["dns_error"]
+	req.OnSendingTypeChanged = settings["sending_type_changed"]
 	req.OnContactCreated = settings["contact_created"]
 	req.OnContactUpdated = settings["contact_updated"]
 	req.OnContactDeleted = settings["contact_deleted"]
