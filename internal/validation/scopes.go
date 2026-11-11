@@ -13,9 +13,10 @@ type ScopeGroup struct {
 
 // ScopeGroups are the API key scopes the API accepts, grouped and ordered as
 // the API reference lists them. The API key commands and the sub-account API
-// key commands check and list scopes from this one list; a sub-account's key
-// cannot have the parent-only scopes (see IsParentOnlyScope). A scope ending
-// in {domain} takes one of the key's account's domains in its place, such as
+// key commands check and list scopes from this one list, and accept the
+// other names of scopeAliases too; a sub-account's key cannot have the
+// parent-only scopes (see IsParentOnlyScope). A scope ending in {domain}
+// takes one of the key's account's domains in its place, such as
 // messages:send:{example.com}.
 var ScopeGroups = []ScopeGroup{
 	{"Messages", []string{
@@ -49,7 +50,7 @@ var ScopeGroups = []ScopeGroup{
 		"smtp-credentials:write:all", "smtp-credentials:write:{domain}",
 		"smtp-credentials:delete:all", "smtp-credentials:delete:{domain}",
 	}},
-	{"Statistics", []string{"statistics-transactional:read:all", "statistics-transactional:read:{domain}"}},
+	{"Statistics", []string{"statistics:read:all", "statistics:read:{domain}"}},
 	{"API Keys", []string{"api-keys:read", "api-keys:write", "api-keys:delete"}},
 	{"Sub-Accounts", []string{
 		"sub-accounts:read", "sub-accounts:write", "sub-accounts:delete", "sub-accounts:suspend", "sub-accounts:usage",
@@ -59,23 +60,53 @@ var ScopeGroups = []ScopeGroup{
 	}},
 }
 
+// scopeAliases maps each form of a scope name that the API also accepts to
+// the same form of the name ScopeGroups lists. The API gives a key the same
+// access under either name, saves and returns a scope under the name it was
+// sent with, and refuses a request that holds one scope under both names.
+// The help and the completion list only the names of ScopeGroups.
+var scopeAliases = map[string]string{
+	"statistics-transactional:read:all":      "statistics:read:all",
+	"statistics-transactional:read:{domain}": "statistics:read:{domain}",
+}
+
 // domainPlaceholder ends a scope that takes a domain.
 const domainPlaceholder = "{domain}"
 
-// ValidateScope checks that scope, a value of --scope, is one of ScopeGroups,
-// with a domain name in place of {domain}. An unknown scope's error points to
-// the help of helpCommand, which lists the scopes.
+// listedScope returns scope under the name ScopeGroups lists: a scope of
+// scopeAliases, with its domain if it takes one, under the name it stands
+// for, and any other scope as it is.
+func listedScope(scope string) string {
+	for alias, listed := range scopeAliases {
+		prefix, takesDomain := strings.CutSuffix(alias, domainPlaceholder)
+		if !takesDomain {
+			if scope == alias {
+				return listed
+			}
+			continue
+		}
+		if rest, ok := strings.CutPrefix(scope, prefix+"{"); ok {
+			return strings.TrimSuffix(listed, domainPlaceholder) + "{" + rest
+		}
+	}
+	return scope
+}
+
+// ValidateScope checks that scope, a value of --scope, is one of ScopeGroups
+// or of scopeAliases, with a domain name in place of {domain}. An unknown
+// scope's error points to the help of helpCommand, which lists the scopes.
 func ValidateScope(scope, helpCommand string) error {
+	listed := listedScope(scope)
 	for _, group := range ScopeGroups {
 		for _, valid := range group.Scopes {
 			prefix, takesDomain := strings.CutSuffix(valid, domainPlaceholder)
 			if !takesDomain {
-				if scope == valid {
+				if listed == valid {
 					return nil
 				}
 				continue
 			}
-			rest, ok := strings.CutPrefix(scope, prefix+"{")
+			rest, ok := strings.CutPrefix(listed, prefix+"{")
 			if !ok {
 				continue
 			}
@@ -91,9 +122,12 @@ func ValidateScope(scope, helpCommand string) error {
 		fmt.Sprintf("not an API key scope; `%s --help` lists the scopes", helpCommand))
 }
 
-// CanonicalScope returns scope as the API compares scopes: the domain of a
-// scope that takes one in lower case and as scopeDomain reads it.
+// CanonicalScope returns scope as the API compares scopes: under the name
+// ScopeGroups lists, and the domain of a scope that takes one in lower case
+// and as scopeDomain reads it. It serves only to compare scopes; the CLI
+// sends each scope as it was given.
 func CanonicalScope(scope string) string {
+	scope = listedScope(scope)
 	prefix, domain, found := strings.Cut(scope, "{")
 	if !found {
 		return scope

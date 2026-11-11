@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
+	"github.com/AhaSend/ahasend-cli/internal/validation"
 )
 
 // complete runs Cobra's hidden __complete command for args, the last one
@@ -106,18 +107,30 @@ func TestFixedValueFlagsCompleteTheValuesTheyAccept(t *testing.T) {
 
 // TestScopeCompletesTheScopesOfTheKeysOwner checks that --scope of the API
 // key commands completes the scopes a key can have, without the parent-only
-// ones for a sub-account's key.
+// ones for a sub-account's key, and no other name the API accepts for one of
+// them.
 func TestScopeCompletesTheScopesOfTheKeysOwner(t *testing.T) {
+	var accountScopes, subAccountScopes []string
+	for _, group := range validation.ScopeGroups {
+		for _, scope := range group.Scopes {
+			accountScopes = append(accountScopes, scope)
+			if !validation.IsParentOnlyScope(scope) {
+				subAccountScopes = append(subAccountScopes, scope)
+			}
+		}
+	}
 	for _, args := range [][]string{{"apikeys", "create"}, {"apikeys", "update", rawTestID}} {
 		completions, directive := complete(t, append(args, "--scope", "")...)
-		assert.Contains(t, completions, "messages:send:all")
+		assert.Equal(t, accountScopes, completions)
 		assert.Contains(t, completions, "sub-accounts:read")
+		assert.NotContains(t, strings.Join(completions, " "), "statistics-transactional")
 		assert.Equal(t, noFiles, directive)
 	}
 	for _, args := range [][]string{{"subaccounts", "api-keys", "create", rawTestID}, {"subaccounts", "api-keys", "update", rawTestID, rawTestID}} {
 		completions, _ := complete(t, append(args, "--scope", "")...)
-		assert.Contains(t, completions, "messages:send:{domain}")
+		assert.Equal(t, subAccountScopes, completions)
 		assert.NotContains(t, completions, "sub-accounts:read")
+		assert.NotContains(t, strings.Join(completions, " "), "statistics-transactional")
 	}
 }
 

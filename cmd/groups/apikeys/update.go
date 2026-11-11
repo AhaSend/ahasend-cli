@@ -37,7 +37,7 @@ API key and delete the old one.
   ahasend apikeys update fcb3f3bc-4ac8-4330-948d-1671fcf9a768 \
     --scope messages:send:all \
     --scope messages:read:all \
-    --scope statistics-transactional:read:all
+    --scope statistics:read:all
 
   # Update both label and scopes
   ahasend apikeys update fcb3f3bc-4ac8-4330-948d-1671fcf9a768 \

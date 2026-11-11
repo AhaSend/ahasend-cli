@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ func TestValidateScope(t *testing.T) {
 		{name: "smtp-credentials read all", scope: "smtp-credentials:read:all", wantErr: false},
 		{name: "smtp-credentials write all", scope: "smtp-credentials:write:all", wantErr: false},
 		{name: "smtp-credentials delete all", scope: "smtp-credentials:delete:all", wantErr: false},
-		{name: "statistics read all", scope: "statistics-transactional:read:all", wantErr: false},
+		{name: "statistics read all", scope: "statistics:read:all", wantErr: false},
 		{name: "api-keys read", scope: "api-keys:read", wantErr: false},
 		{name: "api-keys write", scope: "api-keys:write", wantErr: false},
 		{name: "api-keys delete", scope: "api-keys:delete", wantErr: false},
@@ -72,7 +73,15 @@ func TestValidateScope(t *testing.T) {
 		{name: "webhooks delete domain", scope: "webhooks:delete:{example.com}", wantErr: false},
 		{name: "routes read domain", scope: "routes:read:{example.com}", wantErr: false},
 		{name: "smtp-credentials read domain", scope: "smtp-credentials:read:{example.com}", wantErr: false},
-		{name: "statistics read domain", scope: "statistics-transactional:read:{example.com}", wantErr: false},
+		{name: "statistics read domain", scope: "statistics:read:{example.com}", wantErr: false},
+
+		// The other name of the statistics scopes, in both forms
+		{name: "statistics alias read all", scope: "statistics-transactional:read:all", wantErr: false},
+		{name: "statistics alias read domain", scope: "statistics-transactional:read:{example.com}", wantErr: false},
+		{name: "statistics alias without a form", scope: "statistics-transactional:read", wantErr: true},
+		{name: "statistics alias empty domain", scope: "statistics-transactional:read:{}", wantErr: true},
+		{name: "statistics alias unknown operation", scope: "statistics-transactional:write:all", wantErr: true},
+		{name: "statistics without a form", scope: "statistics:read", wantErr: true},
 
 		// Invalid scopes still fail after extraction
 		{name: "empty scope", scope: "", wantErr: true},
@@ -122,7 +131,7 @@ var specScopes = []string{
 	"smtp-credentials:read:all", "smtp-credentials:read:{domain}",
 	"smtp-credentials:write:all", "smtp-credentials:write:{domain}",
 	"smtp-credentials:delete:all", "smtp-credentials:delete:{domain}",
-	"statistics-transactional:read:all", "statistics-transactional:read:{domain}",
+	"statistics:read:all", "statistics:read:{domain}",
 	"api-keys:read", "api-keys:write", "api-keys:delete",
 	"sub-accounts:read", "sub-accounts:write", "sub-accounts:delete", "sub-accounts:suspend", "sub-accounts:usage",
 	"sub-account-api-keys:read", "sub-account-api-keys:write", "sub-account-api-keys:delete",
@@ -150,4 +159,58 @@ func TestValidateScopeNamesTheBadDomain(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, `invalid --scope value "messages:send:{not a domain}": "not a domain" is not a domain name`, err.Error())
+}
+
+// TestValidateScopeNamesTheBadDomainUnderEitherStatisticsName checks that a
+// bad domain is refused with the same message under both names of the
+// statistics scope, the scope named as it was given.
+func TestValidateScopeNamesTheBadDomainUnderEitherStatisticsName(t *testing.T) {
+	for _, scope := range []string{"statistics:read:{not a domain}", "statistics-transactional:read:{not a domain}"} {
+		t.Run(scope, func(t *testing.T) {
+			err := ValidateScope(scope, "ahasend apikeys create")
+
+			require.Error(t, err)
+			assert.Equal(t, `invalid --scope value "`+scope+`": "not a domain" is not a domain name`, err.Error())
+		})
+	}
+}
+
+// TestCanonicalScopeComparesBothStatisticsNamesAsOne checks that a scope
+// under either name of the statistics scope, in the same form and with the
+// same domain, compares as one scope.
+func TestCanonicalScopeComparesBothStatisticsNamesAsOne(t *testing.T) {
+	tests := []struct {
+		scope string
+		want  string
+	}{
+		{"messages:send:all", "messages:send:all"},
+		{"messages:send:{Example.com.}", "messages:send:{example.com}"},
+		{"statistics:read:all", "statistics:read:all"},
+		{"statistics-transactional:read:all", "statistics:read:all"},
+		{"statistics:read:{Example.com}", "statistics:read:{example.com}"},
+		{"statistics-transactional:read:{Example.com.}", "statistics:read:{example.com}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.scope, func(t *testing.T) {
+			assert.Equal(t, tt.want, CanonicalScope(tt.scope))
+		})
+	}
+}
+
+// TestScopeAliasesStandForListedScopesOfTheSameForm checks that each name of
+// scopeAliases is not in ScopeGroups and stands for a scope that is, both
+// taking a domain or neither.
+func TestScopeAliasesStandForListedScopesOfTheSameForm(t *testing.T) {
+	listed := map[string]bool{}
+	for _, group := range ScopeGroups {
+		for _, scope := range group.Scopes {
+			listed[scope] = true
+		}
+	}
+	for alias, scope := range scopeAliases {
+		assert.False(t, listed[alias], "%s is listed", alias)
+		assert.True(t, listed[scope], "%s is not listed", scope)
+		assert.Equal(t, strings.HasSuffix(alias, domainPlaceholder), strings.HasSuffix(scope, domainPlaceholder),
+			"%s and %s have different forms", alias, scope)
+	}
 }

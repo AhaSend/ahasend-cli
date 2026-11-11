@@ -32,7 +32,7 @@ Use these commands to create, list, update, and delete API keys as needed.`,
 
   # Create a limited scope API key for analytics
   ahasend apikeys create --label "Analytics Only" \
-    --scope statistics-transactional:read:all \
+    --scope statistics:read:all \
     --scope messages:read:all
 
   # Create domain-specific API key

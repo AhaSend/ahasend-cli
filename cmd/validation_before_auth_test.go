@@ -157,6 +157,16 @@ var localValidationErrors = []struct {
 	// The API drops a trailing dot of a scope's domain
 	{[]string{"apikeys", "create", "--label", "ci", "--scope", "messages:send:{example.com.}", "--scope", "messages:send:{example.com}"},
 		`invalid --scope value "messages:send:{example.com}": given more than once`},
+	// The API compares the two names of the statistics scope as one scope
+	{[]string{"apikeys", "create", "--label", "ci", "--scope", "statistics-transactional:read:all", "--scope", "statistics:read:all"},
+		`invalid --scope value "statistics:read:all": given more than once`},
+	{[]string{"apikeys", "update", rawTestID, "--scope", "statistics:read:{example.com}", "--scope", "statistics-transactional:read:{Example.com.}"},
+		`invalid --scope value "statistics-transactional:read:{Example.com.}": given more than once`},
+	{[]string{"subaccounts", "api-keys", "create", rawTestID, "--label", "ci", "--scope", "statistics:read:all,statistics-transactional:read:all"},
+		`invalid --scope value "statistics-transactional:read:all": given more than once`},
+	{[]string{"subaccounts", "api-keys", "update", rawTestID, rawTestID,
+		"--scope", "statistics-transactional:read:{example.com}", "--scope", "statistics:read:{example.com}"},
+		`invalid --scope value "statistics:read:{example.com}": given more than once`},
 	// The API refuses the scopes that manage sub-accounts to a sub-account's key
 	{[]string{"subaccounts", "api-keys", "create", rawTestID, "--label", "ci", "--scope", "sub-accounts:read"},
 		`invalid --scope value "sub-accounts:read": a sub-account's API key cannot have it`},
@@ -406,8 +416,8 @@ func TestEveryIdempotencyKeyIsCheckedBeforeAuthenticating(t *testing.T) {
 }
 
 // TestEveryScopeCommandListsEveryScope checks that the help of every command
-// that takes --scope lists every scope it accepts, and that a bad scope's
-// error points to that help.
+// that takes --scope lists every scope it accepts, and no other name the API
+// accepts for one of them, and that a bad scope's error points to that help.
 func TestEveryScopeCommandListsEveryScope(t *testing.T) {
 	checked := 0
 	for _, leaf := range leafCommands() {
@@ -429,6 +439,10 @@ func TestEveryScopeCommandListsEveryScope(t *testing.T) {
 					assert.Contains(t, leaf.Long, scope)
 				}
 			}
+			help, _, code := runRoot(t, append(strings.Fields(path), "--help")...)
+			require.Equal(t, 0, code)
+			assert.Contains(t, help, leaf.Long)
+			assert.NotContains(t, help, "statistics-transactional")
 
 			args := slices.Concat(strings.Fields(path), slices.Repeat([]string{rawTestID}, len(cmdutil.UsageArguments(leaf))),
 				[]string{"--label", "ci", "--scope", "messages:send"})

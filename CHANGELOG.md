@@ -17,6 +17,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
   domains. The CLI uses AhaSend Go SDK v0.7.0.
 - The Chocolatey package names its copyright holder, AhaSend B.V.
 
+### Changed
+
+- The statistics scopes are `statistics:read:all` and
+  `statistics:read:{domain}`, which also cover `stats emails`. The help and
+  the shell completion of `apikeys create` and `update` and of
+  `subaccounts api-keys create` and `update` name them, and so do the
+  examples of the `apikeys` commands. These commands still accept
+  `statistics-transactional:read:all` and
+  `statistics-transactional:read:{domain}`, which give the same access, and
+  send each scope as it is given. One scope given under both names is
+  refused as given more than once.
+
 ### Fixed
 
 - The Chocolatey package page holds no email address, which Chocolatey's
