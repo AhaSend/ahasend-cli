@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -22,13 +23,30 @@ func TestParseEventsListsTheEventsForAnUnknownValue(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, `"sent" is not an event; --events must be one of:`+" reception, delivered, transient_error, "+
 		"failed, bounced, suppressed, opened, clicked, unsubscribed, complained, suppression_created, "+
-		"suppression_deleted, dns_error, contact_created, contact_updated, contact_deleted, contact_added_to_list, "+
-		"contact_removed_from_list, contact_subscribed, contact_unsubscribed, contact_complained, or the same events as "+
+		"suppression_deleted, dns_error, sending_type_changed, contact_created, contact_updated, contact_deleted, "+
+		"contact_added_to_list, contact_removed_from_list, contact_subscribed, contact_unsubscribed, "+
+		"contact_complained, or the same events as "+
 		"message.reception, message.delivered, message.transient_error, message.failed, message.bounced, "+
 		"message.suppressed, message.opened, message.clicked, message.unsubscribed, message.complained, "+
-		"suppression.created, suppression.deleted, domain.dns_error, contact.created, contact.updated, "+
-		"contact.deleted, contact.added_to_list, contact.removed_from_list, contact.subscribed, "+
+		"suppression.created, suppression.deleted, domain.dns_error, domain.sending_type_changed, contact.created, "+
+		"contact.updated, contact.deleted, contact.added_to_list, contact.removed_from_list, contact.subscribed, "+
 		"contact.unsubscribed, contact.complained", err.Error())
+}
+
+// TestParseEventsTakesTheSendingTypeChangedEvent checks that the event of a
+// domain's sending type change parses by its Name and by its Type, in any
+// case, sits after dns_error, and is not a contact event.
+func TestParseEventsTakesTheSendingTypeChangedEvent(t *testing.T) {
+	for _, value := range []string{"sending_type_changed", "domain.sending_type_changed", "Domain.Sending_Type_Changed"} {
+		t.Run(value, func(t *testing.T) {
+			events, err := ParseEvents([]string{value})
+
+			require.NoError(t, err)
+			assert.Equal(t, []Event{{Name: "sending_type_changed", Type: "domain.sending_type_changed"}}, events)
+		})
+	}
+	names := EventNames(Events)
+	assert.Equal(t, "sending_type_changed", names[slices.Index(names, "dns_error")+1])
 }
 
 func TestParseEventsTakesTheContactEvents(t *testing.T) {
@@ -40,7 +58,7 @@ func TestParseEventsTakesTheContactEvents(t *testing.T) {
 
 // TestEventsMarkTheEightContactEvents checks that the contact events, which
 // need the marketing features, are the eight contact.* types, and that the
-// other 13 are the ones any account can use.
+// other 14 are the ones any account can use.
 func TestEventsMarkTheEightContactEvents(t *testing.T) {
 	var contact, other []string
 	for _, event := range Events {
@@ -52,7 +70,7 @@ func TestEventsMarkTheEightContactEvents(t *testing.T) {
 		assert.Equal(t, event.Contact, strings.HasPrefix(event.Type, "contact."), event.Type)
 	}
 	assert.Len(t, contact, 8)
-	assert.Len(t, other, 13)
+	assert.Len(t, other, 14)
 }
 
 func TestSelectEventsAddsTheEventsOfTheAllFlagsInTheOrderOfEvents(t *testing.T) {

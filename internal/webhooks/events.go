@@ -37,6 +37,7 @@ var Events = []Event{
 	{Name: "suppression_created", Type: "suppression.created"},
 	{Name: "suppression_deleted", Type: "suppression.deleted"},
 	{Name: "dns_error", Type: "domain.dns_error"},
+	{Name: "sending_type_changed", Type: "domain.sending_type_changed"},
 	{Name: "contact_created", Type: "contact.created", Contact: true},
 	{Name: "contact_updated", Type: "contact.updated", Contact: true},
 	{Name: "contact_deleted", Type: "contact.deleted", Contact: true},

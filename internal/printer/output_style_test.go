@@ -686,6 +686,36 @@ func TestFormatWebhookEventsNamesEachEventAlone(t *testing.T) {
 	}
 }
 
+// TestWebhookViewsShowTheSendingTypeChangedEvent checks that every view of a
+// webhook with dns_error and sending_type_changed on shows the two events,
+// in the order of webhooks.Events, in table, plain and CSV output.
+func TestWebhookViewsShowTheSendingTypeChangedEvent(t *testing.T) {
+	webhook := styleWebhook()
+	webhook.OnDelivered, webhook.OnContactCreated = false, false
+	webhook.OnDNSError, webhook.OnSendingTypeChanged = true, true
+	views := map[string]func(h ResponseHandler) error{
+		"webhook":         func(h ResponseHandler) error { return h.HandleSingleWebhook(&webhook, SingleConfig{}) },
+		"created webhook": func(h ResponseHandler) error { return h.HandleCreateWebhook(&webhook, ResultConfig{}) },
+		"updated webhook": func(h ResponseHandler) error { return h.HandleUpdateWebhook(&webhook, ResultConfig{}) },
+		"webhook list": func(h ResponseHandler) error {
+			return h.HandleWebhookList(&responses.PaginatedWebhooksResponse{Data: []responses.Webhook{webhook}}, ListConfig{})
+		},
+	}
+	const events = "dns_error, sending_type_changed"
+	for name, render := range views {
+		t.Run(name, func(t *testing.T) {
+			if name == "webhook list" {
+				assert.Contains(t, renderWith(t, "table", render), events)
+			} else {
+				assert.Contains(t, tableCells(renderWith(t, "table", render)), []string{"Events", events})
+			}
+			assert.Contains(t, renderWith(t, "plain", render), "\nEvents: "+events+"\n")
+			_, rows := readCSV(t, renderWith(t, "csv", render))
+			assert.Equal(t, events, rows[0]["events"])
+		})
+	}
+}
+
 // TestWebhookOriginsShowAllWhenTheAPIReturnsNone checks the Origins field of
 // each webhook view: a webhook whose origins are null, every origin, shows
 // all in table and plain output and an empty cell in CSV, and one with two

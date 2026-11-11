@@ -69,9 +69,10 @@ func TestListenWithAWebhookIDPrintsNoNote(t *testing.T) {
 	assert.NotContains(t, stderr, "Note:")
 }
 
-// TestListenTakesAContactEventFilter checks that --events takes a contact
-// event, so listen shows that event and drops a message event.
-func TestListenTakesAContactEventFilter(t *testing.T) {
+// listenSlim runs webhooks listen with --slim-output and args on a stream
+// that sends messages, then closes normally, and returns its stdout.
+func listenSlim(t *testing.T, messages []string, args ...string) string {
+	t.Helper()
 	upgrader := websocket.Upgrader{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -79,10 +80,7 @@ func TestListenTakesAContactEventFilter(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		for _, message := range []string{
-			`{"type":"event","timestamp":0,"event":{"data":{"type":"message.delivered","recipient":"a@example.com"}}}`,
-			`{"type":"event","timestamp":0,"event":{"data":{"type":"contact.created","data":{"email":"b@example.com"}}}}`,
-		} {
+		for _, message := range messages {
 			_ = conn.WriteMessage(websocket.TextMessage, []byte(message))
 		}
 		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
@@ -102,9 +100,40 @@ func TestListenTakesAContactEventFilter(t *testing.T) {
 	testutil.InjectClient(t, mockClient)
 
 	stdout, _, err := testutil.RunCommand(t, NewListenCommand(), "plain", "",
-		"--webhook-id", testWebhookID, "--events", "contact.created", "--slim-output")
-
+		append([]string{"--webhook-id", testWebhookID, "--slim-output"}, args...)...)
 	require.NoError(t, err)
+	return stdout
+}
+
+// TestListenTakesAContactEventFilter checks that --events takes a contact
+// event, so listen shows that event and drops a message event.
+func TestListenTakesAContactEventFilter(t *testing.T) {
+	stdout := listenSlim(t, []string{
+		`{"type":"event","timestamp":0,"event":{"data":{"type":"message.delivered","recipient":"a@example.com"}}}`,
+		`{"type":"event","timestamp":0,"event":{"data":{"type":"contact.created","data":{"email":"b@example.com"}}}}`,
+	}, "--events", "contact.created")
+
 	assert.Contains(t, stdout, "] contact.created\n")
 	assert.NotContains(t, stdout, "message.delivered")
+}
+
+// TestListenFiltersBySendingTypeChanged checks that --events takes the
+// sending type event by its Name and by its Type, so listen shows that event
+// and drops the other domain event and a message event.
+func TestListenFiltersBySendingTypeChanged(t *testing.T) {
+	messages := []string{
+		`{"type":"event","timestamp":0,"event":{"data":{"type":"message.delivered","recipient":"a@example.com"}}}`,
+		`{"type":"event","timestamp":0,"event":{"data":{"type":"domain.dns_error","data":{"domain":"example.com"}}}}`,
+		`{"type":"event","timestamp":0,"event":{"data":{"type":"domain.sending_type_changed","data":{"domain":"example.com",` +
+			`"previous_sending_type":"transactional","sending_type":"marketing","source":"automatic"}}}}`,
+	}
+	for _, value := range []string{"sending_type_changed", "domain.sending_type_changed"} {
+		t.Run(value, func(t *testing.T) {
+			stdout := listenSlim(t, messages, "--events", value)
+
+			assert.Contains(t, stdout, "] domain.sending_type_changed\n")
+			assert.NotContains(t, stdout, "domain.dns_error")
+			assert.NotContains(t, stdout, "message.delivered")
+		})
+	}
 }

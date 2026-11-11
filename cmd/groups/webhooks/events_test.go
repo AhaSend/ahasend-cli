@@ -2,12 +2,15 @@ package webhooks
 
 import (
 	"encoding/json"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/AhaSend/ahasend-go/models/requests"
+	"github.com/AhaSend/ahasend-go/models/responses"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +70,7 @@ func contactEvents() []webhooks.Event {
 	return slices.DeleteFunc(slices.Clone(webhooks.Events), func(event webhooks.Event) bool { return !event.Contact })
 }
 
-// otherEvents returns the 13 events of webhooks.Events that any account can
+// otherEvents returns the 14 events of webhooks.Events that any account can
 // use.
 func otherEvents() []webhooks.Event {
 	return slices.DeleteFunc(slices.Clone(webhooks.Events), func(event webhooks.Event) bool { return event.Contact })
@@ -119,18 +122,18 @@ func TestCreateAndUpdateTakeEachEventByNameOrType(t *testing.T) {
 }
 
 // TestCreateAndUpdateWithAllEventsSetEveryNonContactEvent checks that
-// --all-events turns on the 13 events any account can use and sends the
+// --all-events turns on the 14 events any account can use and sends the
 // contact events as false, that --all-contact-events does the reverse, and
-// that the two together turn on all 21.
+// that the two together turn on all 22.
 func TestCreateAndUpdateWithAllEventsSetEveryNonContactEvent(t *testing.T) {
 	tests := []struct {
 		args  []string
 		want  []webhooks.Event
 		count int
 	}{
-		{[]string{"--all-events"}, otherEvents(), 13},
+		{[]string{"--all-events"}, otherEvents(), 14},
 		{[]string{"--all-contact-events"}, contactEvents(), 8},
-		{[]string{"--all-events", "--all-contact-events"}, webhooks.Events, 21},
+		{[]string{"--all-events", "--all-contact-events"}, webhooks.Events, 22},
 	}
 	for _, tt := range tests {
 		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
@@ -147,7 +150,7 @@ func TestCreateAndUpdateWithAllEventsSetEveryNonContactEvent(t *testing.T) {
 }
 
 // TestUpdateEventFlagsSendTheWholeSetOfEvents checks that the event flags of
-// webhooks update send all 21 settings, so every event they do not name is
+// webhooks update send all 22 settings, so every event they do not name is
 // turned off, and that a change without them sends none.
 func TestUpdateEventFlagsSendTheWholeSetOfEvents(t *testing.T) {
 	delivered := updatedRequest(t, "--events", "delivered")
@@ -182,7 +185,8 @@ func TestTriggerSendsTheEventTypesTheEndpointTakes(t *testing.T) {
 		triggeredEvents(t, "--events", "delivered", "--events", "message.opened"))
 	assert.Equal(t, []string{"message.reception", "message.delivered", "message.transient_error", "message.failed",
 		"message.bounced", "message.suppressed", "message.opened", "message.clicked", "message.unsubscribed",
-		"message.complained", "suppression.created", "suppression.deleted", "domain.dns_error"},
+		"message.complained", "suppression.created", "suppression.deleted", "domain.dns_error",
+		"domain.sending_type_changed"},
 		triggeredEvents(t, "--all-events"))
 	assert.Equal(t, []string{"contact.created", "contact.updated", "contact.deleted", "contact.added_to_list",
 		"contact.removed_from_list", "contact.subscribed", "contact.unsubscribed", "contact.complained"},
@@ -207,5 +211,137 @@ func TestEventCommandsSayWhatTheContactEventsNeed(t *testing.T) {
 			"with the contacts:read scope, and lists:read as well for the list, subscribe, unsubscribe and "+
 			"complaint contact events. The API checks the key for every event an enabled webhook has on, so a "+
 			"change to such a webhook needs these scopes even when it names no event.", cmd.Name())
+	}
+}
+
+// TestCreateSendsTheSendingTypeChangedSetting checks that create sends
+// on_sending_type_changed as true when the event flags select the event, by
+// its Name, its Type or --all-events, and as false when they do not.
+func TestCreateSendsTheSendingTypeChangedSetting(t *testing.T) {
+	tests := []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"--events", "sending_type_changed"}, true},
+		{[]string{"--events", "domain.sending_type_changed"}, true},
+		{[]string{"--all-events"}, true},
+		{[]string{"--events", "dns_error"}, false},
+		{[]string{"--all-contact-events"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
+			sent := createdRequest(t, tt.args...)
+
+			assert.Equal(t, tt.want, sent.OnSendingTypeChanged)
+			assert.Equal(t, tt.want, testutil.WireJSON(t, sent)["on_sending_type_changed"])
+		})
+	}
+}
+
+// TestUpdateSendsTheSendingTypeChangedSettingAsTheFlagsNameIt checks that
+// the event flags of update send on_sending_type_changed with the rest of
+// the webhook's events, true when they name the event and false when they do
+// not, as they send dns_error, and that a change without them leaves it out,
+// so the API keeps the stored value.
+func TestUpdateSendsTheSendingTypeChangedSettingAsTheFlagsNameIt(t *testing.T) {
+	tests := []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"--events", "sending_type_changed"}, true},
+		{[]string{"--events", "delivered,domain.sending_type_changed"}, true},
+		{[]string{"--all-events"}, true},
+		{[]string{"--events", "delivered"}, false},
+		{[]string{"--all-contact-events"}, false},
+		{[]string{"--clear-events"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
+			sent := updatedRequest(t, tt.args...)
+
+			require.NotNil(t, sent.OnSendingTypeChanged)
+			assert.Equal(t, tt.want, *sent.OnSendingTypeChanged)
+			require.NotNil(t, sent.OnDnsError)
+			assert.Len(t, eventSettingsSent(t, sent), len(webhooks.Events))
+		})
+	}
+
+	sent := updatedRequest(t, "--name", "Events")
+	assert.Nil(t, sent.OnSendingTypeChanged)
+	assert.NotContains(t, testutil.WireJSON(t, sent), "on_sending_type_changed")
+}
+
+func TestListEventsFiltersBySendingTypeChanged(t *testing.T) {
+	for _, value := range []string{"sending_type_changed", "domain.sending_type_changed"} {
+		t.Run(value, func(t *testing.T) {
+			mockClient := &mocks.MockClient{}
+			mockClient.On("ListWebhooks", common.PaginationParams{}, (*bool)(nil), []string{"sending_type_changed"}).
+				Return(mocks.APIResponse[responses.PaginatedWebhooksResponse](t, `{"object":"list","data":[],"pagination":{"has_more":false}}`), nil)
+			testutil.InjectClient(t, mockClient)
+
+			_, _, err := testutil.RunCommand(t, NewListCommand(), "plain", "", "--events", value)
+
+			require.NoError(t, err)
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+// sendingTypeWebhookBody is a webhook with dns_error and
+// sending_type_changed on.
+const sendingTypeWebhookBody = `{"object":"webhook","id":"` + testWebhookID + `","name":"Domains",` +
+	`"url":"https://example.com/hook","enabled":true,"on_delivered":false,"on_dns_error":true,` +
+	`"on_sending_type_changed":true,"on_contact_created":false}`
+
+// TestGetShowsTheSendingTypeChangedEvent checks that webhooks get shows
+// sending_type_changed among the events after dns_error in table, plain and
+// CSV output, and prints the API's on_sending_type_changed as received in
+// JSON output.
+func TestGetShowsTheSendingTypeChangedEvent(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("GetWebhook", uuid.MustParse(testWebhookID)).
+		Return(mocks.APIResponse[responses.Webhook](t, sendingTypeWebhookBody), nil)
+	testutil.InjectClient(t, mockClient)
+
+	for _, format := range []string{"json", "table", "plain", "csv"} {
+		t.Run(format, func(t *testing.T) {
+			stdout, _, err := testutil.RunCommand(t, NewGetCommand(), format, "", testWebhookID)
+
+			require.NoError(t, err)
+			switch format {
+			case "json":
+				assert.Equal(t, testutil.IndentedJSON(t, sendingTypeWebhookBody), stdout)
+			case "plain":
+				assert.Contains(t, stdout, "\nEvents: dns_error, sending_type_changed\n")
+			default:
+				assert.Contains(t, stdout, "dns_error, sending_type_changed")
+			}
+		})
+	}
+}
+
+func TestTriggerSendsTheSendingTypeChangedType(t *testing.T) {
+	for _, value := range []string{"sending_type_changed", "domain.sending_type_changed"} {
+		assert.Equal(t, []string{"domain.sending_type_changed"}, triggeredEvents(t, "--events", value), value)
+	}
+	assert.Contains(t, triggeredEvents(t, "--all-events"), "domain.sending_type_changed")
+	assert.NotContains(t, triggeredEvents(t, "--all-contact-events"), "domain.sending_type_changed")
+}
+
+// TestHelpCountsOfEventsMatchTheEvents checks that every count of events in
+// the help of the commands that select events matches webhooks.Events.
+func TestHelpCountsOfEventsMatchTheEvents(t *testing.T) {
+	counts := map[string]int{
+		"events any account can use": len(otherEvents()),
+		"contact events":             len(contactEvents()),
+	}
+	count := regexp.MustCompile(`\b(\d+) (events any account can use|contact events)\b`)
+	for _, cmd := range []*cobra.Command{NewCreateCommand(), NewUpdateCommand(), NewTriggerCommand()} {
+		long := strings.Join(strings.Fields(cmd.Long), " ")
+		matches := count.FindAllStringSubmatch(long, -1)
+		require.NotEmpty(t, matches, cmd.Name())
+		for _, match := range matches {
+			assert.Equal(t, strconv.Itoa(counts[match[2]]), match[1], "%s: %q", cmd.Name(), match[0])
+		}
 	}
 }
