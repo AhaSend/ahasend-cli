@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-11
+
+This release adds `stats emails`, for email counts of any period, the
+`sending_type_changed` webhook event, and names the statistics scopes
+`statistics:read`.
+
 ### Breaking changes
 
 - The event flags of `webhooks update` name the webhook's whole set of 22
@@ -427,7 +433,8 @@ on stderr
 Notes for v0.2.0 and earlier are on the
 [GitHub releases page](https://github.com/AhaSend/ahasend-cli/releases).
 
-[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.2.0...v0.3.0
