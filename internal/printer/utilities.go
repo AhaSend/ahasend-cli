@@ -260,6 +260,7 @@ func formatWebhookEvents(webhook *responses.Webhook) string {
 		"suppression_created":       webhook.OnSuppressionCreated,
 		"suppression_deleted":       webhook.OnSuppressionDeleted,
 		"dns_error":                 webhook.OnDNSError,
+		"sending_type_changed":      webhook.OnSendingTypeChanged,
 		"contact_created":           webhook.OnContactCreated,
 		"contact_updated":           webhook.OnContactUpdated,
 		"contact_deleted":           webhook.OnContactDeleted,

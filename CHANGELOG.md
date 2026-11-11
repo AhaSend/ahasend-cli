@@ -9,17 +9,32 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.5.0] - 2026-11-11
 
-This release adds `stats emails`, for email counts of any period, and names
-the statistics scopes `statistics:read`.
+This release adds `stats emails`, for email counts of any period, the
+`sending_type_changed` webhook event, and names the statistics scopes
+`statistics:read`.
+
+### Breaking changes
+
+- The event flags of `webhooks update` name the webhook's whole set of 22
+  events, `sending_type_changed` included, so an event flag that does not
+  select it, such as `--events delivered`, turns it off, also when it was
+  turned on in the dashboard.
 
 ### Added
 
+- The webhook commands take the `sending_type_changed` event
+  (`domain.sending_type_changed`), which reports that the sending type of a
+  domain changed between transactional and marketing. Any account can use
+  it. `--all-events` of `webhooks create`, `update` and `trigger` selects it,
+  `webhooks list --events` and `webhooks listen --events` filter by it, and
+  the views of a webhook show it among their events.
+- The CLI uses AhaSend Go SDK v0.8.0.
 - [`stats emails`](USAGE.mdx#ahasend-stats-emails) shows email counts of any
   period in the account's history, beyond the message metadata retention
   period, by hour, day, week or month: received, delivered, bounced,
   suppressed, complaints, deferred, opened and clicked. `--breakdown domain`
   shows the counts of each domain, and the command fetches every page of
-  domains. The CLI uses AhaSend Go SDK v0.7.0.
+  domains.
 - The Chocolatey package names its copyright holder, AhaSend B.V.
 
 ### Changed

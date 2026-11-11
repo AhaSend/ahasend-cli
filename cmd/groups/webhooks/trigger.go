@@ -27,7 +27,7 @@ particularly useful during development and integration testing.
 
 The webhook ID can be found using the 'ahasend webhooks list' command.
 
---all-events triggers every event except the contact events: the 13 events
+--all-events triggers every event except the contact events: the 14 events
 any account can use. --all-contact-events triggers the 8 contact events, and
 the two can be used together.
 

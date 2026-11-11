@@ -462,6 +462,8 @@ func setWebhookEventFilter(params *api.GetWebhooksParams, name string) error {
 		params.OnSuppressionDeleted = &on
 	case "dns_error":
 		params.OnDnsError = &on
+	case "sending_type_changed":
+		params.OnSendingTypeChanged = &on
 	case "contact_created":
 		params.OnContactCreated = &on
 	case "contact_updated":

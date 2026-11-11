@@ -1,5 +1,5 @@
-github.com/AhaSend/ahasend-go v0.7.0 h1:/n250dOPQsPhAPTqdtS/TATcQBip1TafIfWSDrrQ3MI=
-github.com/AhaSend/ahasend-go v0.7.0/go.mod h1:XYkdqhHJQZQqNduxsTxEUp1oxK3P3UbjteBCArii2AU=
+github.com/AhaSend/ahasend-go v0.8.0 h1:HnD5y8HgsiWd7t79aVQ3XOVbi1IfhvTd0LDqp6v+GnM=
+github.com/AhaSend/ahasend-go v0.8.0/go.mod h1:XYkdqhHJQZQqNduxsTxEUp1oxK3P3UbjteBCArii2AU=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/clipperhouse/displaywidth v0.10.0 h1:GhBG8WuerxjFQQYeuZAeVTuyxuX+UraiZGD4HJQ3Y8g=
