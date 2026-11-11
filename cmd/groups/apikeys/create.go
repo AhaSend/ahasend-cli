@@ -42,7 +42,7 @@ works from any IP.`,
   # Create a read-only key for analytics
   ahasend apikeys create \
     --label "Analytics Dashboard" \
-    --scope statistics-transactional:read:all \
+    --scope statistics:read:all \
     --scope messages:read:all
 
   # Create a domain-restricted key

@@ -174,10 +174,10 @@ func ReadAPIKeyUpdate(cmd *cobra.Command, owner KeyOwner) (requests.UpdateAPIKey
 	return req, nil
 }
 
-// readScopes returns the values of the --scope flag, or nil when it was not
-// set, after checking each one is a valid scope for a key of owner given
-// once: the API refuses a scope given twice, the domains of two scopes
-// compared as the API compares them.
+// readScopes returns the values of the --scope flag as they were given, or
+// nil when it was not set, after checking each one is a valid scope for a key
+// of owner given once: the API refuses a scope given twice, two scopes
+// compared as the API compares them (see validation.CanonicalScope).
 func readScopes(cmd *cobra.Command, owner KeyOwner) ([]string, error) {
 	scopes, err := ReadRepeatable(cmd, "scope", "")
 	if err != nil {

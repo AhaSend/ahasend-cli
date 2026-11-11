@@ -5095,7 +5095,7 @@ which command needs which of these scopes, and
 - `suppressions:read/write/delete/wipe` - Manage suppression lists
 - `routes:read:all/write:all/delete:all` - Manage email routing
 - `smtp-credentials:read:all/write:all/delete:all` - Manage SMTP credentials
-- `statistics-transactional:read:all` - View email statistics
+- `statistics:read:all` - View email statistics
 - `api-keys:read/write/delete` - Manage API keys
 
 **Examples:**
@@ -5104,7 +5104,7 @@ which command needs which of these scopes, and
 # Read-only analytics key
 ahasend apikeys create \
   --label "Analytics Dashboard" \
-  --scope statistics-transactional:read:all \
+  --scope statistics:read:all \
   --scope messages:read:all
 
 # Domain-specific sending key
