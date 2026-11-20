@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AhaSend/ahasend-go/api"
+	"github.com/AhaSend/ahasend-go/models/common"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -37,36 +39,80 @@ func TestListenDecliningTheReconnectPromptExits4(t *testing.T) {
 	mockClient.AssertNotCalled(t, "ConnectWebSocket", mock.Anything, true)
 }
 
-// TestListenNamesTheTemporaryWebhookWhenConnectingFails checks that the note
-// on the temporary webhook, which stays after the command, is printed even
-// when connecting to its stream fails.
-func TestListenNamesTheTemporaryWebhookWhenConnectingFails(t *testing.T) {
+// errBadHandshake is the error of a stream that refuses the connection.
+var errBadHandshake = stderrors.New("websocket: bad handshake (HTTP 502)")
+
+// temporaryWebhookStream installs a client whose API creates a temporary
+// webhook with webhookID for the stream, which then answers the connection
+// with connectErr, and returns it.
+func temporaryWebhookStream(t *testing.T, webhookID string, connectErr error) *mocks.MockClient {
+	t.Helper()
 	mockClient := &mocks.MockClient{}
 	mockClient.On("InitiateWebhookStream", (*uuid.UUID)(nil)).
-		Return(&client.WebhookStreamResponse{WebhookID: "11111111-1111-4111-8111-111111111111", WsURL: "wss://stream"}, nil)
-	mockClient.On("ConnectWebSocket", "wss://stream", false).
-		Return(nil, stderrors.New("websocket: bad handshake (HTTP 502)"))
+		Return(&client.WebhookStreamResponse{WebhookID: webhookID, WsURL: "wss://stream"}, nil)
+	mockClient.On("ConnectWebSocket", "wss://stream", false).Return(nil, connectErr)
 	testutil.InjectClient(t, mockClient)
-
-	stdout, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "")
-
-	require.EqualError(t, err, "failed to connect to websocket: websocket: bad handshake (HTTP 502)")
-	assert.True(t, strings.HasPrefix(stderr, "Note: temporary webhook 11111111-1111-4111-8111-111111111111 stays after the listener stops; "+
-		"delete it with 'ahasend webhooks delete 11111111-1111-4111-8111-111111111111'\n"), stderr)
-	assert.Empty(t, stdout)
+	return mockClient
 }
 
-func TestListenWithAWebhookIDPrintsNoNote(t *testing.T) {
-	webhookID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	mockClient := &mocks.MockClient{}
-	mockClient.On("InitiateWebhookStream", &webhookID).Return(&client.WebhookStreamResponse{WsURL: "wss://stream"}, nil)
-	mockClient.On("ConnectWebSocket", "wss://stream", false).Return(nil, stderrors.New("refused"))
-	testutil.InjectClient(t, mockClient)
+func TestListenDeletesTheTemporaryWebhookWhenConnectingFails(t *testing.T) {
+	mockClient := temporaryWebhookStream(t, testWebhookID, errBadHandshake)
+	mockClient.On("DeleteWebhook", uuid.MustParse(testWebhookID)).Return(&common.SuccessResponse{Message: "deleted"}, nil)
 
-	_, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "", "--webhook-id", webhookID.String())
+	_, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "")
+
+	require.EqualError(t, err, "failed to connect to websocket: websocket: bad handshake (HTTP 502)")
+	assert.Contains(t, stderr, "Deleted temporary webhook "+testWebhookID+"\n")
+	mockClient.AssertCalled(t, "DeleteWebhook", uuid.MustParse(testWebhookID))
+}
+
+func TestListenDeletesTheTemporaryWebhookWhenTheReconnectIsDeclined(t *testing.T) {
+	mockClient := temporaryWebhookStream(t, testWebhookID, client.ErrStreamTaken)
+	mockClient.On("DeleteWebhook", uuid.MustParse(testWebhookID)).Return(&common.SuccessResponse{Message: "deleted"}, nil)
+
+	_, _, err := testutil.RunCommand(t, NewListenCommand(), "plain", "n\n")
 
 	require.Error(t, err)
-	assert.NotContains(t, stderr, "Note:")
+	mockClient.AssertCalled(t, "DeleteWebhook", uuid.MustParse(testWebhookID))
+}
+
+func TestListenWithAWebhookIDDeletesNothing(t *testing.T) {
+	webhookID := uuid.MustParse(testWebhookID)
+	mockClient := &mocks.MockClient{}
+	mockClient.On("InitiateWebhookStream", &webhookID).Return(&client.WebhookStreamResponse{WebhookID: testWebhookID, WsURL: "wss://stream"}, nil)
+	mockClient.On("ConnectWebSocket", "wss://stream", false).Return(nil, errBadHandshake)
+	testutil.InjectClient(t, mockClient)
+
+	_, _, err := testutil.RunCommand(t, NewListenCommand(), "plain", "", "--webhook-id", testWebhookID)
+
+	require.Error(t, err)
+	mockClient.AssertNotCalled(t, "DeleteWebhook", mock.Anything)
+}
+
+// TestListenWarnsWhenTheKeyCannotDeleteTheTemporaryWebhook checks that a key
+// without the delete scope gets a warning that names the webhook and the
+// command that deletes it, and that the command fails as the stream did.
+func TestListenWarnsWhenTheKeyCannotDeleteTheTemporaryWebhook(t *testing.T) {
+	mockClient := temporaryWebhookStream(t, testWebhookID, errBadHandshake)
+	forbidden := &api.APIError{Type: api.ErrorTypePermission, StatusCode: 403, Message: "the API key lacks the webhooks:delete:all scope"}
+	mockClient.On("DeleteWebhook", uuid.MustParse(testWebhookID)).Return(nil, forbidden)
+
+	_, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "")
+
+	require.EqualError(t, err, "failed to connect to websocket: websocket: bad handshake (HTTP 502)")
+	assert.Contains(t, stderr, "Warning: temporary webhook "+testWebhookID+" may remain: "+forbidden.Error()+
+		"; delete it with 'ahasend webhooks delete "+testWebhookID+"'\n")
+}
+
+func TestListenWarnsOfATemporaryWebhookIDThatIsNotAUUID(t *testing.T) {
+	mockClient := temporaryWebhookStream(t, "not-a-uuid", errBadHandshake)
+
+	_, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "")
+
+	require.Error(t, err)
+	assert.Contains(t, stderr, "Warning: temporary webhook not-a-uuid may remain: the API returned no valid webhook ID; "+
+		"delete it with 'ahasend webhooks delete not-a-uuid'\n")
+	mockClient.AssertNotCalled(t, "DeleteWebhook", mock.Anything)
 }
 
 // listenSlim runs webhooks listen with --slim-output and args on a stream
