@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+This release makes `webhooks listen` and `routes listen` delete their
+temporary webhook or route when they end, and stop cleanly when their
+terminal is closed.
+
 ### Breaking changes
 
 - `webhooks listen` without `--webhook-id` and `routes listen` with
@@ -455,7 +461,8 @@ on stderr
 Notes for v0.2.0 and earlier are on the
 [GitHub releases page](https://github.com/AhaSend/ahasend-cli/releases).
 
-[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AhaSend/ahasend-cli/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/AhaSend/ahasend-cli/compare/v0.3.0...v0.3.1
