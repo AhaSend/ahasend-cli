@@ -8,7 +8,6 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/cmdutil"
 	"github.com/AhaSend/ahasend-cli/internal/listen"
 	"github.com/AhaSend/ahasend-cli/internal/logger"
-	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/validation"
 	"github.com/AhaSend/ahasend-cli/internal/webhooks"
 	"github.com/google/uuid"
@@ -33,12 +32,26 @@ the order they arrive, with their data exactly as received.
 
 The API key needs the webhooks:write:all scope. Without --webhook-id, the API
 creates a temporary webhook, "DevMode webhook for <API key label>", which
-webhooks list does not show. It stays after the command ends, until 100
-events have waited for it with no listener; delete it sooner with
-'ahasend webhooks delete <webhook-id>', with the ID the note on stderr shows
-as soon as the API created it, even when connecting then fails.
+webhooks list does not show, and the command deletes it when it ends,
+Ctrl+C included. Once deleted, it cannot be listened on again by its ID, and
+the events that waited for it are gone. To listen again after the command
+ends and get the events that waited for a listener, listen on a webhook of
+your own with --webhook-id.
 
-The command runs until Ctrl+C or until the connection closes. It exits 0
+Deleting the temporary webhook needs the webhooks:delete:all scope too.
+Without it the webhook stays, and a warning on stderr names it and the
+command that deletes it, 'ahasend webhooks delete <webhook-id>', to run with
+a key that has the scope. The delete does not change the exit code. The
+webhook also stays when the command cannot delete it: when the command is
+killed with SIGKILL, on Windows when the console window is closed and the
+delete is not done in time, and when the command is interrupted, or the
+API's answer is lost, during the request that starts the stream. The API
+deletes such a webhook by itself only once 100 events have waited for it
+with no listener connected.
+
+The command runs until Ctrl+C or until the connection closes. SIGTERM stops
+it as Ctrl+C does, and so does closing its terminal on Linux or macOS,
+unless the command was started with nohup, which keeps it running. It exits 0
 when the server closes the connection normally, and 7 when the connection
 drops or the server closes it with an error; it does not reconnect. A
 message it cannot read, such as one that is not JSON, is skipped with a
@@ -133,7 +146,14 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 		SlimOutput: slimOutput,
 	}
 	if webhookUUID == nil {
-		listener.Note = temporaryWebhookNote(streamResponse.WebhookID)
+		listener.DeleteTemporary = func() error {
+			id, err := uuid.Parse(streamResponse.WebhookID)
+			if err != nil {
+				return fmt.Errorf("the API returned no valid webhook ID")
+			}
+			_, err = apiClient.DeleteWebhook(id)
+			return err
+		}
 	}
 	if len(filters) > 0 {
 		listener.Keep = func(eventType string) bool {
@@ -141,12 +161,4 @@ func runWebhooksListen(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return listen.Listen(cmd, apiClient, listener)
-}
-
-// temporaryWebhookNote returns the note of a temporary webhook: that it stays
-// until deleted, and how to delete it.
-func temporaryWebhookNote(webhookID string) string {
-	webhookID = printer.EscapeControl(webhookID)
-	return fmt.Sprintf("Note: temporary webhook %s stays after the listener stops; delete it with 'ahasend webhooks delete %s'",
-		webhookID, webhookID)
 }

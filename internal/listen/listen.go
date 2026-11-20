@@ -25,6 +25,7 @@ import (
 	"github.com/AhaSend/ahasend-cli/internal/logger"
 	"github.com/AhaSend/ahasend-cli/internal/printer"
 	"github.com/AhaSend/ahasend-cli/internal/webhooks"
+	"github.com/AhaSend/ahasend-go/api"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -43,10 +44,9 @@ type Listener struct {
 	Waiting string
 	// Details prints connection details after the ID line; nil prints none.
 	Details func(out io.Writer)
-	// Note is printed on stderr before connecting, so it is shown even when
-	// connecting fails or is interrupted, such as how to delete the
-	// temporary webhook the stream belongs to; "" prints nothing.
-	Note string
+	// DeleteTemporary deletes the temporary webhook or route the API created
+	// for the stream; nil when the stream belongs to an existing one.
+	DeleteTemporary func() error
 	// Keep reports whether to show and forward an event of eventType; nil
 	// keeps every event.
 	Keep func(eventType string) bool
@@ -62,13 +62,69 @@ type Listener struct {
 	SlimOutput bool
 }
 
+// deleteTimeout is the longest Listen waits for l.DeleteTemporary; a test
+// shortens it.
+var deleteTimeout = 5 * time.Second
+
 // Listen connects to the stream of l, prints its banner and then every event
 // until the user interrupts or the server closes the connection, forwarding
 // each event to l.ForwardTo, signed with a secret it generates, when set.
 // An interruption while connecting ends the command too, with no error. When
 // stdout cannot be written, as when it is a pipe whose reader exited, the
 // stream ends and Listen returns the write error.
+//
+// When l.DeleteTemporary is set, Listen deletes the temporary webhook or
+// route last, however the stream ended, as deleteTemporary describes. The
+// delete does not change the error Listen returns.
 func Listen(cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) error {
+	// Handle the stop signals until the delete step; the signals stay
+	// registered until Listen returns, so later ones are caught and dropped.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, stopSignals()...)
+	defer signal.Stop(sigChan)
+
+	signalsDone := make(chan struct{})
+	go func() {
+		defer close(signalsDone)
+		select {
+		case <-sigChan:
+			fmt.Fprintf(cmd.ErrOrStderr(), "\n\nStopping %s listener...\n", l.Kind)
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	err := runStream(ctx, cmd, apiClient, l)
+	// End the goroutine that acts on signals before the delete, so no
+	// Stopping line comes during or after it.
+	cancel()
+	<-signalsDone
+
+	if l.DeleteTemporary != nil {
+		deleteTemporary(cmd, l)
+	}
+	return err
+}
+
+// stopSignals returns the signals that stop a listen command: SIGINT,
+// SIGTERM and SIGHUP, which a closing terminal sends on Linux and macOS.
+// SIGHUP is left out when the command was started with it ignored, as under
+// nohup, so such a command keeps running when its terminal closes.
+func stopSignals() []os.Signal {
+	signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !signal.Ignored(syscall.SIGHUP) {
+		signals = append(signals, syscall.SIGHUP)
+	}
+	return signals
+}
+
+// runStream runs the stream of l, as Listen describes, until ctx is
+// cancelled or the stream ends, and closes the connection it made before it
+// returns.
+func runStream(ctx context.Context, cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) error {
 	out := &stickyWriter{w: cmd.OutOrStdout()}
 	errOut := cmd.ErrOrStderr()
 
@@ -77,26 +133,6 @@ func Listen(cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) erro
 		return fmt.Errorf("failed to generate webhook secret: %w", err)
 	}
 
-	// Handle interrupt signal, until the command returns
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigChan)
-
-	go func() {
-		select {
-		case <-sigChan:
-			fmt.Fprintf(errOut, "\n\nStopping %s listener...\n", l.Kind)
-			cancel()
-		case <-ctx.Done():
-		}
-	}()
-
-	if l.Note != "" {
-		stderrColor(cmd, color.FgYellow).Fprintln(errOut, l.Note)
-	}
 	wsClient, err := connectUntilDone(ctx, cmd, apiClient, l)
 	if err != nil || wsClient == nil {
 		return err
@@ -123,6 +159,46 @@ func Listen(cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) erro
 		forwarder.finish(ctx, errOut)
 	}
 	return err
+}
+
+// deleteTemporary runs l.DeleteTemporary and waits until it returns or
+// deleteTimeout passes, then says on stderr how it went: a line when the
+// temporary webhook or route was deleted, nothing when the API did not find
+// it, and otherwise a warning that it may remain, with the reason and the
+// command that deletes it. A request still running after the timeout is not
+// cancelled; it ends with the process.
+func deleteTemporary(cmd *cobra.Command, l Listener) {
+	errOut := cmd.ErrOrStderr()
+	id := printer.EscapeControl(l.ID)
+	timeout := deleteTimeout
+	log := logger.Get().WithFields(map[string]interface{}{"kind": l.Kind, "id": l.ID})
+	log.Debugf("Deleting the temporary %s", l.Kind)
+
+	deleted := make(chan error, 1)
+	go func() { deleted <- l.DeleteTemporary() }()
+
+	var reason string
+	select {
+	case err := <-deleted:
+		var apiErr *api.APIError
+		switch {
+		case err == nil:
+			log.Debugf("Deleted the temporary %s", l.Kind)
+			fmt.Fprintf(errOut, "Deleted temporary %s %s\n", l.Kind, id)
+			return
+		case stderrors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound:
+			log.Debugf("The temporary %s was not found", l.Kind)
+			return
+		default:
+			log.WithError(err).Debugf("Failed to delete the temporary %s", l.Kind)
+			reason = printer.EscapeControl(err.Error())
+		}
+	case <-time.After(timeout):
+		log.Debugf("Timed out deleting the temporary %s after %s", l.Kind, timeout)
+		reason = fmt.Sprintf("no answer after %s", timeout)
+	}
+	stderrColor(cmd, color.FgYellow).Fprintln(errOut, fmt.Sprintf(
+		"Warning: temporary %s %s may remain: %s; delete it with 'ahasend %ss delete %s'", l.Kind, id, reason, l.Kind, id))
 }
 
 // connectUntilDone connects to the stream of l, unless ctx is done first, as

@@ -20,8 +20,12 @@ import (
 
 	"github.com/AhaSend/ahasend-cli/internal/client"
 	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
+	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-cli/internal/prompt"
+	"github.com/AhaSend/ahasend-cli/internal/testutil"
 	"github.com/AhaSend/ahasend-cli/internal/webhooks"
+	"github.com/AhaSend/ahasend-go/api"
+	"github.com/fatih/color"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -744,4 +748,282 @@ func TestListen_StopsWhenTheBannerCannotBeWritten(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to print the route stream: ")
 	assert.True(t, <-closed, "the listener closes the stream")
+}
+
+// recordDeletes returns a DeleteTemporary that returns err, and the count of
+// its calls.
+func recordDeletes(err error) (func() error, *atomic.Int32) {
+	calls := &atomic.Int32{}
+	return func() error {
+		calls.Add(1)
+		return err
+	}, calls
+}
+
+// temporaryWebhook is the listener of the stream of temporary webhook wh-1,
+// which del deletes.
+func temporaryWebhook(del func() error) Listener {
+	return Listener{Kind: "webhook", Title: "Webhook", ID: "wh-1", Waiting: "events", DeleteTemporary: del}
+}
+
+// listenUntilClosed runs Listen with l on a stream that the server closes
+// normally, and returns its stderr and error.
+func listenUntilClosed(t *testing.T, l Listener) (string, error) {
+	t.Helper()
+	l.WsURL = streamServer(t, websocket.CloseNormalClosure, connectedMessage)
+	cmd, _, stderr := confirmCommand(t, "")
+	err := Listen(cmd, streamClient(t), l)
+	return stderr.String(), err
+}
+
+func TestListen_DeletesTheTemporaryWebhookOnceWhenTheServerCloses(t *testing.T) {
+	del, calls := recordDeletes(nil)
+
+	stderr, err := listenUntilClosed(t, temporaryWebhook(del))
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), calls.Load())
+	assert.Equal(t, "\nWebSocket connection closed\nDeleted temporary webhook wh-1\n", stderr)
+}
+
+func TestListen_DeletesTheTemporaryWebhookWhenConnectingFails(t *testing.T) {
+	mockClient := &mocks.MockClient{}
+	mockClient.On("ConnectWebSocket", "wss://stream", false).Return(nil, stderrors.New("dial failed"))
+	cmd, _, _ := confirmCommand(t, "")
+	del, calls := recordDeletes(nil)
+	l := temporaryWebhook(del)
+	l.WsURL = "wss://stream"
+
+	err := Listen(cmd, mockClient, l)
+
+	require.EqualError(t, err, "failed to connect to websocket: dial failed")
+	assert.Equal(t, int32(1), calls.Load())
+}
+
+func TestListen_DeletesTheTemporaryWebhookWhenTheStreamFails(t *testing.T) {
+	cmd, _, _ := confirmCommand(t, "")
+	del, calls := recordDeletes(nil)
+	l := temporaryWebhook(del)
+	l.WsURL = streamServer(t, websocket.CloseInternalServerErr, connectedMessage)
+
+	err := Listen(cmd, streamClient(t), l)
+
+	require.Error(t, err)
+	assert.Equal(t, 7, clierrors.GetExitCode(err))
+	assert.Contains(t, err.Error(), "websocket error: websocket connection failed")
+	assert.Equal(t, int32(1), calls.Load())
+}
+
+func TestListen_DeletesTheTemporaryWebhookWhenStdoutCannotBeWritten(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = writer.Close() })
+	require.NoError(t, reader.Close())
+	del, calls := recordDeletes(nil)
+	l := temporaryWebhook(del)
+	l.WsURL, _ = closingStream(t, func() {})
+
+	err = listenUntilDone(t, writer, l)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to print the webhook stream: ")
+	assert.Equal(t, int32(1), calls.Load())
+}
+
+// TestListen_DeletesAfterTheQueuedEventsAreForwarded checks that when the
+// server closes the stream while an event waits for the endpoint, the delete
+// comes only once the endpoint has answered.
+func TestListen_DeletesAfterTheQueuedEventsAreForwarded(t *testing.T) {
+	received := make(chan struct{}, 1)
+	release := make(chan struct{})
+	releaseEndpoint := sync.OnceFunc(func() { close(release) })
+	var answered atomic.Bool
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- struct{}{}
+		<-release
+		answered.Store(true)
+	}))
+	t.Cleanup(endpoint.Close)
+	t.Cleanup(releaseEndpoint)
+	wsURL := streamServerFunc(t, func(conn *websocket.Conn) {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte(openedEvent))
+		<-received
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		_, _, _ = conn.ReadMessage()
+	})
+	answeredAtDelete := make(chan bool, 1)
+	l := temporaryWebhook(func() error {
+		answeredAtDelete <- answered.Load()
+		return nil
+	})
+	l.WsURL = wsURL
+	l.ForwardTo = endpoint.URL
+	cmd, _, stderr := listenCommand(t)
+	apiClient := streamClient(t)
+	done := make(chan error, 1)
+
+	go func() { done <- Listen(cmd, apiClient, l) }()
+	waitForOutput(t, stderr, "Waiting for the 1 event not yet forwarded (Ctrl+C to skip)\n")
+	require.Empty(t, answeredAtDelete, "deleted while the event waited for the endpoint")
+	releaseEndpoint()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Listen did not return once the endpoint answered")
+	}
+	require.Len(t, answeredAtDelete, 1, "the delete did not run")
+	assert.True(t, <-answeredAtDelete, "deleted before the endpoint answered")
+}
+
+// TestListen_TheDeleteLinesHaveNoColorWhenStderrIsNotATerminal checks that
+// neither line about the temporary webhook is colored when stderr is not a
+// terminal, even when stdout is one.
+func TestListen_TheDeleteLinesHaveNoColorWhenStderrIsNotATerminal(t *testing.T) {
+	previous := color.NoColor
+	color.NoColor = false // as with stdout a terminal
+	t.Cleanup(func() { color.NoColor = previous })
+	for name, deleteErr := range map[string]error{"deleted": nil, "failed": stderrors.New("denied")} {
+		t.Run(name, func(t *testing.T) {
+			del, _ := recordDeletes(deleteErr)
+
+			stderr, err := listenUntilClosed(t, temporaryWebhook(del))
+
+			require.NoError(t, err)
+			assert.Contains(t, stderr, "temporary webhook wh-1")
+			assert.NotContains(t, stderr, "\x1b[")
+		})
+	}
+}
+
+// TestListen_OnlyTheDeleteWarningIsColoredOnATerminal checks that on a
+// terminal the warning is yellow and the line of a deleted webhook is not
+// colored.
+func TestListen_OnlyTheDeleteWarningIsColoredOnATerminal(t *testing.T) {
+	tty := testutil.NewTerminal(t)
+	shown := tty.Shown(t)
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+
+	for _, deleteErr := range []error{nil, stderrors.New("denied")} {
+		del, _ := recordDeletes(deleteErr)
+		cmd, _, _ := confirmCommand(t, "")
+		cmd.SetErr(tty.Stdin)
+		l := temporaryWebhook(del)
+		l.WsURL = streamServer(t, websocket.CloseNormalClosure, connectedMessage)
+
+		require.NoError(t, Listen(cmd, streamClient(t), l))
+	}
+
+	// The terminal shows each newline as a carriage return and a newline.
+	want := "\r\nWebSocket connection closed\r\nDeleted temporary webhook wh-1\r\n" +
+		"\r\nWebSocket connection closed\r\n" +
+		"\x1b[33mWarning: temporary webhook wh-1 may remain: denied; delete it with 'ahasend webhooks delete wh-1'\x1b[0m\r\n"
+	assert.Eventually(t, func() bool { return shown() == want }, 3*time.Second, 5*time.Millisecond, "shown: %q", shown())
+}
+
+// TestListen_WarnsWhenTheDeleteFails checks that a failed delete is a
+// warning that names the webhook, the reason and the command that deletes
+// it, and that the stream's result stands.
+func TestListen_WarnsWhenTheDeleteFails(t *testing.T) {
+	del, _ := recordDeletes(stderrors.New("permission error (HTTP 403): missing scope"))
+
+	stderr, err := listenUntilClosed(t, temporaryWebhook(del))
+
+	require.NoError(t, err)
+	assert.True(t, strings.HasSuffix(stderr, "Warning: temporary webhook wh-1 may remain: permission error (HTTP 403): missing scope; "+
+		"delete it with 'ahasend webhooks delete wh-1'\n"), stderr)
+}
+
+func TestListen_EscapesTheErrorOfAFailedDelete(t *testing.T) {
+	del, _ := recordDeletes(stderrors.New("denied\x1b]0;x\x07"))
+
+	stderr, err := listenUntilClosed(t, temporaryWebhook(del))
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, `may remain: denied\u001b]0;x\u0007; delete it`)
+	assert.NotContains(t, stderr, "\x1b")
+	assert.NotContains(t, stderr, "\x07")
+}
+
+// TestListen_SaysNothingOfATemporaryWebhookTheAPIDidNotFind checks that a
+// 404 from the delete prints neither line: the webhook is gone, but the
+// command did not delete it.
+func TestListen_SaysNothingOfATemporaryWebhookTheAPIDidNotFind(t *testing.T) {
+	del, calls := recordDeletes(&api.APIError{Type: api.ErrorTypeNotFound, StatusCode: http.StatusNotFound, Message: "webhook not found"})
+
+	stderr, err := listenUntilClosed(t, temporaryWebhook(del))
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), calls.Load())
+	assert.Equal(t, "\nWebSocket connection closed\n", stderr)
+}
+
+func TestListen_WarnsWhenTheDeleteDoesNotAnswerInTime(t *testing.T) {
+	previous := deleteTimeout
+	deleteTimeout = 10 * time.Millisecond
+	t.Cleanup(func() { deleteTimeout = previous })
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+
+	stderr, err := listenUntilClosed(t, temporaryWebhook(func() error {
+		<-release
+		return nil
+	}))
+
+	require.NoError(t, err)
+	assert.True(t, strings.HasSuffix(stderr, "Warning: temporary webhook wh-1 may remain: no answer after 10ms; "+
+		"delete it with 'ahasend webhooks delete wh-1'\n"), stderr)
+}
+
+func TestListen_NamesATemporaryRouteInTheDeleteLines(t *testing.T) {
+	tests := map[string]struct {
+		err  error
+		line string
+	}{
+		"deleted": {nil, "Deleted temporary route rt-1\n"},
+		"failed":  {stderrors.New("denied"), "Warning: temporary route rt-1 may remain: denied; delete it with 'ahasend routes delete rt-1'\n"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			del, _ := recordDeletes(test.err)
+
+			stderr, err := listenUntilClosed(t, Listener{Kind: "route", Title: "Route", ID: "rt-1", DeleteTemporary: del})
+
+			require.NoError(t, err)
+			assert.True(t, strings.HasSuffix(stderr, test.line), stderr)
+		})
+	}
+}
+
+func TestListen_EscapesTheIDInTheDeleteLines(t *testing.T) {
+	tests := map[string]struct {
+		err  error
+		line string
+	}{
+		"deleted": {nil, `Deleted temporary webhook wh\u001b[2J` + "\n"},
+		"failed": {stderrors.New("denied"),
+			`Warning: temporary webhook wh\u001b[2J may remain: denied; delete it with 'ahasend webhooks delete wh\u001b[2J'` + "\n"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			del, _ := recordDeletes(test.err)
+			l := temporaryWebhook(del)
+			l.ID = "wh\x1b[2J"
+
+			stderr, err := listenUntilClosed(t, l)
+
+			require.NoError(t, err)
+			assert.True(t, strings.HasSuffix(stderr, test.line), stderr)
+			assert.NotContains(t, stderr, "\x1b")
+		})
+	}
+}
+
+func TestListen_SaysNothingOfATemporaryWebhookWithoutDeleteTemporary(t *testing.T) {
+	stderr, err := listenUntilClosed(t, Listener{Kind: "webhook", Title: "Webhook", ID: "wh-1", Waiting: "events"})
+
+	require.NoError(t, err)
+	assert.NotContains(t, stderr, "temporary")
 }

@@ -142,10 +142,3 @@ func TestWebhooksList_EnabledIsFilteredByTheAPI(t *testing.T) {
 	}
 	mockClient.AssertExpectations(t)
 }
-
-func TestTemporaryWebhookNoteEscapesTheWebhookID(t *testing.T) {
-	note := temporaryWebhookNote("id\x1b]0;x\x07")
-
-	assert.Contains(t, note, `'ahasend webhooks delete id\u001b]0;x\u0007'`)
-	assert.NotContains(t, note, "\x1b]")
-}

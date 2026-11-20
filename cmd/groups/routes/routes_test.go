@@ -10,7 +10,6 @@ import (
 
 	"github.com/AhaSend/ahasend-go"
 
-	"github.com/AhaSend/ahasend-cli/internal/client"
 	clierrors "github.com/AhaSend/ahasend-cli/internal/errors"
 	"github.com/AhaSend/ahasend-cli/internal/mocks"
 	"github.com/AhaSend/ahasend-cli/internal/testutil"
@@ -497,30 +496,4 @@ func TestRoutesList_RejectsADomainThatIsNotOneBeforeAuthenticating(t *testing.T)
 	require.Error(t, err)
 	assert.Equal(t, `invalid --domain value "not a domain": not a domain name`, err.Error())
 	assert.False(t, *called)
-}
-
-// TestListenNamesTheTemporaryRouteWhenConnectingFails checks that the note on
-// the temporary route, which stays after the command, is printed even when
-// connecting to its stream fails.
-func TestListenNamesTheTemporaryRouteWhenConnectingFails(t *testing.T) {
-	mockClient := &mocks.MockClient{}
-	mockClient.On("InitiateRouteStream", (*uuid.UUID)(nil), "*@example.com").
-		Return(&client.RouteStreamResponse{RouteID: "11111111-1111-1111-1111-111111111111", WsURL: "wss://stream"}, nil)
-	mockClient.On("ConnectWebSocket", "wss://stream", false).
-		Return(nil, errors.New("websocket: bad handshake (HTTP 502)"))
-	testutil.InjectClient(t, mockClient)
-
-	stdout, stderr, err := testutil.RunCommand(t, NewListenCommand(), "plain", "", "--recipient", "*@example.com")
-
-	require.EqualError(t, err, "failed to connect to websocket: websocket: bad handshake (HTTP 502)")
-	assert.True(t, strings.HasPrefix(stderr, "Note: temporary route 11111111-1111-1111-1111-111111111111 stays after the listener stops; "+
-		"delete it with 'ahasend routes delete 11111111-1111-1111-1111-111111111111'\n"), stderr)
-	assert.Empty(t, stdout)
-}
-
-func TestTemporaryRouteNoteEscapesTheRouteID(t *testing.T) {
-	note := temporaryRouteNote("id\x1b]0;x\x07")
-
-	assert.Contains(t, note, `'ahasend routes delete id\u001b]0;x\u0007'`)
-	assert.NotContains(t, note, "\x1b]")
 }

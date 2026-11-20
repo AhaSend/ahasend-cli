@@ -37,12 +37,26 @@ the order they arrive, with their data exactly as received.
 The API key needs the routes:write:all scope, and messages:read for the
 domain of the route's recipient. With --recipient, the API creates a
 temporary route, "DevMode route for <API key label>", which routes list does
-not show. It stays after the command ends, until 100 events have waited for
-it with no listener; delete it sooner with 'ahasend routes delete <route-id>',
-with the ID the note on stderr shows as soon as the API created it, even
-when connecting then fails.
+not show, and the command deletes it when it ends, Ctrl+C included. Once
+deleted, it cannot be listened on again by its ID, and the events that
+waited for it are gone. To listen again after the command ends and get the
+events that waited for a listener, listen on a route of your own with
+--route-id.
 
-The command runs until Ctrl+C or until the connection closes. It exits 0
+Deleting the temporary route needs the routes:delete:all scope too, or
+routes:delete:{domain} for the domain of the route's recipient. Without it
+the route stays, and a warning on stderr names it and the command that
+deletes it, 'ahasend routes delete <route-id>', to run with a key that has
+the scope. The delete does not change the exit code. The route also stays
+when the command cannot delete it: when the command is killed with SIGKILL,
+on Windows when the console window is closed and the delete is not done in
+time, and when the command is interrupted, or the API's answer is lost,
+during the request that starts the stream. The API deletes such a route by
+itself only once 100 events have waited for it with no listener connected.
+
+The command runs until Ctrl+C or until the connection closes. SIGTERM stops
+it as Ctrl+C does, and so does closing its terminal on Linux or macOS,
+unless the command was started with nohup, which keeps it running. It exits 0
 when the server closes the connection normally, and 7 when the connection
 drops or the server closes it with an error; it does not reconnect. A
 message it cannot read, such as one that is not JSON, is skipped with a
@@ -122,7 +136,14 @@ func runRoutesListen(cmd *cobra.Command, args []string) error {
 	}
 	if recipient != "" {
 		listener.Details = recipientPatternDetails(recipient)
-		listener.Note = temporaryRouteNote(streamResponse.RouteID)
+		listener.DeleteTemporary = func() error {
+			id, err := uuid.Parse(streamResponse.RouteID)
+			if err != nil {
+				return fmt.Errorf("the API returned no valid route ID")
+			}
+			_, err = apiClient.DeleteRoute(id)
+			return err
+		}
 	}
 	return listen.Listen(cmd, apiClient, listener)
 }
@@ -133,14 +154,6 @@ func recipientPatternDetails(recipient string) func(io.Writer) {
 	return func(out io.Writer) {
 		fmt.Fprintf(out, "Recipient Pattern: %s\n", color.CyanString(recipient))
 	}
-}
-
-// temporaryRouteNote returns the note of a temporary route: that it stays
-// until deleted, and how to delete it.
-func temporaryRouteNote(routeID string) string {
-	routeID = printer.EscapeControl(routeID)
-	return fmt.Sprintf("Note: temporary route %s stays after the listener stops; delete it with 'ahasend routes delete %s'",
-		routeID, routeID)
 }
 
 // parseListenParameters checks --route-id and --recipient, of which the
