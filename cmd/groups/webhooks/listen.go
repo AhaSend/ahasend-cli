@@ -42,12 +42,12 @@ Deleting the temporary webhook needs the webhooks:delete:all scope too.
 Without it the webhook stays, and a warning on stderr names it and the
 command that deletes it, 'ahasend webhooks delete <webhook-id>', to run with
 a key that has the scope. The delete does not change the exit code. The
-webhook also stays when the command cannot delete it: when it is killed,
-when its terminal is closed on Linux or macOS, on Windows when the console
-window is closed and the delete is not done in time, and when it is
-interrupted, or the API's answer is lost, during the request that starts the
-stream. The API deletes such a webhook by itself only once 100 events have
-waited for it with no listener connected.
+webhook also stays when the command cannot delete it: when the command is
+killed with SIGKILL, when its terminal is closed on Linux or macOS, on
+Windows when the console window is closed and the delete is not done in
+time, and when the command is interrupted, or the API's answer is lost,
+during the request that starts the stream. The API deletes such a webhook by
+itself only once 100 events have waited for it with no listener connected.
 
 The command runs until Ctrl+C or until the connection closes. It exits 0
 when the server closes the connection normally, and 7 when the connection

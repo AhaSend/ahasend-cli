@@ -7,6 +7,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `webhooks listen` without `--webhook-id` and `routes listen` with
+  `--recipient` delete the temporary webhook or route the API created for
+  them when they end, on Ctrl+C too. Once deleted, it cannot be listened on
+  again by its ID; to listen again after the command ends and get the events
+  that waited for a listener, listen on a webhook or route of your own, with
+  `--webhook-id` or `--route-id`. The `Note:` line on stderr before
+  connecting is gone. Deleting the webhook needs the `webhooks:delete:all`
+  scope, and deleting the route `routes:delete:all` or
+  `routes:delete:{domain}` for the domain of its recipient. Without that
+  scope the webhook or route stays, and a warning on stderr names it and the
+  command that deletes it, to run with a key that has the scope; the exit
+  code does not change. A command that cannot delete, such as one killed
+  with SIGKILL, also leaves it behind, and the API deletes it only once 100
+  events have waited for it with no listener connected, as
+  [`webhooks listen`](USAGE.mdx#ahasend-webhooks-listen) describes.
+
 ## [0.5.0] - 2026-11-11
 
 This release adds `stats emails`, for email counts of any period, the

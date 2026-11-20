@@ -4112,13 +4112,34 @@ as
 A key with no read scope connects but receives no events.
 
 Without `--webhook-id`, the API creates a webhook named
-`DevMode webhook for <API key label>`. It stays after the command ends:
-`webhooks list` does not show it, and the API deletes it only once 100
-events have waited for it with no listener connected. As soon as the API has
-created it, before connecting, the command prints on stderr
-`Note: temporary webhook <webhook-id> stays after the listener stops; delete it with 'ahasend webhooks delete <webhook-id>'`,
-so the ID is shown even when connecting then fails or is interrupted; the
-banner shows it too, as `Webhook ID`.
+`DevMode webhook for <API key label>`, which `webhooks list` does not show;
+the banner shows its ID, as `Webhook ID`. When the command ends, on Ctrl+C
+or SIGTERM too, it deletes the webhook and prints
+`Deleted temporary webhook <webhook-id>` on stderr. Once deleted, the webhook
+cannot be listened on again by its ID, and the events that waited for it are
+gone. To listen again after the command ends and get the events that waited
+for a listener, listen on a webhook of your own with `--webhook-id`, which
+the command does not delete.
+
+Deleting the temporary webhook needs the `webhooks:delete:all` scope too.
+The command waits at most 5 seconds for the delete, and Ctrl+C does not cut
+that wait short. When the delete fails, or gets no answer in that time, the
+command prints on stderr
+`Warning: temporary webhook <webhook-id> may remain: <reason>; delete it with 'ahasend webhooks delete <webhook-id>'`.
+The reason is the error, such as `permission error (HTTP 403): <message>` for
+a key without the delete scope, or `no answer after 5s`. Without the scope
+the webhook stays; run the command the warning names with a key that has
+it. An HTTP 404 prints nothing, as the webhook is already gone. The delete
+does not change the exit code.
+
+The webhook also stays when the command cannot delete it: when the command
+is killed with SIGKILL or the machine stops, when its terminal is closed on
+Linux or macOS, on Windows when its console window is closed and Windows
+ends the command before the delete is done, and when the command is
+interrupted, or the API's answer is lost, during the request that starts the
+stream. The API deletes such a webhook by itself only once 100 events have
+waited for it with no listener connected, which on an account with few
+events never happens.
 
 The command sends your API key to the stream in the `Authorization` header,
 never in the URL, so it connects over `wss://`, with a verified certificate.
@@ -4183,10 +4204,11 @@ as table output is (see [Output Values](#output-values)), so an event cannot
 send escape sequences to your terminal.
 
 The command does not reconnect. Events that arrive while no listener is
-connected wait on the API, up to 100 for up to 5 minutes, and the next
-`webhooks listen --webhook-id` of the same webhook prints them first, each
-marked `REPLAY:` and timed when the API stamped it. When the server closes
-the connection normally, it prints `WebSocket connection closed` on stderr
+connected to a webhook of your own wait on the API, up to 100 of them, and
+the next `webhooks listen --webhook-id` of that webhook prints them first,
+each marked `REPLAY:` and timed when the API stamped it; they are dropped
+once 5 minutes pass with no new event. When the server closes the
+connection normally, it prints `WebSocket connection closed` on stderr
 and exits with code 0; when the connection drops, or the server closes it with an error
 code, it fails with `websocket error: websocket connection failed: <reason>`
 and exit code 7. The server pings every 30 seconds, and the command answers
@@ -4414,15 +4436,23 @@ Give exactly one of `--route-id` and `--recipient`. The API key needs the
 `routes:write:all` scope, for the request that starts the stream and for the
 stream itself, and `messages:read` for the domain of the route's recipient
 (`messages:read:all`, or `messages:read:{example.com}`). `--recipient` must
-be on one of the account's domains. With `--recipient`, the API creates a
-route named `DevMode route for <API key label>`. It stays after the command
-ends: `routes list` does not show it, and the API deletes it only once 100
-events have waited for it with no listener connected. As soon as the API has
-created it, the command prints on stderr
-`Note: temporary route <route-id> stays after the listener stops; delete it with 'ahasend routes delete <route-id>'`,
-before connecting, as `webhooks listen` does; the banner shows the ID too,
-as `Route ID`. As with
-`webhooks listen`, `--forward-to` follows the
+be on one of the account's domains.
+
+With `--recipient`, the API creates a route named
+`DevMode route for <API key label>`, which `routes list` does not show; the
+banner shows its ID, as `Route ID`. The command deletes it when it ends, as
+`webhooks listen` deletes its temporary webhook: with the same wait, with no
+change to the exit code, and with the same cases that leave it behind. It
+prints `Deleted temporary route <route-id>` on stderr, or, when the delete
+fails with an error other than HTTP 404 or gets no answer,
+`Warning: temporary route <route-id> may remain: <reason>; delete it with 'ahasend routes delete <route-id>'`.
+Deleting the route needs the `routes:delete:all` scope too, or
+`routes:delete:{example.com}` for the domain of its recipient. Without it
+the route stays; run the command the warning names with a key that has it.
+To listen again after the command ends and get the events that waited for a
+listener, listen on a route of your own with `--route-id`.
+
+As with `webhooks listen`, `--forward-to` follows the
 [webhook URL rules](#webhook-commands),
 the command prints a secret when the connection starts and signs forwarded
 events with it, with `webhook-id`, `webhook-timestamp` and
@@ -4433,10 +4463,11 @@ sends the API key in the `Authorization` header and connects over `wss://`
 (or `ws://` to a loopback host only), through the environment's proxy, and it
 handles another connection, a refused stream, a missing stream URL, a message
 it cannot read or over 16 MiB, stdout that cannot be written, control
-characters in an event, events that waited for a listener (replayed to the
-next `routes listen --route-id` of the route), Ctrl+C while it connects and
-the end of the connection the same way. `--slim-output` prints each event's type,
-sender, recipient and subject on one line.
+characters in an event, events that waited for a listener on a route of your
+own (replayed to the next `routes listen --route-id` of that route), Ctrl+C
+while it connects and the end of the connection the same way.
+`--slim-output` prints each event's type, sender, recipient and subject on
+one line.
 
 #### `ahasend routes trigger`
 
@@ -5855,9 +5886,10 @@ with HTTP 429 exits with code 8.
 These requests are sent once and never retried:
 
 - every DELETE request: the `delete` commands, `messages cancel`,
-  `suppressions wipe`, `templates draft discard` and `lists members remove`.
-  A delete whose answer was lost would otherwise be sent again and fail with
-  HTTP 404 although the first one succeeded.
+  `suppressions wipe`, `templates draft discard`, `lists members remove`,
+  and the delete of the temporary webhook or route of `webhooks listen` and
+  `routes listen`. A delete whose answer was lost would otherwise be sent
+  again and fail with HTTP 404 although the first one succeeded.
 - `webhooks trigger`, `routes trigger`, and the request of `webhooks listen`
   and `routes listen` that starts the stream
 - the send requests of `messages send`, which it retries itself, as
