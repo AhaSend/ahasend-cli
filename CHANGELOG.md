@@ -24,6 +24,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   with SIGKILL, also leaves it behind, and the API deletes it only once 100
   events have waited for it with no listener connected, as
   [`webhooks listen`](USAGE.mdx#ahasend-webhooks-listen) describes.
+- Closing the terminal on Linux or macOS stops `webhooks listen` and
+  `routes listen` as Ctrl+C does, so they delete their temporary webhook or
+  route and exit 0, where the terminal's SIGHUP used to end them at once. A
+  command started with `nohup` keeps running, as before.
 
 ## [0.5.0] - 2026-11-11
 

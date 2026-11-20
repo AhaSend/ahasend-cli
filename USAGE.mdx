@@ -4113,8 +4113,8 @@ A key with no read scope connects but receives no events.
 
 Without `--webhook-id`, the API creates a webhook named
 `DevMode webhook for <API key label>`, which `webhooks list` does not show;
-the banner shows its ID, as `Webhook ID`. When the command ends, on Ctrl+C
-or SIGTERM too, it deletes the webhook and prints
+the banner shows its ID, as `Webhook ID`. When the command ends, on Ctrl+C,
+SIGTERM or a closed terminal too, it deletes the webhook and prints
 `Deleted temporary webhook <webhook-id>` on stderr. Once deleted, the webhook
 cannot be listened on again by its ID, and the events that waited for it are
 gone. To listen again after the command ends and get the events that waited
@@ -4133,9 +4133,9 @@ it. An HTTP 404 prints nothing, as the webhook is already gone. The delete
 does not change the exit code.
 
 The webhook also stays when the command cannot delete it: when the command
-is killed with SIGKILL or the machine stops, when its terminal is closed on
-Linux or macOS, on Windows when its console window is closed and Windows
-ends the command before the delete is done, and when the command is
+is killed with SIGKILL or the machine stops, on Windows when its console
+window is closed and Windows ends the command before the delete is done,
+and when the command is
 interrupted, or the API's answer is lost, during the request that starts the
 stream. The API deletes such a webhook by itself only once 100 events have
 waited for it with no listener connected, which on an account with few
@@ -4181,7 +4181,9 @@ to force a reconnect: `y` or `yes`, in any case, takes the stream over, and
 any other answer exits with code 4 and
 `operation cancelled: another connection exists`. Ctrl+C while the command
 connects, or at that question, stops it as it does later, with
-`Stopping webhook listener...` on stderr and exit code 0. When the API refuses to
+`Stopping webhook listener...` on stderr and exit code 0. SIGTERM stops the
+command the same way, and so does closing its terminal on Linux or macOS,
+unless the command was started with `nohup`, which keeps it running. When the API refuses to
 start the stream, or the stream refuses the WebSocket connection, the command
 prints the API error, such as
 `failed to connect to websocket: the stream refused the connection: authentication error (HTTP 401): <message>`,
@@ -4465,7 +4467,8 @@ handles another connection, a refused stream, a missing stream URL, a message
 it cannot read or over 16 MiB, stdout that cannot be written, control
 characters in an event, events that waited for a listener on a route of your
 own (replayed to the next `routes listen --route-id` of that route), Ctrl+C
-while it connects and the end of the connection the same way.
+while it connects, SIGTERM, a closed terminal and the end of the connection
+the same way.
 `--slim-output` prints each event's type, sender, recipient and subject on
 one line.
 

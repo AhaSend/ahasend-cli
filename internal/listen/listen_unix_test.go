@@ -248,6 +248,56 @@ func TestListen_SIGTERMWhileListeningDeletesTheTemporaryWebhook(t *testing.T) {
 	assert.Equal(t, int32(1), calls.Load())
 }
 
+// TestListen_SIGHUPWhileListeningDeletesTheTemporaryWebhook checks that a
+// closed terminal, which sends SIGHUP, stops the command as Ctrl+C does.
+func TestListen_SIGHUPWhileListeningDeletesTheTemporaryWebhook(t *testing.T) {
+	if signal.Ignored(syscall.SIGHUP) {
+		t.Skip("the tests run with SIGHUP ignored")
+	}
+	del, calls := recordDeletes(nil)
+	l := temporaryWebhook(del)
+	l.WsURL = openStream(t)
+	caught := catchSignals(t, syscall.SIGHUP)
+	cmd, stdout, stderr := listenCommand(t)
+	apiClient := streamClient(t)
+	done := make(chan error, 1)
+
+	go func() { done <- Listen(cmd, apiClient, l) }()
+	waitForOutput(t, stdout, "Session established: sess-1\n")
+	sendSignal(t, caught, syscall.SIGHUP)
+
+	require.NoError(t, listenResult(t, done))
+	assert.Equal(t, int32(1), calls.Load())
+	assert.True(t, strings.HasSuffix(stderr.String(), "\n\nStopping webhook listener...\nDeleted temporary webhook wh-1\n"), stderr.String())
+}
+
+// TestListen_SIGHUPDoesNotStopACommandStartedWithItIgnored checks that a
+// command started with SIGHUP ignored, as under nohup, keeps listening when
+// its terminal closes.
+func TestListen_SIGHUPDoesNotStopACommandStartedWithItIgnored(t *testing.T) {
+	if signal.Ignored(syscall.SIGHUP) {
+		t.Skip("the tests run with SIGHUP ignored")
+	}
+	signal.Ignore(syscall.SIGHUP)
+	t.Cleanup(func() { signal.Reset(syscall.SIGHUP) })
+	del, calls := recordDeletes(nil)
+	l := temporaryWebhook(del)
+	l.WsURL = openStream(t)
+	caught := catchSignals(t, syscall.SIGINT)
+	cmd, stdout, _ := listenCommand(t)
+	apiClient := streamClient(t)
+	done := make(chan error, 1)
+
+	go func() { done <- Listen(cmd, apiClient, l) }()
+	waitForOutput(t, stdout, "Session established: sess-1\n")
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGHUP))
+	assertNotReturned(t, done, "SIGHUP stopped a command started with it ignored")
+	assert.Equal(t, int32(0), calls.Load())
+	sendSignal(t, caught, syscall.SIGINT)
+
+	require.NoError(t, listenResult(t, done))
+}
+
 // TestListen_ASecondCtrlCDoesNotEndTheWaitForTheDelete checks that a second
 // Ctrl+C, pressed while the delete runs, neither ends the wait for it nor
 // prints a second Stopping line.

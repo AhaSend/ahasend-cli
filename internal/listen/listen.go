@@ -77,13 +77,13 @@ var deleteTimeout = 5 * time.Second
 // route last, however the stream ended, as deleteTemporary describes. The
 // delete does not change the error Listen returns.
 func Listen(cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) error {
-	// Handle interrupt signal until the delete step; the signals stay
+	// Handle the stop signals until the delete step; the signals stay
 	// registered until Listen returns, so later ones are caught and dropped.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigChan, stopSignals()...)
 	defer signal.Stop(sigChan)
 
 	signalsDone := make(chan struct{})
@@ -107,6 +107,18 @@ func Listen(cmd *cobra.Command, apiClient client.AhaSendClient, l Listener) erro
 		deleteTemporary(cmd, l)
 	}
 	return err
+}
+
+// stopSignals returns the signals that stop a listen command: SIGINT,
+// SIGTERM and SIGHUP, which a closing terminal sends on Linux and macOS.
+// SIGHUP is left out when the command was started with it ignored, as under
+// nohup, so such a command keeps running when its terminal closes.
+func stopSignals() []os.Signal {
+	signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !signal.Ignored(syscall.SIGHUP) {
+		signals = append(signals, syscall.SIGHUP)
+	}
+	return signals
 }
 
 // runStream runs the stream of l, as Listen describes, until ctx is
